@@ -1,0 +1,236 @@
+\documentclass[11pt,reqno,oneside]{amsart}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage[margin=1.05in]{geometry}
+\usepackage{xcolor}
+\definecolor{linkblue}{RGB}{0,0,160}
+\usepackage[colorlinks=true,linkcolor=linkblue,citecolor=linkblue,urlcolor=linkblue,
+  pdftitle={The Collatz Conjecture: What Remains. A Survey of Results on the 3x+1 Problem to Late 2026},
+  pdfauthor={Andr\'e Hallqvist},
+  pdfkeywords={3x+1 problem, Collatz conjecture, cycles, natural density, logarithmic density, survey}]{hyperref}
+
+\raggedbottom
+\emergencystretch=3em
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\C}{\mathcal{C}}
+
+\title[The Collatz Conjecture: What Remains]{The Collatz Conjecture: What Remains\\[0.4em]\large A Survey of Results on the $3x+1$ Problem to Late 2026}
+\author{Andr\'e Hallqvist}
+\date{1 November 2026}
+\subjclass[2020]{Primary 11B83; Secondary 37P99, 11J86}
+\keywords{$3x+1$ problem, Collatz conjecture, periodic orbits, predecessor sets, natural density, logarithmic density}
+
+\begin{document}
+\pagestyle{plain}
+
+\begin{abstract}
+This survey reviews the mathematical literature on the $3x+1$ problem as of late 2026, distinguishing archival theorems, machine-verified formalizations, and unrefereed preprints. It organizes the material along four lines: Diophantine constraints on periodic orbits; lower bounds on the number of integers known to reach~$1$; the reach of almost-sure descent results in logarithmic and natural density; and recent claims concerning modular reachability and positive lower natural density. The emphasis is on what the cited sources actually establish and on the logical gaps that remain between those results and a full resolution of the conjecture.
+\end{abstract}
+
+\maketitle
+
+\section{Introduction and conventions}
+
+The $3x+1$ (Collatz) problem asks whether every positive integer eventually reaches~$1$ under the map defined below; see \cite{Lagarias85,Wirsching98} for background. No complete resolution is known. This survey records what has been proved, by what kind of argument, and with what verification status, along four strands: constraints on non-trivial cycles (Section~\ref{sec:cycles}), lower bounds for the number of integers known to reach~$1$ (Section~\ref{sec:counting}), almost-sure descent results (Section~\ref{sec:descent}), and two groups of very recent results on modular reachability and on positive lower density (Sections~\ref{sec:modular} and~\ref{sec:posdens}). Results are labelled as peer-reviewed articles, Lean-formalized or repository-hosted works, or unrefereed preprints. The survey reports the claims made in each source; it does not re-prove them.
+
+The author is also the author of the work discussed in Section~\ref{sec:modular}; that work is described under the same criteria as the others and is not given additional weight.
+
+Throughout, $\N=\{1,2,3,\dots\}$. The full Collatz map $\C:\N\to\N$ is
+\[
+\C(n)=\begin{cases}
+n/2 & \text{if $n$ is even},\\
+3n+1 & \text{if $n$ is odd},
+\end{cases}
+\]
+and the accelerated (Syracuse) map $T$ acts on the odd positive integers by
+\[
+T(n)=\frac{3n+1}{2^{v_2(3n+1)}}.
+\]
+Reachability under $\C$ is written $n\rightsquigarrow w$. When both arguments are odd, this is equivalent to reachability under iterates of~$T$. Some of the sources discussed below use the variant $n\mapsto(3n+1)/2$ for odd $n$; this does not affect the statements reported here.
+
+The basin of attraction of~$1$ is $\mathcal{A}=\{n\in\N:n\rightsquigarrow 1\}$, with counting function $\pi(x)=\#\{n\le x:n\in\mathcal{A}\}$. Its lower natural density is
+\[
+\underline{\mathbf{d}}(\mathcal{A})=\liminf_{x\to\infty}\frac{\pi(x)}{x}.
+\]
+The logarithmic density of a set $S\subseteq\N$ is
+\[
+\mathbf{d}_{\log}(S)=\lim_{x\to\infty}\frac{\sum_{n\le x,\,n\in S}1/n}{\sum_{n\le x}1/n},
+\]
+when the limit exists. A set of natural density~$1$ has logarithmic density~$1$, but not conversely.
+
+\section{Periodic orbits and the methods used to constrain them}\label{sec:cycles}
+
+Let $n_0,\dots,n_{k-1}$ be a cycle of $k$ odd integers under $T$, let $a_i=v_2(3n_i+1)$, $K=\sum_{i=0}^{k-1}a_i$ and $A_j=\sum_{i<j}a_i$. Then
+\begin{equation}\label{eq:cycle}
+n_0(2^K-3^k)=\sum_{j=0}^{k-1}3^{k-1-j}2^{A_j}.
+\end{equation}
+Positivity of $n_0$ forces the supercritical regime $K/k>\log_2 3$.
+
+Three related but distinct methods have been used to extract constraints from this equation and its variants.
+
+\paragraph{Diophantine bounds.}
+These arise directly from the integer equation that any cycle must satisfy. Once the division exponents are fixed, \eqref{eq:cycle} becomes a linear relation among powers of~$2$ and~$3$ with coefficients determined by the cycle. The existence of a positive integer solution $n_0$ is then a pure Diophantine question.
+
+\paragraph{Archimedean bounds.}
+These consider the ordinary real magnitudes. Taking logarithms converts the cycle identity into an approximate equality between $K\log 2$ and $k\log 3$. The size of the residual
+\[
+\Lambda=K\log 2-k\log 3>0
+\]
+controls the minimal element of the cycle through the elementary inequality
+\[
+n_{\min}<\frac{k}{3\Lambda}.
+\]
+Any sufficiently strong lower bound on $\Lambda$ therefore yields an upper bound on $n_{\min}$.
+
+\paragraph{Baker-type bounds.}
+These supply effective lower estimates for nonzero linear forms in logarithms. The theory of Laurent, Mignotte and Nesterenko \cite{LaurentMignotteNesterenko95}, among others, produces explicit inequalities for two logarithms, which in the present setting take roughly the form $\log\Lambda\ge -C(\log K)^2$ for an explicit constant~$C$. Substituting such an estimate into the Archimedean inequality gives a concrete upper bound on the smallest element of any hypothetical cycle of given length.
+
+These techniques are complementary. Diophantine analysis treats the exact integer equation; Archimedean analysis converts the same equation into a statement about real sizes; Baker-type estimates quantify how closely powers of~$2$ and~$3$ can approximate one another. Together they have been used to exclude large classes of cycles, but each method has intrinsic limitations. Excluding a particular family of equations, or all cycles of a given combinatorial type, does not determine which integers eventually reach~$1$, nor does it rule out cycles whose combinatorial complexity grows with their length.
+
+Steiner \cite{Steiner77} proved that the only $1$-cycle is the trivial cycle $\{1\}$. Simons and de Weger \cite{SimonsdeWeger05} introduced the notion of an $m$-cycle, a cycle with exactly $m$ local minima, and, by combining Baker-type estimates with lattice-basis reduction, showed that no nontrivial $m$-cycle exists for $m\le 68$. Hercher \cite{Hercher23} extended the exclusion to $m\le 91$ (see also the published corrigendum to that article). These exclusions are not unconditional in the sense of being independent of computation: they use the range up to which the conjecture has been verified by computer, and the largest excluded $m$ increases as that verified range grows.
+
+When $m$ grows linearly with the cycle length, the available multi-dimensional Baker bounds deteriorate and the method ceases to be effective. The non-existence of cycles of arbitrary combinatorial complexity therefore remains open.
+
+The 2026 formalization of Hallqvist \cite{Hallqvist26}, discussed in Section~\ref{sec:modular}, contributes a no-go result concerning the kinds of modular equations that can serve as obstructions to cycles. In that sense it belongs to the same methodological discussion: it addresses the limitations of a particular approach to cycle exclusion rather than merely establishing a modular-reachability statement.
+
+\section{Predecessor counting and the density gap}\label{sec:counting}
+
+Lower bounds on $\pi(x)$ have been obtained by analysing the inverse tree of predecessors. Crandall \cite{Crandall78} gave the first bound of the form $\pi(x)\ge x^{\beta}$ for some $\beta>0$. Krasikov \cite{Krasikov89} introduced a system of difference inequalities that yielded the exponent $0.43$, and Wirsching \cite{Wirsching93} obtained $0.48$ from a larger such system. Applegate and Lagarias obtained $0.65$ by computer-assisted tree search \cite{ApplegateLagarias95} and then $0.81$ by applying nonlinear programming to Krasikov's inequalities \cite{ApplegateLagarias95b}. The current peer-reviewed benchmark is the result of Krasikov and Lagarias \cite{KrasikovLagarias03}:
+\[
+\pi(x)\ge x^{0.84}
+\]
+for all sufficiently large~$x$.
+
+Any bound of the form $\pi(x)\gg x^\theta$ with $\theta<1$ is compatible with $\underline{\mathbf{d}}(\mathcal{A})=0$. Thus the Krasikov--Lagarias theorem, while establishing polynomial growth of the known basin with a substantial exponent, leaves the question of positive lower natural density undecided.
+
+Two recent preprints address the exponent. Liu \cite{Liu25} proves $\pi(x)\ge x^{0.3227}$ (version~2, December 2025), which is weaker than the existing record; the first version of the preprint reportedly announced a larger exponent, $0.946$, which does not appear in the current version. Mazur \cite{MazurPre090} announces a Lean-formalized bound of the form $\pi(x)\gg x^{0.90}$ for predecessor sets of targets not divisible by~$3$. Even if verified, any exponent strictly less than~$1$ leaves the density question open. Mazur's later claim of a positive lower density of predecessors (Section~\ref{sec:posdens}) would, if correct, supersede such exponent bounds.
+
+\section{Stopping times and almost-sure descent}\label{sec:descent}
+
+Terras \cite{Terras76} proved that the set of positive integers possessing a finite stopping time has natural density~$1$. A finite stopping time guarantees only a single local descent; it does not preclude subsequent ascent or entry into a non-trivial cycle. Korec \cite{Korec94} showed, in natural density, that for every $\theta>\log 3/\log 4\approx 0.7924$ almost every $n$ has an iterate below $n^\theta$.
+
+Tao \cite{Tao22} established a far stronger statement in logarithmic density: for every function $f$ tending to infinity,
+\[
+\mathbf{d}_{\log}\bigl(\{n:\inf_{k\ge 0}\C^{k}(n)<f(n)\}\bigr)=1.
+\]
+The proof proceeds by establishing a stabilisation property for a first-passage random variable associated with the Syracuse dynamics. The result guarantees that almost every orbit (in the logarithmic sense) becomes arbitrarily small relative to its starting value, but it does not assert that the orbit reaches~$1$, nor does it control natural density; Tao notes that replacing logarithmic by natural density is plausible but is not obtained.
+
+Two 2026 lines of preprint work address the natural-density case. Mazur \cite{MazurND} claims natural-density-one descent below every diverging threshold within a logarithmic number of steps, with a Lean formalization. Shaik \cite{Shaik26} claims polylogarithmic descent in natural density, with a logarithmic leading time. Neither has been refereed.
+
+\section{Modular reachability}\label{sec:modular}
+
+Hallqvist \cite{Hallqvist26} proves that for every modulus $N\ge 1$, every natural number $w$ not divisible by~$3$, and every residue $r$, there exists $n\equiv r\pmod N$ such that $n\rightsquigarrow w$ and
+\[
+n\le w\cdot 2^{2^{48N^4}}.
+\]
+In particular, every residue class contains infinitely many predecessors of any such~$w$. The argument separates the $2$- and $3$-adic part of the modulus (handled by parity words of the shortcut map) from the part coprime to~$6$ (handled by fibres of the backward closure and a minimal-period argument showing that translation by~$1$ is a stabilizer). The result is formalized in Lean~4 using only the core library.
+
+As noted in Section~\ref{sec:cycles}, the same work also contains a no-go statement on the forms of modular equation that can obstruct cycles. The modular-reachability theorem itself eliminates local congruence obstructions to the existence of predecessors. It does not assert that every integer in a given class reaches~$w$, nor does it address forward convergence to~$1$ or the natural density of the basin.
+
+\section{Positive-density claims of 2026}\label{sec:posdens}
+
+In 2026 several preprints asserted that a positive lower density of integers reach~$1$. Mazur \cite{MazurPosDens} claims an explicit positive constant $c$ and a cutoff $X_0$ such that at least $cX$ integers below every sufficiently large~$X$ reach~$1$ within $10.46\log n$ ordinary steps; the argument is accompanied by a Lean formalization. In a companion preprint \cite{MazurPred}, Mazur extends this to predecessors: for every fixed $a$ not divisible by~$3$, the integers reaching $a$ have positive lower natural density, without assuming that $a$ itself reaches~$1$. Shaik \cite{ShaikPos} claims positive lower density of convergence at every rate above $3/\log(4/3)$.
+
+Lau \cite{Lau26} supplies an explicit refinement of Mazur's construction in which, for every $N$, at least $\lfloor N/2^{2^{2^{163}}}\rfloor$ odd integers $n<N$ reach~$1$ within $10.46\log n$ ordinary steps. Because the denominator is a triply iterated power of~$2$, this bound is zero for every $N<2^{2^{2^{163}}}$; the claim is therefore purely asymptotic.
+
+Several of these preprints state that AI systems were used substantially in producing the mathematics or its formalization (Mazur's work was developed with AI agents; Lau's was obtained and formalized with an AI prover). This is relevant to how the formal artefacts should be read: a Lean proof certifies the formal statement, and the correspondence between that statement and the informal theorem is a separate matter for the reader to check.
+
+None of these positive-density statements has appeared in a peer-reviewed journal. They are recorded here as provisional claims whose formal status is that of Lean-checked preprints under community examination.
+
+\section{Synthesis}
+
+The present state of the problem may be summarised as follows.
+
+\begin{itemize}[leftmargin=1.5em]
+\item Non-trivial cycles of low combinatorial complexity ($m\le 91$) are excluded by peer-reviewed Diophantine and Baker-type arguments that also rely on computational verification of the conjecture up to a large bound. Cycles of unrestricted complexity remain open. Recent formal work has also clarified the limitations of certain modular approaches to cycle obstruction.
+\item The best peer-reviewed lower bound on the size of the basin is still of order $x^{0.84}$. Improved exponents reported in recent preprints, even if confirmed, remain strictly sublinear and therefore do not decide positivity of lower natural density; the positive-density claims of Section~\ref{sec:posdens} would do so if confirmed.
+\item Almost-sure descent below any prescribed diverging function is known in logarithmic density \cite{Tao22}. Corresponding statements in natural density, and positive-density convergence to~$1$ itself, are at present confined to the preprint literature.
+\item Local modular obstructions to the existence of predecessors are eliminated, for targets not divisible by~$3$, by the repository-hosted formalization of Hallqvist \cite{Hallqvist26}. Such results constrain the distribution of the backward tree but do not determine the forward fate of individual trajectories.
+\end{itemize}
+
+The central open question is whether $\underline{\mathbf{d}}(\mathcal{A})>0$; that $\mathcal{A}=\N$ is the Collatz conjecture itself. No peer-reviewed theorem presently settles either.
+
+\section*{Acknowledgement}
+Artificial-intelligence tools were used to assist with literature checking, drafting, and editing of this survey. The author is responsible for the content of the paper and for any errors.
+
+{\small\setlength{\itemsep}{1pt}\begin{thebibliography}{99}
+
+\bibitem{Lagarias85}
+J.~C.~Lagarias, The $3x+1$ problem and its generalizations, \emph{Amer.\ Math.\ Monthly} \textbf{92} (1985), 3--23.
+
+\bibitem{Wirsching98}
+G.~J.~Wirsching, \emph{The Dynamical System Generated by the $3n+1$ Function}, Lecture Notes in Math.\ \textbf{1681}, Springer, 1998.
+
+\bibitem{LaurentMignotteNesterenko95}
+M.~Laurent, M.~Mignotte and Yu.~V.~Nesterenko, Formes lin\'eaires en deux logarithmes et d\'eterminants d'interpolation, \emph{J.\ Number Theory} \textbf{55} (1995), 285--321.
+
+\bibitem{Steiner77}
+R.~P.~Steiner, A theorem on the Syracuse problem, \emph{Proc.\ 7th Manitoba Conf.\ Numerical Math.} (1977), 553--559.
+
+\bibitem{SimonsdeWeger05}
+J.~Simons and B.~de~Weger, Theoretical and computational bounds for $m$-cycles of the $3x+1$ problem, \emph{Acta Arith.} \textbf{117} (2005), 51--70.
+
+\bibitem{Hercher23}
+C.~Hercher, There are no Collatz $m$-cycles with $m\le 91$, \emph{J.\ Integer Seq.} \textbf{26} (2023), Article~23.3.5; with a corrigendum on the journal's website.
+
+\bibitem{Crandall78}
+R.~E.~Crandall, On the ``$3x+1$'' problem, \emph{Math.\ Comp.} \textbf{32} (1978), 1281--1292.
+
+\bibitem{Krasikov89}
+I.~Krasikov, How many numbers satisfy the $3X+1$ conjecture?, \emph{Internat.\ J.\ Math.\ Math.\ Sci.} \textbf{12} (1989), 791--796.
+
+\bibitem{Wirsching93}
+G.~J.~Wirsching, An improved estimate concerning $3N+1$ predecessor sets, \emph{Acta Arith.} \textbf{63} (1993), 205--210.
+
+\bibitem{ApplegateLagarias95}
+D.~Applegate and J.~C.~Lagarias, Density bounds for the $3x+1$ problem. I.\ Tree-search method, \emph{Math.\ Comp.} \textbf{64} (1995), 411--426.
+
+\bibitem{ApplegateLagarias95b}
+D.~Applegate and J.~C.~Lagarias, Density bounds for the $3x+1$ problem. II.\ Krasikov inequalities, \emph{Math.\ Comp.} \textbf{64} (1995), 427--438.
+
+\bibitem{KrasikovLagarias03}
+I.~Krasikov and J.~C.~Lagarias, Bounds for the $3x+1$ problem using difference inequalities, \emph{Acta Arith.} \textbf{109} (2003), 237--258.
+
+\bibitem{Liu25}
+C.~Liu, Counting the Collatz numbers, arXiv:2512.13760 (v2), December 2025. \url{https://arxiv.org/abs/2512.13760}.
+
+\bibitem{MazurPre090}
+L.~Mazur, Certified $x^{0.90}$ lower bounds for Collatz predecessor sets, version~2, ProofAtlas, 17 July 2026.
+
+\bibitem{Korec94}
+I.~Korec, A density estimate for the $3x+1$ problem, \emph{Math.\ Slovaca} \textbf{44} (1994), 85--89.
+
+\bibitem{Terras76}
+R.~Terras, A stopping time problem on the positive integers, \emph{Acta Arith.} \textbf{30} (1976), 241--252.
+
+\bibitem{Tao22}
+T.~Tao, Almost all orbits of the Collatz map attain almost bounded values, \emph{Forum Math.\ Pi} \textbf{10} (2022), e12.
+
+\bibitem{MazurND}
+L.~Mazur, Natural-density almost-bounded Collatz orbits in logarithmic time, version~2, ProofAtlas, 21 July 2026. \url{https://www.proofatlas.ai/formalizations/natural-density-log-time-collatz/}.
+
+\bibitem{Shaik26}
+I.~A.~Shaik, Polylogarithmic descent for almost all Collatz orbits in natural density, SSRN, 2026 (revised 4 October 2026), \href{https://doi.org/10.2139/ssrn.7290240}{doi:10.2139/ssrn.7290240}; also Hexagon preprint hexagon:2610.00299.
+
+\bibitem{Hallqvist26}
+A.~Hallqvist, Effective Remainder Everywhere, Lean~4 formalization repository, November 2026. \url{https://github.com/Sio-MLST/Effective-Remainder-Everywhere}.
+
+\bibitem{MazurPosDens}
+L.~Mazur, Explicit positive-density Collatz convergence in logarithmic time, manuscript v2.1, ProofAtlas, 6 September 2026. \url{https://www.proofatlas.ai/formalizations/positive-density-log-time-collatz/}.
+
+\bibitem{MazurPred}
+L.~Mazur, Positive lower density of Collatz predecessors, manuscript v1.0, ProofAtlas, 6 September 2026. \url{https://proofatlas.ai/papers/positive-lower-density-collatz-predecessors/paper-v1.pdf}.
+
+\bibitem{ShaikPos}
+I.~A.~Shaik, Positive density of Collatz convergence at every rate above $3/\log(4/3)$, preprint, version~1.0.0, 21 September 2026, \href{https://doi.org/10.5281/zenodo.22871622}{doi:10.5281/zenodo.22871622}.
+
+\bibitem{Lau26}
+K.~Lau, Explicit positive lower density for the Collatz Conjecture, Hexagon preprint hexagon:2610.00249, October 2026. \url{https://hexagonmath.org/2610.00249v2}.
+
+\end{thebibliography}}
+
+\end{document}
