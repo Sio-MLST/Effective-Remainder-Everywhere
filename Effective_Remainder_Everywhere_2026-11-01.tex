@@ -1,0 +1,530 @@
+\documentclass[11pt,reqno,oneside]{amsart}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage[margin=1.1in]{geometry}
+\usepackage{xcolor}
+\definecolor{linkblue}{RGB}{0,0,160}
+\usepackage[colorlinks=true,linkcolor=linkblue,citecolor=linkblue,urlcolor=linkblue]{hyperref}
+\hypersetup{pdftitle={Effective Remainder Everywhere},pdfauthor={André Hallqvist},pdfsubject={Collatz predecessors in every residue class},pdfkeywords={Collatz problem, 3x+1, residue classes, Lean 4}}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+\numberwithin{equation}{section}
+
+\raggedbottom
+\emergencystretch=3em
+\widowpenalty=10000
+\clubpenalty=10000
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\C}{\mathcal{C}}
+\newcommand{\lean}[1]{\texttt{#1}}
+
+\title[Effective Remainder Everywhere]{Effective Remainder Everywhere}
+\author{André Hallqvist}
+\address{Independent researcher}
+\date{1 November 2026}
+
+
+\begin{document}
+\pagestyle{plain}
+
+\begin{abstract}
+We prove that for every modulus $N\ge1$, every natural number $w$ not divisible by $3$, and every natural number $r$, there is a natural number $n\equiv r\pmod N$ whose Collatz orbit reaches $w$, and that $n$ can be chosen with $n\le w\cdot2^{2^{48N^4}}$. In particular, every residue class modulo every positive modulus contains infinitely many predecessors of $w$. The argument separates the modulus into a $2$- and $3$-adic part, handled by a parity word of the shortcut map, and a part $M$ coprime to $6$, handled by the fibres of the backward closure over $\mathbb Z/M\mathbb Z$. The fibres are permuted by affine stabilizers, and a minimal-period argument shows that translation by $1$ is a stabilizer, so every residue occurs. All results are formalized in Lean~4 using only the core library.
+\end{abstract}
+\maketitle
+
+\section{Introduction and main results}\label{sec:intro}
+
+Let $\mathcal C\colon\mathbb N\to\mathbb N$ be the Collatz map, $\mathcal C(n)=n/2$ for even $n$ and $\mathcal C(n)=3n+1$ for odd $n$. We write $n\rightsquigarrow v$ if $\mathcal C^{(k)}(n)=v$ for some $k\ge0$. In the Lean development, $\mathcal C$ is \lean{collatz}, the $k$-th iterate is \lean{iter}, and $n\rightsquigarrow v$ is \lean{Reaches v n}.
+
+\begin{theorem}[Effective remainder everywhere]\label{thm:main}
+Let $N\ge1$, let $w\in\mathbb N$ with $3\nmid w$, and let $r\in\mathbb N$. Then there is $n\in\mathbb N$ with
+\[
+n\rightsquigarrow w,\qquad n\equiv r\pmod N,\qquad n\le w\cdot 2^{2^{48N^4}}.
+\]
+\end{theorem}
+
+\begin{corollary}[Infinitude in each class]\label{cor:infinite}
+Under the hypotheses of Theorem~\ref{thm:main}, and for every $L\in\mathbb N$, there is $n>L$ with $n\rightsquigarrow w$ and $n\equiv r\pmod N$.
+\end{corollary}
+
+An earlier preprint by the same author, titled \emph{Every Remainder Everywhere} and dated October 29, 2026, showed that witnesses exist in every residue class, but gave no explicit upper bound on the least witness, and handled the factor $M$ by a different argument, based on a finite graph of affine labels and commutators rather than on fibres and stabilizers. The present paper gives the explicit bound of Theorem~\ref{thm:main} and the argument of Sections~\ref{sec:fibres}--\ref{sec:periods}. It supersedes that preprint.
+
+Theorem~\ref{thm:main} is a specialization of the following bounded form, which carries an explicit lower bound $B$.
+
+\begin{proposition}[Bounded form]\label{prop:bounded}
+Let $N\ge1$, let $w\in\mathbb N$ with $3\nmid w$, and let $r,B\in\mathbb N$. Then there is $n\in\mathbb N$ with
+\[
+B<n,\qquad n\rightsquigarrow w,\qquad n\equiv r\pmod N,\qquad n\le w\cdot 2^{2^{16\cdot 3N^4(B+1)}}.
+\]
+\end{proposition}
+
+Theorem~\ref{thm:main} says that the least witness is at most $w\cdot2^{2^{48N^4}}$. The lower bound $B$ in Proposition~\ref{prop:bounded} is a device for the proof: setting $B=0$ gives the exponent $16\cdot3N^4=48N^4$, and Corollary~\ref{cor:infinite} is then derived by changing the modulus rather than by taking $B$ large. Corollary~\ref{cor:infinite} follows from Theorem~\ref{thm:main} by passing to the modulus $N(L+2)$; see Section~\ref{sec:proofs}.
+
+The hypothesis $3\nmid w$ cannot be dropped. If $3\mid w$, then $3m+1=w$ has no solution, because $3m+1\equiv1\pmod 3$. So the only predecessor of a multiple $v$ of $3$ is $2v$, which is again a multiple of $3$. Hence every $n\rightsquigarrow w$ is divisible by $3$. For $N=3$ and $r=1$ this rules out every $n$.
+
+Every result in this paper is formalized in Lean~4 \cite{deMouraUllrich21}, in a single file \texttt{Effective\_\allowbreak Remainder\_\allowbreak Everywhere\_\allowbreak 2026-\allowbreak 11-\allowbreak 01.lean} that imports nothing and uses only the core library. The file was checked with Lean version~4.35.0 (commit \texttt{eb6cafb7290e8bd5f2937522d8d804f58f02bafc}); its SHA-256 hash is
+\begin{center}\small\texttt{50dd463dbd362fb4b69a9aa37658cc8f119d99954ef685a56be7871ecd2a2db2}.\end{center}
+The only axioms used are \lean{propext}, \lean{Classical.choice} and \lean{Quot.sound}. The file is available at \url{https://github.com/Sio-MLST/Effective-Remainder-Everywhere}. Appendix~\ref{app:names} lists every declaration of the file.
+
+\subsection*{Related work}
+The parity-vector encoding of Collatz orbits, in which iterates of the shortcut map are written as affine functions of a binary word, was introduced by Terras \cite{Terras76} and appears independently in the work of Everett \cite{Everett77}; it is surveyed by Lagarias \cite{Lagarias85}. Wirsching \cite{Wirsching98} studies predecessor sets of the Collatz map and their distribution, including their $3$-adic aspects. Applegate and Lagarias \cite{ApplegateLagarias95} use the tree of predecessors to bound densities. The parity words and offsets of Section~\ref{sec:words} belong to this encoding. The part of the modulus coprime to~$6$ is treated in Sections~\ref{sec:fibres}--\ref{sec:periods}; the earlier preprint mentioned in the introduction used a different argument for it.
+
+\subsection*{Strategy}
+Write $N=2^a3^bM$ with $\gcd(M,6)=1$. The factor $2^a3^b$ is handled by a parity word, which turns a congruence modulo $2^a3^b$ into a congruence for a single natural number $m$ that reaches $w$, modulo $3^{j+b}M$. The factor $M$ is handled by studying the fibres of the closure over $\mathbb Z/M\mathbb Z$. The fibres are permuted by affine maps, and an argument with minimal periods shows that the translation by $1$ is a stabilizer, so every fibre is the whole of $\mathbb Z/M\mathbb Z$. The statement then follows from an explicit bound on the exponent in a residue-hitting lemma.
+
+\section{Conventions}\label{sec:conventions}
+
+$\mathbb N=\{0,1,2,\dots\}$, and $N$ denotes a positive natural number. A natural number $x$ is \emph{live} if $3\nmid x$. Since $3\mid0$, the hypothesis $3\nmid w$ forces $w\ge1$. For $M$ with $\gcd(M,6)=1$, the integers $2$ and $3$ are invertible modulo $M$, and $\mathbb Z/M\mathbb Z$ is identified with $\{0,\dots,M-1\}$ through the reduction map $\rho_M$.
+
+\section{Orbits}\label{sec:orbits}
+
+\begin{lemma}[Doubling and transitivity]\label{lem:orbits}
+\leavevmode
+\begin{enumerate}[label=(\arabic*), leftmargin=2em]
+\item For every $a\in\mathbb N$, $\mathcal C(2a)=a$.
+\item For all $m,n,x$, $\mathcal C^{(m+n)}(x)=\mathcal C^{(m)}(\mathcal C^{(n)}(x))$.
+\item The relation $\rightsquigarrow$ is transitive.
+\end{enumerate}
+\end{lemma}
+
+\begin{lemma}[Powers of two]\label{lem:pow2}
+For all $w$ and $n$, $2^nw\rightsquigarrow w$.
+\end{lemma}
+\begin{proof}
+Induction on $n$, using $\mathcal C(2\cdot2^nw)=2^nw$ from Lemma~\ref{lem:orbits}(1).
+\end{proof}
+
+\begin{lemma}[Odd steps]\label{lem:oddsteps}
+We have $\mathcal C(2y+1)=6y+4$ and $\mathcal C(6y+4)=3y+2$.
+\end{lemma}
+
+\section{Affine words}\label{sec:words}
+
+The \emph{shortcut map} is $T(n)=n/2$ for even $n$ and $T(n)=(3n+1)/2$ for odd $n$. A word records a sequence of such steps, the letter $0$ standing for an even step and $1$ for an odd one.
+
+A \emph{word} is a list $u=[\varepsilon_1,\dots,\varepsilon_\ell]$ with letters in $\{0,1\}$. The first letter is applied first. Define $|u|=\ell$, and let $|u|_1=\varepsilon_1+\dots+\varepsilon_\ell$ be the number of letters equal to $1$. Define the \emph{offset} $c_u$ by $c_{[\,]}=0$ and $c_{\varepsilon u'}=3^{|u'|_1}\varepsilon+2c_{u'}$.
+
+\begin{lemma}[Integrality]\label{lem:integrality}
+Let $u$ be a word and $x\in\mathbb N$, and suppose $2^{|u|}$ divides $3^{|u|_1}x+c_u$. Then $x\rightsquigarrow\bigl(3^{|u|_1}x+c_u\bigr)/2^{|u|}$.
+\end{lemma}
+\begin{proof}
+Induction on the word. Since $3^{|u'|_1}$ is odd, the divisibility hypothesis forces $x\equiv\varepsilon\pmod 2$, where $\varepsilon$ is the first letter. If $\varepsilon=0$, then $\mathcal C(x)=x/2$. If $\varepsilon=1$, then $x$ is odd, $\mathcal C(x)=3x+1$ is even, and $\mathcal C\bigl(3x+1\bigr)=(3x+1)/2$, so $x$ reaches $(3x+1)/2$ in two steps. In both cases the quotient is the image $y$ of $x$ under $T$, where $y=x/2$ if $\varepsilon=0$ and $y=(3x+1)/2$ if $\varepsilon=1$, and the induction hypothesis applies to $y$ and the remaining word.
+\end{proof}
+
+\begin{lemma}[Parity words]\label{lem:parity}
+For every $\ell$ and $r$ there is a word $p$ of length $\ell$ with letters in $\{0,1\}$ such that $2^\ell$ divides $3^{|p|_1}r+c_p$.
+\end{lemma}
+\begin{proof}
+Induction on $\ell$. If $r=2y$, take the first letter $0$ and recurse on $y$. If $r=2y+1$, take the first letter $1$ and recurse on $3y+2=(3r+1)/2$. In each case the identity expressing $3^{|p|_1}r+c_p$ as $2$ times the corresponding expression for the recursive value carries the divisibility by $2^\ell$ up to $2^{\ell+1}$.
+\end{proof}
+
+\begin{lemma}[Size of words]\label{lem:wordsize}
+For every word $u$ with letters in $\{0,1\}$, $|u|_1\le|u|$ and $c_u\le6^{|u|}$.
+\end{lemma}
+
+\section{Arithmetic modulo powers of three}\label{sec:arith}
+
+\begin{lemma}\label{lem:three}
+We have $3\mid3^{K+1}$ and $1<3^{K+1}$.
+\end{lemma}
+
+\begin{lemma}[Live residues]\label{lem:live}
+If $3\mid m$ and $c$ is live, then $c\bmod m$ is live. A product of live natural numbers is live. Every power of $2$ is live, and $4^j\equiv1\pmod 3$ for all $j$.
+\end{lemma}
+
+\begin{lemma}[Lifting the exponent for base $4$]\label{lem:lte}
+For all $K,m\in\mathbb N$,
+\[
+4^m\equiv1\pmod{3^{K+1}}\iff 3^K\mid m.
+\]
+\end{lemma}
+\begin{proof}
+Induction on $K$. The identity $(1+3^ju)^{3^n}=1+3^{j+n}v$ with $v$ live, and the binomial theorem expands $(1+3^sv)^n$. Together they show that $4^{3^K}\equiv1+3^{K+1}u$ with $u$ live, which gives the inductive step in both directions.
+\end{proof}
+
+\begin{lemma}[Order of two]\label{lem:order2}
+For $K,m\in\mathbb N$,
+\[
+2^m\equiv1\pmod{3^{K+1}}\iff 2\cdot3^K\mid m.
+\]
+\end{lemma}
+
+\begin{lemma}[Injectivity of powers of two]\label{lem:inj2}
+If $E_1,E_2<2\cdot3^K$ and $2^{E_1}\equiv2^{E_2}\pmod{3^{K+1}}$, then $E_1=E_2$.
+\end{lemma}
+
+\begin{lemma}[Two generates the live residues]\label{lem:gen}
+If $c$ and $d$ are live and $d<3^{K+1}$, there is $j\in\mathbb N$ with $2^jc\equiv d\pmod{3^{K+1}}$.
+\end{lemma}
+\begin{proof}
+Suppose not. The map $E\mapsto2^Ec\bmod3^{K+1}$ takes live values and is injective on $\{0,\dots,2\cdot3^K-1\}$ by Lemma~\ref{lem:inj2}. There are exactly $2\cdot3^K$ live residues, so the map would be surjective, a contradiction.
+\end{proof}
+
+\begin{lemma}[Cancellation]\label{lem:cancel}
+If $\gcd(m,a)=1$ and $ax\equiv ay\pmod m$, then $x\equiv y\pmod m$; the same holds for right multiplication. If $c$ is live, then $\gcd(3,c)=1$.
+\end{lemma}
+
+\begin{lemma}[Parity of exponents]\label{lem:parityexp}
+If $2^n\equiv1\pmod3$ then $n$ is even. Also $3^n$ is odd.
+\end{lemma}
+
+\section{Residues, invertibility and cardinality}\label{sec:residues}
+
+For $M\ge1$, $\rho_M(n)$ is the class of $n$ in $\mathbb Z/M\mathbb Z$. The map $\rho_M$ respects sums and products, sends $0,1,2,3$ to the expected elements, and identifies canonical representatives.
+
+\begin{definition}[Two and three invertible]\label{def:inv23}
+For $M\ge1$, write $\mathrm{TI}(M)$ for the statement that $2$ and $3$ are invertible in $\mathbb Z/M\mathbb Z$. An element of $\mathbb Z/M\mathbb Z$ is invertible if it has a multiplicative inverse, and $u^{-1}$ denotes the inverse of an invertible $u$.
+\end{definition}
+
+\begin{lemma}\label{lem:inv23}
+If $\gcd(M,6)=1$, then $2$ and $3$ are invertible modulo $M$.
+\end{lemma}
+
+\begin{lemma}\label{lem:cancelinv}
+Invertible factors can be cancelled. If $\gcd(M,6)=1$, then every power of $2$ is invertible modulo $M$.
+\end{lemma}
+
+\begin{definition}[Cardinality]\label{def:card}
+For a predicate $S$ on $\mathbb Z/M\mathbb Z$, $|S|$ is the number of elements satisfying it.
+\end{definition}
+
+\begin{lemma}[Cardinality estimates]\label{lem:cardest}
+If $g$ is injective and maps $S$ into $T$, then $|S|\le|T|$. If $S\subseteq T$ and $|T|\le|S|$, then $T\subseteq S$, so $S=T$. A set of positive cardinality is non-empty, and a non-empty set has positive cardinality.
+\end{lemma}
+
+\section{Congruence tools and orders}\label{sec:congruence}
+
+\begin{lemma}[Chinese remainder theorem]\label{lem:crt}
+Let $m,n\ge1$ be coprime. For all $a,b\in\mathbb N$ there is $y\in\mathbb N$ with $y\equiv a\pmod m$ and $y\equiv b\pmod n$. Congruences modulo $m$ and modulo $n$ combine to a congruence modulo $mn$.
+\end{lemma}
+
+\begin{lemma}[Power-of-two period]\label{lem:pow2period}
+If $M\ge1$ and $\gcd(M,2)=1$, there is $D\in[1,M]$ with $2^D\equiv1\pmod M$.
+\end{lemma}
+\begin{proof}
+The $M+1$ residues $2^i\bmod M$, for $0\le i\le M$, lie in $\{0,\dots,M-1\}$ and cannot all be distinct. Two equal residues with exponents $i<i'$ give $2^{i'-i}\equiv1$ after cancelling the invertible power $2^i$.
+\end{proof}
+
+\begin{lemma}[Factorizations]\label{lem:factor}
+Every $D>0$ can be written $D=3^\nu d$ with $3\nmid d$. Every $N\ge1$ can be written $N=2^a3^bM$ with $\gcd(M,6)=1$.
+\end{lemma}
+
+\begin{definition}[Four-periods]\label{def:fourper}
+For $m\in\mathbb N$, $\mathrm{IsFourPeriod}(M,m)$ means $4^m\equiv1\pmod M$.
+\end{definition}
+
+\begin{lemma}\label{lem:fourper}
+The four-periods are closed under addition and multiplication, under reduction modulo a four-period, and under gcd. Moreover $\mathrm{IsFourPeriod}(M,m)$ holds if and only if $4^m\equiv1\pmod M$ as residues.
+\end{lemma}
+
+\begin{lemma}[Four-periods and powers of three]\label{lem:order3}
+If $3^n$ is a four-period, there is $\beta\le n$ such that $m$ is a four-period if and only if $3^\beta\mid m$.
+\end{lemma}
+\begin{proof}
+Among the four-periods that are powers of $3$ and at most $3^n$, a minimal one exists by well-ordering. The gcd closure of Lemma~\ref{lem:fourper} shows that every four-period is a multiple of it.
+\end{proof}
+
+\section{The closure and words of bounded length}\label{sec:closure}
+
+\begin{definition}[Closure]\label{def:closure}
+Let $Q,w\in\mathbb N$. The predicate $\mathrm{Closure}_{Q,w}(x)$ is the least predicate such that
+\begin{itemize}[leftmargin=2em]
+\item (base) $x\equiv2^kw\pmod Q$ for some $k$;
+\item (doubling) if $\mathrm{Closure}_{Q,w}(z)$, then $\mathrm{Closure}_{Q,w}(2z)$;
+\item (undoing) if $\mathrm{Closure}_{Q,w}(z)$ and $3x+1\equiv2z\pmod Q$, then $\mathrm{Closure}_{Q,w}(x)$;
+\item (congruence) if $\mathrm{Closure}_{Q,w}(z)$ and $x\equiv z\pmod Q$, then $\mathrm{Closure}_{Q,w}(x)$.
+\end{itemize}
+\end{definition}
+
+\begin{lemma}[Closure words]\label{lem:closureword}
+If $\mathrm{Closure}_{Q,w}(x)$, then there are a word $u$ and $k$ with $3^{|u|_1}x+c_u\equiv2^{|u|+k}w\pmod Q$.
+\end{lemma}
+\begin{proof}
+Induction on the derivation. The base case takes the empty word. Doubling prepends the letter $0$, and undoing prepends the letter $1$. Each step is checked with the identities of Lemma~\ref{lem:integrality}.
+\end{proof}
+
+\begin{definition}[Words of bounded length]\label{def:hasword}
+$\mathrm{HasWord}_{Q,w}(n,x)$ asserts that there is a word $u$ of length at most $n$ and $k$ with $3^{|u|_1}x+c_u\equiv2^{|u|+k}w\pmod Q$.
+\end{definition}
+
+\begin{lemma}\label{lem:hasword}
+$\mathrm{HasWord}$ is monotone in $n$, depends only on $x\bmod Q$, holds for $x\equiv2^kw$ with the empty word, and is preserved by the backward step: if $2y\equiv3^\varepsilon x+\varepsilon\pmod Q$ and $\mathrm{HasWord}_{Q,w}(n,y)$, then $\mathrm{HasWord}_{Q,w}(n+1,x)$.
+\end{lemma}
+
+\begin{lemma}[Backward inversion]\label{lem:hasinv}
+Suppose $Q$ is odd and $\mathrm{HasWord}_{Q,w}(n+1,x)$. Then either $\mathrm{HasWord}_{Q,w}(0,x)$, or there are $\varepsilon\le1$ and $y$ with $\mathrm{HasWord}_{Q,w}(n,y)$ and $2y\equiv3^\varepsilon x+\varepsilon\pmod Q$.
+\end{lemma}
+\begin{proof}
+Split the word on its first letter. If the word is empty, the first alternative holds. Otherwise the first letter $\varepsilon$ determines $y$ as $\tfrac{Q+1}{2}(3^\varepsilon x+\varepsilon)$, and the remaining word witnesses $\mathrm{HasWord}_{Q,w}(n,y)$.
+\end{proof}
+
+\begin{lemma}[Stabilization]\label{lem:stable}
+There is $n\le Q$ such that, for every residue $t$, $\mathrm{HasWord}_{Q,w}(n+1,t)$ implies $\mathrm{HasWord}_{Q,w}(n,t)$.
+\end{lemma}
+\begin{proof}
+Let $\kappa_n$ be the number of residues $t$ with $\mathrm{HasWord}_{Q,w}(n,t)$. If the conclusion failed, then $\kappa_n$ would increase by at least one at each step $n\le Q+1$, which contradicts $\kappa_n\le Q$.
+\end{proof}
+
+\begin{lemma}[Short words]\label{lem:shortall}
+Suppose $Q$ is odd and every residue has some word. Then every residue has a word of length at most $Q$.
+\end{lemma}
+\begin{proof}
+Take $n$ as in Lemma~\ref{lem:stable}. By Lemma~\ref{lem:hasinv}, $\mathrm{HasWord}_{Q,w}(n+d,x)$ implies $\mathrm{HasWord}_{Q,w}(n,x)$ for every $d$, and the hypothesis supplies a starting length for each $x$.
+\end{proof}
+
+\begin{proposition}[Bounded closure words]\label{prop:closureshort}
+Let $\gcd(M,6)=1$, $3\nmid w$ and $K\in\mathbb N$. For every $x$ there is a word $u$ with $|u|\le3^{K+1}M$, and $k$, such that
+\[
+3^{|u|_1}x+c_u\equiv2^{|u|+k}w\pmod{3^{K+1}M}.
+\]
+\end{proposition}
+\begin{proof}
+The modulus $Q=3^{K+1}M$ is odd. By Proposition~\ref{prop:closureall} below, $\mathrm{Closure}_{Q,w}(x)$ holds for every $x$. Lemma~\ref{lem:closureword} gives a word, and Lemma~\ref{lem:shortall} shortens it to length at most $Q$.
+\end{proof}
+
+\section{Fibres}\label{sec:fibres}
+
+Fix $M\ge1$ and $K,w\in\mathbb N$, and assume $\mathrm{TI}(M)$ (Definition~\ref{def:inv23}) in this section and in Sections~\ref{sec:stab} and~\ref{sec:periods}; by Lemma~\ref{lem:inv23} it holds when $\gcd(M,6)=1$. The \emph{fibre} over $a$ is the set of residues modulo $M$ of closure points lying in the class $a$ modulo $3^{K+1}$.
+
+\begin{definition}[Fibre]\label{def:fibre}
+$\mathrm{Fibre}(M,K,w,a,t)$ holds if there is $x$ with $\mathrm{Closure}_{3^{K+1}M,w}(x)$, $x\equiv a\pmod{3^{K+1}}$ and $\rho_M(x)=t$. With $M$, $K$ and $w$ fixed we write $\mathrm{Fibre}(a,t)$, and $\mathrm{Fibre}(a)$ for the set of $t$ for which it holds.
+\end{definition}
+
+\begin{lemma}\label{lem:fibrebasic}
+A fibre depends only on $a\bmod3^{K+1}$. If $t\in\mathrm{Fibre}(a)$ then $2t\in\mathrm{Fibre}(2a)$. Multiplication by $2$ is injective on $\mathbb Z/M\mathbb Z$.
+\end{lemma}
+
+\begin{lemma}[Equal cardinalities]\label{lem:fibrecard}
+For live $a,b$, the fibres over $a$ and $b$ have equal cardinality.
+\end{lemma}
+\begin{proof}
+One has $|\mathrm{Fibre}(a)|\le|\mathrm{Fibre}(2^ja)|$ by Lemma~\ref{lem:fibrebasic} and injectivity of doubling. Lemma~\ref{lem:gen} gives $j$ with $2^ja\equiv b$, and the argument applies in both directions.
+\end{proof}
+
+\begin{lemma}\label{lem:fibredbl}
+For live $a$, $\mathrm{Fibre}(2a,t)$ holds if and only if $t=2s$ for some $s$ with $\mathrm{Fibre}(a,s)$.
+\end{lemma}
+
+\begin{lemma}[Undo correspondence]\label{lem:undo}
+Let $g\equiv2\pmod 3$ and let $a'$ be live with $3a'+1\equiv2g\pmod{3^{K+1}}$. Then $\mathrm{Fibre}(a',s)$ holds if and only if there is $t$ with $\mathrm{Fibre}(g,t)$ and $3s+1=2t$.
+\end{lemma}
+\begin{proof}
+For the forward implication, the map $t\mapsto3^{-1}(2t-1)$ is injective, and Lemma~\ref{lem:fibrecard} compares the two cardinalities. For the reverse implication, the Chinese remainder theorem lifts the witness to the required residues modulo $3^{K+1}$ and $M$.
+\end{proof}
+
+\begin{lemma}\label{lem:fibrepow}
+$\mathrm{Fibre}(2^m,t)$ holds if and only if $t=2^ms$ for some $s$ with $\mathrm{Fibre}(1,s)$. For any $a$ with $2^m\equiv a\pmod{3^{K+1}}$ the same holds for $\mathrm{Fibre}(a)$.
+\end{lemma}
+
+\section{Stabilizers}\label{sec:stab}
+
+\begin{definition}[Stabilizer]\label{def:stab}
+A map $h\colon\mathbb Z/M\mathbb Z\to\mathbb Z/M\mathbb Z$ is a stabilizer if $\mathrm{Fibre}(1,t)\iff\mathrm{Fibre}(1,h(t))$ for every $t$.
+\end{definition}
+
+\begin{lemma}\label{lem:stabcomp}
+Stabilizers are closed under composition and inversion, and a map that agrees with a stabilizer everywhere is a stabilizer.
+\end{lemma}
+
+\begin{lemma}\label{lem:stabmul}
+If $\gcd(M,6)=1$ and $2^m\equiv1\pmod{3^{K+1}}$, then $t\mapsto2^mt$ is a stabilizer.
+\end{lemma}
+\begin{proof}
+By Lemma~\ref{lem:fibrepow} with $a=1$, and since $2^m$ is invertible, $\mathrm{Fibre}(1,2^mt)$ holds if and only if $\mathrm{Fibre}(1,t)$ does.
+\end{proof}
+
+\begin{lemma}[Loop stabilizer]\label{lem:loop}
+Let $g\equiv2\pmod 3$ and let $a'$ be live with $3a'+1\equiv2g\pmod{3^{K+1}}$. Let $2^i\equiv g$ and $2^m\equiv a'$ modulo $3^{K+1}$. Then
+\[
+t\longmapsto 2^{-m}\cdot 3^{-1}\cdot\bigl(2\cdot 2^i\,t-1\bigr)
+\]
+is a stabilizer.
+\end{lemma}
+\begin{proof}
+Combine Lemma~\ref{lem:undo} for $g$ and $a'$ with Lemma~\ref{lem:fibrepow} for the powers $2^i$ and $2^m$.
+\end{proof}
+
+\begin{lemma}\label{lem:ell}
+The map $t\mapsto3^{-1}(4t-1)$ is a stabilizer.
+\end{lemma}
+\begin{proof}
+Apply Lemma~\ref{lem:loop} with $g=2$, $a'=1$, $i=1$ and $m=0$. The hypotheses hold because $3\cdot1+1=2\cdot2$.
+\end{proof}
+
+\begin{lemma}[Affine translations]\label{lem:affine}
+Let $\lambda$ be invertible, and suppose $t\mapsto\lambda t+\mu$ is a stabilizer. Then $t\mapsto t+(\lambda+\mu-1)$ is a stabilizer.
+\end{lemma}
+\begin{proof}
+Conjugate the map of Lemma~\ref{lem:ell} by the given stabilizer. The commutator is translation by $\tau=(1-4\cdot3^{-1})(\lambda+\mu-1)$. Since $1-4\cdot3^{-1}=-3^{-1}$, we have $\tau=-3^{-1}(\lambda+\mu-1)$, so applying the inverse of this translation three times gives translation by $-3\tau=\lambda+\mu-1$.
+\end{proof}
+
+\section{Translation periods and full fibres}\label{sec:periods}
+
+\begin{definition}[Translation period]\label{def:tperiod}
+$d\in\mathbb N$ is a translation period if $t\mapsto t+\rho_M(d)$ is a stabilizer.
+\end{definition}
+
+\begin{lemma}\label{lem:tperiod}
+If $\rho_M(d)=0$ then $d$ is a translation period. Translation periods are closed under addition, under multiplication by natural numbers, and under subtraction when the result is non-negative.
+\end{lemma}
+
+\begin{lemma}\label{lem:dvdsub}
+Let $q\mid M$. If $q$ divides the representative of $\rho_M(X)-\rho_M(Y)$, then $X\equiv Y\pmod q$. If $q$ divides the representative of $z\in\mathbb Z/M\mathbb Z$, then $q$ divides the representative of $cz$ for every $c\in\mathbb Z/M\mathbb Z$.
+\end{lemma}
+
+\begin{proposition}[No non-trivial period]\label{prop:periodcontra}
+Let $q>1$ with $\gcd(q,6)=1$, and suppose $\mathrm{IsFourPeriod}(q,3^K)$. Suppose that for all $g,a',i,m$ satisfying the hypotheses of Lemma~\ref{lem:loop} one has $2^{i+1}\equiv1+3\cdot2^m\pmod q$. Then no such $q$ exists.
+\end{proposition}
+\begin{proof}
+Let $\beta\ge1$ be the exponent with $\mathrm{IsFourPeriod}(q,m)\iff3^\beta\mid m$, given by Lemma~\ref{lem:order3}. Here $\beta\ge1$ because $q$ does not divide $4^1-1=3$. Since $3^{K+1}$ is odd, $h=(3^{K+1}+1)/2$ is a natural number. Put $g=2+3^{\beta+1}h$ and $a'=1+3^\beta$. These satisfy the hypotheses of Lemma~\ref{lem:loop}, and by Lemma~\ref{lem:gen} (with $c=1$) there are $i,m$ with $2^i\equiv g$ and $2^m\equiv a'$ modulo $3^{K+1}$. The hypothesis gives $2^{i+1}\equiv1+3\cdot2^m\pmod q$. Since $2^{i+1}\equiv2g\equiv1$ and $2^m\equiv a'\equiv1\pmod 3$, both $i+1$ and $m$ are even by Lemma~\ref{lem:parityexp}, so $2^{i+1}=4^{\eta}$ and $2^m=4^\delta$. Modulo $3^{\beta+1}$ one has $4^{\eta}\equiv4$, which forces $3^\beta\mid\eta-1$ by Lemma~\ref{lem:lte}, and hence $4^{\eta}\equiv4\pmod q$. Substituting gives $4^\delta\equiv1\pmod q$, so $3^\beta\mid\delta$, and therefore $4^\delta\equiv1\pmod{3^{\beta+1}}$. But $4^\delta\equiv a'=1+3^\beta\pmod{3^{\beta+1}}$, a contradiction.
+\end{proof}
+
+\begin{lemma}[The period is one]\label{lem:one}
+If $\gcd(M,6)=1$, then $1$ is a translation period.
+\end{lemma}
+\begin{proof}
+The residue of $M$ is $0$, so $M$ is a translation period. Let $q$ be the least positive translation period, which exists by well-ordering. Every translation period is a multiple of $q$, so $q\mid M$. Suppose $q>1$. The stabilizer $t\mapsto2^{2\cdot3^K}t$ of Lemma~\ref{lem:stabmul}, combined with Lemma~\ref{lem:affine}, makes $2^{2\cdot3^K}-1$ a translation period, hence a multiple of $q$. Thus $4^{3^K}\equiv1\pmod q$. The maps of Lemma~\ref{lem:loop} together with Lemma~\ref{lem:affine} supply the remaining hypothesis of Proposition~\ref{prop:periodcontra}, which gives a contradiction. Hence $q=1$.
+\end{proof}
+
+\begin{lemma}[Full fibre over one]\label{lem:fullone}
+If $\gcd(M,6)=1$ and $3\nmid w$, then $\mathrm{Fibre}(1,t)$ holds for every residue $t$.
+\end{lemma}
+\begin{proof}
+The fibre over $w$ contains $\rho_M(w)$, and fibres over live residues have equal cardinality, so the fibre over $1$ is non-empty. By Lemma~\ref{lem:one} it is invariant under translation by $1$, and a non-empty translation-invariant set of residues is the whole of $\mathbb Z/M\mathbb Z$.
+\end{proof}
+
+\begin{lemma}\label{lem:fulllive}
+For live $a$ and every residue $t$, $\mathrm{Fibre}(a,t)$ holds.
+\end{lemma}
+\begin{proof}
+Lemma~\ref{lem:gen} gives $m$ with $2^m\equiv a$, and Lemma~\ref{lem:fibrepow} transports the full fibre over $1$ to the fibre over $a$.
+\end{proof}
+
+\begin{lemma}\label{lem:fullall}
+For every $a$ and every residue $t$, $\mathrm{Fibre}(a,t)$ holds.
+\end{lemma}
+\begin{proof}
+For non-live $a$, let $h=(3^{K+1}+1)/2$, a natural number since $3^{K+1}$ is odd, and let $g=(3a+1)h$. Then $g$ is live and $2g\equiv3a+1\pmod{3^{K+1}}$. Fix $t$. By Lemma~\ref{lem:fulllive} there is a closure point $y$ with $y\equiv g\pmod{3^{K+1}}$ and $\rho_M(y)=\tfrac12(3t+1)$, which makes sense because $2$ is invertible modulo $M$. By the Chinese remainder theorem choose $x$ with $x\equiv a\pmod{3^{K+1}}$ and $\rho_M(x)=t$. Then $3x+1\equiv3a+1\equiv2y\pmod{3^{K+1}}$ and $3x+1\equiv2y\pmod M$, so $3x+1\equiv2y\pmod{3^{K+1}M}$. The undoing rule of Definition~\ref{def:closure} gives $\mathrm{Closure}_{3^{K+1}M,w}(x)$, and so $\mathrm{Fibre}(a,t)$ holds.
+\end{proof}
+
+\begin{proposition}[Every residue is in the closure]\label{prop:closureall}
+Let $\gcd(M,6)=1$ and $3\nmid w$. Then $\mathrm{Closure}_{3^{K+1}M,w}(x)$ holds for every $x$.
+\end{proposition}
+\begin{proof}
+By Lemma~\ref{lem:fullall} the fibre over $x\bmod3^{K+1}$ contains $\rho_M(x)$. This gives a closure point $x'$ with $x'\equiv x$ modulo $3^{K+1}$ and modulo $M$, hence modulo $3^{K+1}M$. Then the congruence rule applies.
+\end{proof}
+
+\section{The exponent lemma and residue hitting}\label{sec:hitting}
+
+\begin{lemma}[Exponent class]\label{lem:exponent}
+Let $\gcd(M,6)=1$, $3\nmid w$, and let $j,k',Z,D'\in\mathbb N$ with $D'$ live, $2^{3^KD'}\equiv1\pmod M$ and $Z\equiv2^{k'}w\pmod{3^{K+1}M}$. Then for every $B$ there is $k$ with
+\[
+B\le k\le 2\cdot3^{K+j}(k'+1)+2\cdot3^{K+j}\bigl(D'^2\cdot2\cdot3^{K+j}(k'+1)+3^KD'B\bigr)
+\]
+and $Z\equiv2^kw\pmod{3^{K+j+1}M}$.
+\end{lemma}
+\begin{proof}
+Put $T=2\cdot3^{K+j}$, the order of $2$ modulo $3^{K+j+1}$. Lemma~\ref{lem:gen} and the periodicity of $2$ modulo $3^{K+j+1}$ give a representative $k_2$, with $k'\le k_2<T(k'+1)$, such that $2^{k_2}w\equiv Z\pmod{3^{K+j+1}}$. Since $2^{3^KD'}\equiv1\pmod M$, the congruence modulo $M$ is preserved by adding multiples of $2\cdot3^KD'$. The Chinese remainder theorem then selects $s\in\mathbb N$, bounded by $D'^2T(k'+1)$, for which both congruences hold at once. Taking $k=k_2+T(s+3^KD'B)$ gives $k\ge B$ and the stated bound. The explicit constants are checked in \lean{exponent\_class}.
+\end{proof}
+
+\begin{proposition}[Hitting a prescribed residue]\label{prop:hit}
+Let $\gcd(M,6)=1$, $3\nmid w$, and $b',e,B,X\in\mathbb N$ with
+\[
+3\cdot3^{b'}M^2\le X,\qquad B\le X.
+\]
+Then there is $m$ with $B<m$, $m\equiv e\pmod{3^{b'}M}$, $m\rightsquigarrow w$ and $m\le w\cdot2^{2^{15X}}$.
+\end{proposition}
+\begin{proof}
+Let $D$ be a power-of-two period modulo $M$ (Lemma~\ref{lem:pow2period}), and write $D=3^\nu d'$ with $3\nmid d'$ (Lemma~\ref{lem:factor}). Set $K=\nu+b'$. Then $2^{3^Kd'}\equiv1\pmod M$, and the size hypotheses give $3^K,d',M\le X$. Apply Proposition~\ref{prop:closureshort} at depth $K$ to $x=e$. This gives a word $u$ with $|u|\le3^{K+1}M\le X$ and $k'$ with $3^{|u|_1}e+c_u\equiv2^{|u|+k'}w\pmod{3^{K+1}M}$. Reducing the exponent modulo $2\cdot3^Kd'$ and applying Lemma~\ref{lem:exponent} with $B$ replaced by $c_u+|u|+3^{|u|_1}(B+1)$ yields $k$ with $k\le2^{15X}$, by the size estimate \lean{bound\_arith}, and
+\[
+3^{|u|_1}e+c_u\equiv2^kw\pmod{3^{K+|u|_1+1}M}.
+\]
+Put $m=(2^kw-c_u)/3^{|u|_1}$. This is a natural number, and $3^{|u|_1}m+c_u=2^kw$. The choice of $k$ gives $m>B$, and the congruence gives $m\equiv e\pmod{3^{b'}M}$. Lemma~\ref{lem:integrality} with the word $u$ gives $m\rightsquigarrow2^{k-|u|}w$, and Lemma~\ref{lem:pow2} gives $2^{k-|u|}w\rightsquigarrow w$. Finally $m\le2^kw\le w\cdot2^{2^{15X}}$.
+\end{proof}
+
+\section{Proofs of the main results}\label{sec:proofs}
+
+\begin{proof}[Proof of Proposition~\ref{prop:bounded}]
+Write $N=2^a3^bM$ with $\gcd(M,6)=1$ (Lemma~\ref{lem:factor}). Let $r'=r\bmod N$, and let $p$ be a parity word of length $a$ for $r'$ (Lemma~\ref{lem:parity}), with $j=|p|_1\le a$ (Lemma~\ref{lem:wordsize}) and $c=c_p$. Then $3^jr'+c=2^a e$ for some $e\in\mathbb N$, and $e\rightsquigarrow r'$ by Lemma~\ref{lem:integrality}.
+
+Apply Proposition~\ref{prop:hit} with $b'=j+b$, residue $e$, lower bound $B'=e+3^jB$, and $X=3N^4(B+1)$. The size hypotheses hold: $3^j\le N^2$ and $3^b\le N$ give $3\cdot3^{b'}M^2\le3N^4\le X$, and $e\le2^ae=3^jr'+c\le2N^3$, because $3^jr'\le N^3$ and $c\le2^aN^2\le N^3$. This yields $m$ with $B'<m$, $m\equiv e\pmod{3^{j+b}M}$, $m\rightsquigarrow w$ and $m\le w\cdot2^{2^{15X}}$.
+
+Write $m-e=3^j\cdot t$ with $t=3^bMs$ for some $s\in\mathbb N$, and put $n=r'+2^a t$. Then $3^jn+c=2^a m$, so Lemma~\ref{lem:integrality} applied to $p$ gives $m\rightsquigarrow n$, and hence $n\rightsquigarrow w$ by transitivity. Since $N\mid 2^a t$, we have $n\equiv r'\equiv r\pmod N$. Finally $t>B$, because $m>e+3^jB$, and $n\ge t$, so $B<n$.
+
+For the bound, $n\le2Nm$, since $r'<N$, $2^a\le N$ and $t\le m$. Since $N<2^N\le2^X$ we have $N+1\le2^{15X}$, so $2N\le2^{N+1}\le2^{2^{15X}}$. Hence
+\[
+n\le 2Nm\le 2^{2^{15X}}\cdot w\cdot 2^{2^{15X}}=w\cdot2^{2^{15X+1}}\le w\cdot2^{2^{16X}}=w\cdot2^{2^{16\cdot3N^4(B+1)}}.\qedhere
+\]
+\end{proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:main}]
+Apply Proposition~\ref{prop:bounded} with $B=0$. The exponent $16\cdot3N^4(0+1)$ equals $48N^4$.
+\end{proof}
+
+\begin{proof}[Proof of Corollary~\ref{cor:infinite}]
+Let $r'=(r\bmod N)+N(L+1)$ and $N'=N(L+2)$. Since $r'<N'$, Theorem~\ref{thm:main} applied to $N'$ and $r'$ gives $n\rightsquigarrow w$ with $n\bmod N'=r'$. Then $n\ge r'\ge N(L+1)>L$. Since $N\mid N'$, we get $n\equiv r'\equiv r\pmod N$.
+\end{proof}
+
+\clearpage
+\appendix
+\section{Lean names}\label{app:names}
+
+The table lists, for each section, the Lean names used there and what they denote.
+
+\subsection*{Declarations}
+Every declaration of the Lean file appears once, including the four constructors of \lean{Closure}.
+
+{\small\raggedright\sloppy
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.56\textwidth}>{\raggedright\arraybackslash}p{0.20\textwidth}@{}}
+\toprule
+Section & Lean names & Content\\
+\midrule
+\endhead
+\S\ref{sec:intro}, \S\ref{sec:orbits} & \lean{collatz}, \lean{iter}, \lean{Reaches}, \lean{collatz\_\allowbreak{}double}, \lean{iter\_\allowbreak{}add}, \lean{reaches\_\allowbreak{}trans}, \lean{reaches\_\allowbreak{}pow2}, \lean{collatz\_\allowbreak{}odd}, \lean{collatz\_\allowbreak{}six\_\allowbreak{}mul\_\allowbreak{}add\_\allowbreak{}four} & $\mathcal C$, iterates, $n\rightsquigarrow v$, orbit lemmas, odd steps \\
+\S\ref{sec:words} & \lean{oneCount}, \lean{offset}, \lean{integrality}, \lean{integrality\_\allowbreak{}reaches}, \lean{parity\_\allowbreak{}word}, \lean{oneCount\_\allowbreak{}le}, \lean{offset\_\allowbreak{}le} & affine words, integrality, parity words, size bounds \\
+\S\ref{sec:arith} & \lean{three\_\allowbreak{}dvd\_\allowbreak{}pow}, \lean{one\_\allowbreak{}lt\_\allowbreak{}pow3}, \lean{live\_\allowbreak{}mod}, \lean{live\_\allowbreak{}mul}, \lean{two\_\allowbreak{}pow\_\allowbreak{}mod\_\allowbreak{}three\_\allowbreak{}ne}, \lean{four\_\allowbreak{}pow\_\allowbreak{}mod\_\allowbreak{}three}, \lean{four\_\allowbreak{}pow\_\allowbreak{}mod\_\allowbreak{}eq\_\allowbreak{}one\_\allowbreak{}iff}, \lean{pow3\_\allowbreak{}form}, \lean{pow\_\allowbreak{}one\_\allowbreak{}add}, \lean{two\_\allowbreak{}pow\_\allowbreak{}mod\_\allowbreak{}eq\_\allowbreak{}one\_\allowbreak{}iff}, \lean{two\_\allowbreak{}pow\_\allowbreak{}inj}, \lean{two\_\allowbreak{}generates\_\allowbreak{}live}, \lean{mod\_\allowbreak{}cancel\_\allowbreak{}mul\_\allowbreak{}left}, \lean{mod\_\allowbreak{}cancel\_\allowbreak{}mul\_\allowbreak{}right}, \lean{coprime3}, \lean{pow2\_\allowbreak{}even\_\allowbreak{}of\_\allowbreak{}mod3}, \lean{three\_\allowbreak{}pow\_\allowbreak{}odd} & arithmetic modulo powers of three \\
+\S\ref{sec:residues} & \lean{residue}, \lean{residue\_\allowbreak{}val}, \lean{residue\_\allowbreak{}eq\_\allowbreak{}iff}, \lean{residue\_\allowbreak{}add}, \lean{residue\_\allowbreak{}mul}, \lean{residue\_\allowbreak{}zero}, \lean{residue\_\allowbreak{}one}, \lean{residue\_\allowbreak{}two}, \lean{residue\_\allowbreak{}three}, \lean{residue\_\allowbreak{}self\_\allowbreak{}val}, \lean{residue\_\allowbreak{}self}, \lean{residue\_\allowbreak{}val\_\allowbreak{}self}, \lean{TwoThreeInvertible}, \lean{unitInv}, \lean{mul\_\allowbreak{}unitInv}, \lean{two\_\allowbreak{}mul\_\allowbreak{}unitInv}, \lean{three\_\allowbreak{}mul\_\allowbreak{}unitInv}, \lean{unitInv\_\allowbreak{}eq\_\allowbreak{}of\_\allowbreak{}mul}, \lean{IsInvertible}, \lean{isInvertible\_\allowbreak{}mul}, \lean{isInvertible\_\allowbreak{}unitInv}, \lean{twoThreeInvertible\_\allowbreak{}of\_\allowbreak{}coprime6}, \lean{exists\_\allowbreak{}inv\_\allowbreak{}residue}, \lean{exists\_\allowbreak{}inv\_\allowbreak{}of\_\allowbreak{}coprime}, \lean{cancel\_\allowbreak{}invertible}, \lean{twoPow\_\allowbreak{}invertible}, \lean{cardinality}, \lean{mem\_\allowbreak{}cardlist}, \lean{cardinality\_\allowbreak{}le\_\allowbreak{}of\_\allowbreak{}inj}, \lean{cardinality\_\allowbreak{}eq\_\allowbreak{}of\_\allowbreak{}sub}, \lean{cardinality\_\allowbreak{}pos}, \lean{exists\_\allowbreak{}of\_\allowbreak{}cardinality\_\allowbreak{}pos} & residues, invertibility, cardinality \\
+\S\ref{sec:congruence} & \lean{crt\_\allowbreak{}exists}, \lean{mod\_\allowbreak{}combine}, \lean{mod\_\allowbreak{}combine\_\allowbreak{}le}, \lean{mod\_\allowbreak{}of\_\allowbreak{}dvd\_\allowbreak{}mod}, \lean{mod\_\allowbreak{}eq\_\allowbreak{}of\_\allowbreak{}le\_\allowbreak{}sub}, \lean{mod\_\allowbreak{}add\_\allowbreak{}left\_\allowbreak{}cancel}, \lean{mod\_\allowbreak{}lin}, \lean{mod\_\allowbreak{}mul\_\allowbreak{}right\_\allowbreak{}cong}, \lean{pow\_\allowbreak{}mod\_\allowbreak{}period}, \lean{exists\_\allowbreak{}pow2\_\allowbreak{}period}, \lean{split\_\allowbreak{}three}, \lean{split\_\allowbreak{}two\_\allowbreak{}three}, \lean{coprime6\_\allowbreak{}of\_\allowbreak{}not\_\allowbreak{}dvd}, \lean{IsFourPeriod}, \lean{isFourPeriod\_\allowbreak{}add}, \lean{isFourPeriod\_\allowbreak{}mul}, \lean{isFourPeriod\_\allowbreak{}cancel}, \lean{isFourPeriod\_\allowbreak{}mod}, \lean{isFourPeriod\_\allowbreak{}gcd}, \lean{isFourPeriod\_\allowbreak{}iff}, \lean{eq\_\allowbreak{}three\_\allowbreak{}pow\_\allowbreak{}of\_\allowbreak{}dvd}, \lean{exists\_\allowbreak{}min\_\allowbreak{}pow3}, \lean{exists\_\allowbreak{}order\_\allowbreak{}pow3}, \lean{exists\_\allowbreak{}least}, \lean{two\_\allowbreak{}mul\_\allowbreak{}inj}, \lean{three\_\allowbreak{}pow\_\allowbreak{}le}, \lean{six\_\allowbreak{}pow\_\allowbreak{}le} & congruence tools, periods, factorizations, orders \\
+\S\ref{sec:closure} & \lean{Closure}, \lean{Closure.base}, \lean{Closure.dbl}, \lean{Closure.undo}, \lean{Closure.cong}, \lean{closure\_\allowbreak{}word}, \lean{HasWord}, \lean{hasWord\_\allowbreak{}mono}, \lean{hasWord\_\allowbreak{}le}, \lean{hasWord\_\allowbreak{}mod}, \lean{hasWord\_\allowbreak{}base}, \lean{hasWord\_\allowbreak{}step}, \lean{hasWord\_\allowbreak{}inv}, \lean{cardinality\_\allowbreak{}le\_\allowbreak{}modulus}, \lean{hasWord\_\allowbreak{}stable}, \lean{hasWord\_\allowbreak{}all\_\allowbreak{}short}, \lean{closure\_\allowbreak{}word\_\allowbreak{}short}, \lean{SameMod} & closure, words of bounded length, stabilization \\
+\S\ref{sec:fibres} & \lean{Fibre}, \lean{fibre\_\allowbreak{}mod}, \lean{fibre\_\allowbreak{}dbl}, \lean{fibre\_\allowbreak{}cardinality\_\allowbreak{}dbl\_\allowbreak{}le}, \lean{fibre\_\allowbreak{}cardinality\_\allowbreak{}pow\_\allowbreak{}le}, \lean{fibre\_\allowbreak{}cardinality\_\allowbreak{}le\_\allowbreak{}live}, \lean{fibre\_\allowbreak{}cardinality\_\allowbreak{}const}, \lean{fibre\_\allowbreak{}dbl\_\allowbreak{}iff}, \lean{fibre\_\allowbreak{}undo\_\allowbreak{}iff}, \lean{fibre\_\allowbreak{}pow}, \lean{fibre\_\allowbreak{}live} & fibres and their cardinalities \\
+\S\ref{sec:stab} & \lean{Stabilizer}, \lean{stabilizer\_\allowbreak{}comp}, \lean{stabilizer\_\allowbreak{}inv}, \lean{stabilizer\_\allowbreak{}ext}, \lean{stabilizer\_\allowbreak{}mul}, \lean{stabilizer\_\allowbreak{}loop}, \lean{stabilizer\_\allowbreak{}special\_\allowbreak{}loop}, \lean{stabilizer\_\allowbreak{}affine\_\allowbreak{}translation} & stabilizers \\
+\S\ref{sec:periods} & \lean{IsTranslationPeriod}, \lean{translationPeriod\_\allowbreak{}of\_\allowbreak{}eq}, \lean{translationPeriod\_\allowbreak{}add}, \lean{translationPeriod\_\allowbreak{}mul}, \lean{translationPeriod\_\allowbreak{}sub}, \lean{translationPeriod\_\allowbreak{}one}, \lean{mod\_\allowbreak{}of\_\allowbreak{}dvd\_\allowbreak{}sub}, \lean{dvd\_\allowbreak{}val\_\allowbreak{}mul}, \lean{period\_\allowbreak{}contra}, \lean{fibre\_\allowbreak{}one\_\allowbreak{}full}, \lean{fibre\_\allowbreak{}full\_\allowbreak{}live}, \lean{fibre\_\allowbreak{}full}, \lean{closure\_\allowbreak{}all} & translation periods, minimal period, full fibres \\
+\S\ref{sec:hitting} & \lean{exponent\_\allowbreak{}class}, \lean{hit\_\allowbreak{}residue}, \lean{bound\_\allowbreak{}arith}, \lean{pow2bound\_\allowbreak{}mul}, \lean{pow2bound\_\allowbreak{}le}, \lean{le\_\allowbreak{}two\_\allowbreak{}pow\_\allowbreak{}self}, \lean{pow2\_\allowbreak{}period\_\allowbreak{}lift} & exponent lemma, residue hitting, size estimates \\
+\S\ref{sec:proofs} & \lean{remainder\_\allowbreak{}bounded}, \lean{effective\_\allowbreak{}remainder\_\allowbreak{}everywhere}, \lean{remainder\_\allowbreak{}infinitely\_\allowbreak{}often} & main results \\
+\bottomrule
+\end{longtable}
+}
+
+
+\begin{thebibliography}{9}
+\bibitem{ApplegateLagarias95}
+D.~Applegate and J.~C.~Lagarias, Density bounds for the $3x+1$ problem. I. Tree-search method, \emph{Mathematics of Computation} \textbf{64} (1995), 411--426.
+\bibitem{deMouraUllrich21}
+L.~de Moura and S.~Ullrich, The Lean 4 theorem prover and programming language, in: \emph{Automated Deduction -- CADE 28}, Lecture Notes in Computer Science \textbf{12699}, Springer, 2021, pp.~625--635.
+\bibitem{Everett77}
+C.~J.~Everett, Iteration of the number-theoretic function $f(2n)=n$, $f(2n+1)=3n+2$, \emph{Advances in Mathematics} \textbf{25} (1977), 42--45.
+\bibitem{Lagarias85}
+J.~C.~Lagarias, The $3x+1$ problem and its generalizations, \emph{The American Mathematical Monthly} \textbf{92} (1985), 3--23.
+\bibitem{Terras76}
+R.~Terras, A stopping time problem on the positive integers, \emph{Acta Arithmetica} \textbf{30} (1976), 241--252.
+\bibitem{Wirsching98}
+G.~J.~Wirsching, \emph{The Dynamical System Generated by the $3n+1$ Function}, Lecture Notes in Mathematics \textbf{1681}, Springer, 1998.
+\end{thebibliography}
+
+\end{document}
