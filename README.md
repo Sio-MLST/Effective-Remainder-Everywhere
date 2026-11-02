@@ -2,7 +2,7 @@
 
 Let $N \ge 1$, let $w$ be a natural number not divisible by $3$, and let $r$ be any residue. Then some natural number $n \equiv r \pmod N$ has a Collatz orbit that reaches $w$, and $n$ can be chosen no larger than $w \cdot 2^{2^{48N^4}}$. Taking $N$ to be a larger modulus gives infinitely many such $n$ in every residue class.
 
-For every $w \in \mathbb{N}$ with $3 \nmid w$, the predecessor basin $\mathcal{P}(w)$ is dense in $\widehat{\mathbb{Z}}$.
+For every $w \in \mathbb{N}$ with $3 \nmid w$, the predecessor basin is dense in $\widehat{\mathbb{Z}}$.
 
 This repository contains the paper (PDF and LaTeX source) and a Lean 4 formalization of the result. This README explains what the result says, why the bound matters, and how the proof is organised. It does not replace the paper.
 
