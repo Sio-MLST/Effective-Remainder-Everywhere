@@ -78,7 +78,7 @@ The paper states the SHA-256 hash of this file. Use `sha256sum` to confirm that 
 - `Effective_Remainder_Everywhere_2026-11-01.tex`: the LaTeX source.
 - `Effective_Remainder_Everywhere_2026-11-01.lean`: the Lean 4 formalization.
 
-- `ERE5x1.lean` proves the analogue for $w$ with $5 \nmid w$ and moduli $N$ with $3 \nmid N$ for the $5x+1$ problem.
+- `ERE_5x1.lean` proves the analogue for $w$ with $5 \nmid w$ and moduli $N$ with $3 \nmid N$ for the $5x+1$ problem.
 
 The hypothesis $3 \nmid N$ is an artefact of the period argument (the order of $2$ modulo $3^c$ introduces a factor the $5$-power induction does not control) and is expected to be removable. It will be folded into the main text once the caveat-free proof is complete.
 
