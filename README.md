@@ -14,7 +14,11 @@ The condition $3 \nmid w$ is needed. A number of the form $3m+1$ is never a mult
 
 The theorem says that the predecessors of $w$ are not confined to any residue class. For every $N$ and every $r$ there is a predecessor in that class. Corollary 1.2 of the paper gives infinitely many, by applying the bounded form to a larger modulus.
 
-This is not the Collatz conjecture. It does not say that every number reaches $1$, and it does not bound how long any orbit takes.
+This is not the Collatz conjecture. It does not say that every number reaches 1, and it does not bound how long any orbit takes. It also does not depend on it: only the backward tree of w is at issue, so the statement holds whatever the forward orbits do. Indeed the same proof carries over to the 5x+1-map, whose forward behaviour is entirely different.
+
+ERE 5x+1.lean proves the analogue for w with 5 \nmid w and moduli N with 3 \nmid N for the 5x+1-problem.
+
+The hypothesis 3 \nmid N is an artefact of the period argument (the order of 2 modulo 3^c introduces a factor the 5-power induction does not control) and is expected to be removable. It will be folded into the main text once the caveat-free proof is complete.
 
 ## What the bound does and does not say
 
