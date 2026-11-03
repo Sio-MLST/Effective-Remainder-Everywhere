@@ -16,17 +16,13 @@ The theorem says that the predecessors of $w$ are not confined to any residue cl
 
 This is not the Collatz conjecture. It does not say that every number reaches $1$, and it does not bound how long any orbit takes. It also does not depend on it: only the backward tree of $w$ is at issue, so the statement holds whatever the forward orbits do. Indeed the same proof carries over to the $5x+1$ map, whose forward behaviour is entirely different.
 
-`ERE 5x+1.lean` proves the analogue for $w$ with $5 \nmid w$ and moduli $N$ with $3 \nmid N$ for the $5x+1$ problem.
-
-The hypothesis $3 \nmid N$ is an artefact of the period argument (the order of $2$ modulo $3^c$ introduces a factor the $5$-power induction does not control) and is expected to be removable. It will be folded into the main text once the caveat-free proof is complete.
-
 ## What the bound does and does not say
 
 The bound $n \le w \cdot 2^{2^{48N^4}}$ limits the numerical size of the witness $n$. It does not limit the number of steps in its orbit, and it does not say that $n$ is the smallest witness in its class.
 
 Smaller witnesses often exist. For example, with $N = 7$ and $w = 11$, the number $7$ is a witness: $7 \to 22 \to 11$, and $7 \equiv 0 \pmod 7$. The construction in the paper does not find this witness. It finds some witness, which may be much larger. The bound says only that the least witness is at most the stated value, so that a search over $n$ in increasing order is guaranteed to terminate.
 
-The bound is an explicit formula and is very large. The paper does not claim that it is close to optimal.
+The bound is an explicit formula and is very large. Thepaper does not claim that it is close to optimal.
 
 ## Earlier version
 
@@ -81,6 +77,10 @@ The paper states the SHA-256 hash of this file. Use `sha256sum` to confirm that 
 - `Effective_Remainder_Everywhere_2026-11-01.pdf`: the paper.
 - `Effective_Remainder_Everywhere_2026-11-01.tex`: the LaTeX source.
 - `Effective_Remainder_Everywhere_2026-11-01.lean`: the Lean 4 formalization.
+
+- `ERE 5x+1.lean` proves the analogue for $w$ with $5 \nmid w$ and moduli $N$ with $3 \nmid N$ for the $5x+1$ problem.
+
+The hypothesis $3 \nmid N$ is an artefact of the period argument (the order of $2$ modulo $3^c$ introduces a factor the $5$-power induction does not control) and is expected to be removable. It will be folded into the main text once the caveat-free proof is complete.
 
 ## What this does not establish
 
