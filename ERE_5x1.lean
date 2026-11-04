@@ -1,11 +1,4 @@
-/-
-Effective remainder everywhere, 5x+1 variant: Collatz (5x+1) predecessors in every residue class.
-Port of the 2026-11-01 3x+1 file by André Hallqvist to the 5x+1 map.
-Checked against Lean 4.35.0, core library only.
-Main results: `ERE5.effective_remainder_everywhere`, `ERE5.remainder_infinitely_often`.
-Caveat: proved for moduli N with N % 3 ≠ 0 (2 has index 2 in the units of 5^(K+1)·3^c),
-so the final theorem additionally requires (hN3 : N % 3 ≠ 0).
--/
+/- ERE5: 5x+1 predecessors of w (5 ∤ w) in every residue class mod N. Lean 4.35.0, core only. -/
 
 namespace ERE5
 
@@ -43,18 +36,8 @@ theorem sixteen_pow_mod_five (j : Nat) : 16 ^ j % 5 = 1 := by
   | zero => decide
   | succ n ih => rw [Nat.pow_succ]; omega
 
-theorem two_pow_mod_three_ne (E : Nat) : 2 ^ E % 3 ≠ 0 := by
-  induction E with
-  | zero => decide
-  | succ n ih => rw [Nat.pow_succ]; omega
-
 theorem two_pow_mod_five_ne (E : Nat) : 2 ^ E % 5 ≠ 0 := by
   induction E with
-  | zero => decide
-  | succ n ih => rw [Nat.pow_succ]; omega
-
-theorem five_pow_mod_three_ne (b : Nat) : 5 ^ b % 3 ≠ 0 := by
-  induction b with
   | zero => decide
   | succ n ih => rw [Nat.pow_succ]; omega
 
@@ -213,23 +196,11 @@ theorem two_pow_inj {K E1 E2 : Nat} (h1 : E1 < 4 * 5 ^ K) (h2 : E2 < 4 * 5 ^ K)
   · exact key _ _ hle h2 h
   · exact (key _ _ hle h1 h.symm).symm
 
-theorem coprime3 {c : Nat} (hc : c % 3 ≠ 0) : Nat.Coprime 3 c := by
-  unfold Nat.Coprime
-  rw [Nat.gcd_rec]
-  have : c % 3 = 1 ∨ c % 3 = 2 := by omega
-  rcases this with h | h <;> rw [h] <;> decide
-
 theorem coprime5 {c : Nat} (hc : c % 5 ≠ 0) : Nat.Coprime 5 c := by
   unfold Nat.Coprime
   rw [Nat.gcd_rec]
   have : c % 5 = 1 ∨ c % 5 = 2 ∨ c % 5 = 3 ∨ c % 5 = 4 := by omega
   rcases this with h | h | h | h <;> rw [h] <;> decide
-
-theorem live_mul {x y : Nat} (hx : x % 3 ≠ 0) (hy : y % 3 ≠ 0) : (x * y) % 3 ≠ 0 := by
-  rw [Nat.mul_mod]
-  have hx' : x % 3 = 1 ∨ x % 3 = 2 := by omega
-  have hy' : y % 3 = 1 ∨ y % 3 = 2 := by omega
-  rcases hx' with h | h <;> rcases hy' with h' | h' <;> simp [h, h']
 
 theorem live_mul5 {x y : Nat} (hx : x % 5 ≠ 0) (hy : y % 5 ≠ 0) : (x * y) % 5 ≠ 0 := by
   rw [Nat.mul_mod]
@@ -323,7 +294,6 @@ theorem residue_mul (a b : Nat) : residue M (a * b) = residue M a * residue M b 
 theorem residue_zero : residue M 0 = (0 : Fin M) := rfl
 theorem residue_one : residue M 1 = (1 : Fin M) := rfl
 theorem residue_two : residue M 2 = (2 : Fin M) := rfl
-theorem residue_three : residue M 3 = (3 : Fin M) := rfl
 theorem residue_five : residue M 5 = (5 : Fin M) := rfl
 class TwoFiveInvertible (M : Nat) [NeZero M] : Prop where
   two : ∃ b : Fin M, (2 : Fin M) * b = 1
@@ -726,25 +696,54 @@ theorem four_dvd_of_mod5 {n : Nat} (h : 2 ^ n % 5 = 1) : ∃ d, n = 4 * d := by
 theorem mod_of_dvd_mod {a b P Z : Nat} (hZ : Z ∣ P) (h : a % P = b % P) : a % Z = b % Z := by
   rw [← Nat.mod_mod_of_dvd a hZ, h, Nat.mod_mod_of_dvd b hZ]
 
-theorem period_contra (q K i₀ : Nat) [NeZero q] (hq1 : 1 < q) (hq : Nat.Coprime q 30)
+theorem two_pow_mod_fifteen : ∀ n : Nat, 2 ^ n % 15 = 1 ∨ 2 ^ n % 15 = 2 ∨ 2 ^ n % 15 = 4 ∨ 2 ^ n % 15 = 8
+  | 0 => by decide
+  | n + 1 => by rw [Nat.pow_succ, Nat.mul_mod]; rcases two_pow_mod_fifteen n with h | h | h | h <;> rw [h] <;> decide
+
+theorem two_pow_mod_three_of_mod_five {n : Nat} (h : 2 ^ n % 5 = 3) : 2 ^ n % 3 = 2 := by
+  have h5 : 2 ^ n % 15 % 5 = 2 ^ n % 5 := Nat.mod_mod_of_dvd _ (by decide)
+  have h3 : 2 ^ n % 15 % 3 = 2 ^ n % 3 := Nat.mod_mod_of_dvd _ (by decide)
+  rcases two_pow_mod_fifteen n with e | e | e | e <;> rw [e] at h5 h3 <;> omega
+
+theorem period_contra (q K i₀ : Nat) [NeZero q] (hq1 : 1 < q) (hq5 : Nat.Coprime q 5)
     (hi₀ : 2 ^ i₀ % 5 ^ (K + 1) = 3 % 5 ^ (K + 1))
     (hA : IsSixteenPeriod q (5 ^ K))
     (hB : ∀ g a' i m : Nat, g % 5 ≠ 0 → a' % 5 ≠ 0 →
       (5 * a' + 1) % 5 ^ (K + 1) = (2 * g) % 5 ^ (K + 1) →
       2 ^ i % 5 ^ (K + 1) = g % 5 ^ (K + 1) → 2 ^ m % 5 ^ (K + 1) = a' % 5 ^ (K + 1) →
       (5 * 2 ^ m + 2 * 2 ^ i₀) % q = (5 + 2 * 2 ^ i) % q) : False := by
+  have hP5 : 5 ∣ 5 ^ (K + 1) := five_dvd_pow K
   obtain ⟨α, hαK, hord⟩ := exists_order_pow5 q hA
   have hα : 1 ≤ α := by
     rcases Nat.eq_zero_or_pos α with h0 | h0
     · exfalso
       have h1 := (isSixteenPeriod_iff q 1).1 ((hord 1).2 (by rw [h0]; exact Nat.dvd_refl _))
       have h3 : 15 % q = 0 % q := mod_add_left_cancel (e := 1) (by rw [Nat.pow_one] at h1; exact h1)
-      have hd : q ∣ 30 :=
-        Nat.dvd_trans (Nat.dvd_of_mod_eq_zero (by rw [h3, Nat.zero_mod])) (by decide : 15 ∣ 30)
-      have := Nat.Coprime.eq_one_of_dvd hq hd
+      have hq3 : q = 3 := by
+        have h15 : q ∣ 3 * 5 := Nat.dvd_of_mod_eq_zero (by rw [h3, Nat.zero_mod])
+        have hd := Nat.Coprime.dvd_of_dvd_mul_right hq5 h15
+        have := Nat.le_of_dvd (by decide) hd
+        rcases (by omega : q = 2 ∨ q = 3) with h | h
+        · rw [h] at hd; exact absurd hd (by decide)
+        · exact h
+      have hP0 : 5 ^ (K + 1) % 5 = 0 := Nat.mod_eq_zero_of_dvd hP5
+      obtain ⟨h2, hh2⟩ : ∃ h2, 2 * h2 = 5 ^ (K + 1) + 1 := ⟨(5 ^ (K + 1) + 1) / 2, by
+        have hodd : 5 ^ (K + 1) % 2 = 1 := five_pow_odd (K + 1)
+        omega⟩
+      have hg : (5 + h2) % 5 ≠ 0 := by omega
+      obtain ⟨i, hi⟩ := two_generates_live (K := K) (c := 1) (d := (5 + h2) % 5 ^ (K + 1)) (by decide)
+        (by rw [Nat.mod_mod_of_dvd _ hP5]; exact hg) (Nat.mod_lt _ (Nat.pow_pos (by omega)))
+      rw [Nat.mul_one] at hi
+      have h3' : (5 * 2 + 1) % 5 ^ (K + 1) = (2 * (5 + h2)) % 5 ^ (K + 1) := by
+        rw [show 2 * (5 + h2) = 11 + 5 ^ (K + 1) by omega, Nat.add_mod_right]
+      have hqB := hB (5 + h2) 2 i 1 hg (by decide) h3' hi (by rw [Nat.pow_one])
+      rw [hq3] at hqB
+      have hi5 : 2 ^ i % 5 = 3 := by have := mod_of_dvd_mod hP5 hi; omega
+      have hi₀5 : 2 ^ i₀ % 5 = 3 := mod_of_dvd_mod hP5 hi₀
+      have e1 := two_pow_mod_three_of_mod_five hi5
+      have e2 := two_pow_mod_three_of_mod_five hi₀5
       omega
     · exact h0
-  have hP5 : 5 ∣ 5 ^ (K + 1) := five_dvd_pow K
   obtain ⟨α', rfl⟩ : ∃ α', α = α' + 1 := ⟨α - 1, by omega⟩
   have hZi2 : 5 ^ (α' + 2) ∣ 5 ^ (K + 1) := Nat.pow_dvd_pow 5 (by omega)
   have h3a : 5 ^ (α' + 1) = 5 * 5 ^ α' := by rw [Nat.pow_succ, Nat.mul_comm]
@@ -781,7 +780,6 @@ theorem period_contra (q K i₀ : Nat) [NeZero q] (hq1 : 1 < q) (hq : Nat.Coprim
   obtain ⟨i, hi⟩ := hlive g hg
   obtain ⟨m, hm⟩ := hlive a' ha
   have hqB := hB g a' i m hg ha h3 hi hm
-  -- order argument: 2 ^ i ≡ 2 ^ i₀ mod q
   have key : ∀ j1 j2 : Nat, j2 ≤ j1 → 2 ^ j1 % 5 ^ (α' + 2) = 2 ^ j2 % 5 ^ (α' + 2) →
       2 ^ j1 % q = 2 ^ j2 % q := by
     intro j1 j2 hle h12
@@ -810,7 +808,6 @@ theorem period_contra (q K i₀ : Nat) [NeZero q] (hq1 : 1 < q) (hq : Nat.Coprim
     rcases Nat.le_total i₀ i with hle | hle
     · exact key i i₀ hle (by rw [h1, h2'])
     · exact (key i₀ i hle (by rw [h2', h1])).symm
-  -- cancel: 5 * 2 ^ m ≡ 5 mod q, then 2 ^ m ≡ 1 mod q
   have h5 : (5 + 2 * 2 ^ i) % q = (5 + 2 * 2 ^ i₀) % q := by
     rw [Nat.add_mod 5 (2 * 2 ^ i) q, Nat.add_mod 5 (2 * 2 ^ i₀) q,
       Nat.mul_mod 2 (2 ^ i) q, Nat.mul_mod 2 (2 ^ i₀) q, h2iq]
@@ -819,11 +816,9 @@ theorem period_contra (q K i₀ : Nat) [NeZero q] (hq1 : 1 < q) (hq : Nat.Coprim
     have e2 : 2 * 2 ^ i₀ + 5 = 5 + 2 * 2 ^ i₀ := Nat.add_comm _ _
     rw [e1, e2, ← h5]; exact hqB
   have h5m : (5 * 2 ^ m) % q = 5 % q := mod_add_left_cancel hq'
-  have hq5 : Nat.Coprime q 5 := Nat.Coprime.coprime_dvd_right (by decide) hq
   have hm1 : 2 ^ m % q = 1 % q := by
     have h5m' : (5 * 2 ^ m) % q = (5 * 1) % q := by rw [Nat.mul_one]; exact h5m
     exact mod_cancel_mul_left hq5 (Nat.pow_pos (by decide)) h5m'
-  -- m is a 16-period divisible part
   have h1q : (1 : Nat) % q = 1 := Nat.mod_eq_of_lt (by omega)
   have h16m : 16 ^ m % q = 1 % q := by
     have e : 16 ^ m = (2 ^ m) ^ 4 := by
@@ -1094,8 +1089,8 @@ omit [NeZero M] in
 theorem dvd_val_mul {q : Nat} (hqM : q ∣ M) (c z : Fin M) (h : q ∣ z.val) : q ∣ (c * z).val := by
   rw [Fin.val_mul]; exact (Nat.dvd_mod_iff hqM).2 (Nat.dvd_mul_left_of_dvd h _)
 
-theorem translationPeriod_one [TwoFiveInvertible M] (hM : Nat.Coprime M 30) : IsTranslationPeriod M K w 1 := by
-  have hM10 : Nat.Coprime M 10 := Nat.Coprime.coprime_dvd_right (by decide : 10 ∣ 30) hM
+theorem translationPeriod_one [TwoFiveInvertible M] (hM : Nat.Coprime M 10) : IsTranslationPeriod M K w 1 := by
+  have hM10 : Nat.Coprime M 10 := hM
   obtain ⟨q, ⟨hq0, hqP⟩, hmin⟩ := exists_least (fun n => 0 < n ∧ IsTranslationPeriod M K w n)
     ⟨M, Nat.pos_of_ne_zero (NeZero.ne M), translationPeriod_of_eq M K w (residue_self M)⟩
   have hiff : ∀ d, IsTranslationPeriod M K w d → q ∣ d := by
@@ -1112,7 +1107,7 @@ theorem translationPeriod_one [TwoFiveInvertible M] (hM : Nat.Coprime M 30) : Is
   rcases Nat.lt_or_ge 1 q with hq1 | hq1
   · exfalso
     haveI : NeZero q := ⟨by omega⟩
-    have hq : Nat.Coprime q 30 := Nat.Coprime.coprime_dvd_left hqM hM
+    have hq : Nat.Coprime q 5 := Nat.Coprime.coprime_dvd_right (by decide) (Nat.Coprime.coprime_dvd_left hqM hM)
     have hv := five_mul_unitInv M
     have hP5 : 5 ∣ 5 ^ (K + 1) := five_dvd_pow K
     obtain ⟨i₀, hi₀⟩ := two_generates_live (K := K) (c := 1) (d := 3 % 5 ^ (K + 1)) (by decide)
@@ -1163,10 +1158,9 @@ theorem translationPeriod_one [TwoFiveInvertible M] (hM : Nat.Coprime M 30) : Is
     exact period_contra q K i₀ hq1 hq hi₀ hA hB
   · have : q = 1 := by omega
     subst this
-    have := hiff
     exact translationPeriod_mul M K w hqP 1 |> fun h => by simpa using h
 
-theorem fibre_one_full [TwoFiveInvertible M] (hM : Nat.Coprime M 30) (hw : w % 5 ≠ 0) (t : Fin M) : Fibre M K w 1 t := by
+theorem fibre_one_full [TwoFiveInvertible M] (hM : Nat.Coprime M 10) (hw : w % 5 ≠ 0) (t : Fin M) : Fibre M K w 1 t := by
   have hw0 : Fibre M K w w (residue M w) :=
     ⟨w, Closure.base 0 w (by unfold SameMod; rw [Nat.pow_zero, Nat.one_mul]), rfl, rfl⟩
   have hc : 1 ≤ cardinality (Fibre M K w 1) := by
@@ -1180,17 +1174,17 @@ theorem fibre_one_full [TwoFiveInvertible M] (hM : Nat.Coprime M 30) (hw : w % 5
   have e : t0 + (t - t0) = t := by grind
   rw [e] at this; exact this
 
-theorem fibre_full_live [TwoFiveInvertible M] (hM : Nat.Coprime M 30) (hw : w % 5 ≠ 0) {a : Nat} (ha : a % 5 ≠ 0)
+theorem fibre_full_live [TwoFiveInvertible M] (hM : Nat.Coprime M 10) (hw : w % 5 ≠ 0) {a : Nat} (ha : a % 5 ≠ 0)
     (t : Fin M) : Fibre M K w a t := by
   obtain ⟨m, hm⟩ := two_generates_live (K := K) (c := 1) (d := a % 5 ^ (K + 1)) (by decide)
     (by rw [Nat.mod_mod_of_dvd a (five_dvd_pow K)]; exact ha) (Nat.mod_lt _ (Nat.pow_pos (by omega)))
   rw [Nat.mul_one] at hm
-  have hM10 : Nat.Coprime M 10 := Nat.Coprime.coprime_dvd_right (by decide : 10 ∣ 30) hM
+  have hM10 : Nat.Coprime M 10 := hM
   have hu := mul_unitInv M (twoPow_invertible M hM10 m)
   exact (fibre_live M K w (m := m) hm t).2
     ⟨unitInv M (residue M (2 ^ m)) * t, fibre_one_full M K w hM hw _, by grind⟩
 
-theorem fibre_full [TwoFiveInvertible M] (hM : Nat.Coprime M 30) (hw : w % 5 ≠ 0) (a : Nat) (t : Fin M) :
+theorem fibre_full [TwoFiveInvertible M] (hM : Nat.Coprime M 10) (hw : w % 5 ≠ 0) (a : Nat) (t : Fin M) :
     Fibre M K w a t := by
   by_cases ha : a % 5 ≠ 0
   · exact fibre_full_live M K w hM hw ha t
@@ -1220,8 +1214,8 @@ theorem fibre_full [TwoFiveInvertible M] (hM : Nat.Coprime M 30) (hw : w % 5 ≠
       Nat.mul_mod, ← hyg, ← Nat.mul_mod]
   · rw [← residue_eq_iff, residue_add, residue_mul, residue_mul, residue_five, residue_one, residue_two, hxt, hyt]; grind
 
-theorem closure_all (hM : Nat.Coprime M 30) (hw : w % 5 ≠ 0) (x : Nat) : Closure (5 ^ (K + 1) * M) w x := by
-  have hM10 : Nat.Coprime M 10 := Nat.Coprime.coprime_dvd_right (by decide : 10 ∣ 30) hM
+theorem closure_all (hM : Nat.Coprime M 10) (hw : w % 5 ≠ 0) (x : Nat) : Closure (5 ^ (K + 1) * M) w x := by
+  have hM10 : Nat.Coprime M 10 := hM
   haveI : TwoFiveInvertible M := twoFiveInvertible_of_coprime10 hM10
   obtain ⟨x', hx', h1, h2⟩ := fibre_full M K w hM hw x (residue M x)
   apply Closure.cong hx'
@@ -1232,7 +1226,7 @@ theorem closure_all (hM : Nat.Coprime M 30) (hw : w % 5 ≠ 0) (x : Nat) : Closu
 
 end Fibres
 
-theorem exponent_class (M K j w Z k' D' B : Nat) (hM : Nat.Coprime M 30) (hw : w % 5 ≠ 0)
+theorem exponent_class (M K j w Z k' D' B : Nat) (hM : Nat.Coprime M 10) (hw : w % 5 ≠ 0)
     (hD3 : D' % 5 ≠ 0) (hD : 2 ^ (5 ^ K * D') % M = 1 % M)
     (hZ : Z % (5 ^ (K + 1) * M) = (2 ^ k' * w) % (5 ^ (K + 1) * M)) :
     ∃ k, B ≤ k ∧
@@ -1430,23 +1424,6 @@ theorem coprime10_of_not_dvd (N : Nat) (h2 : N % 2 ≠ 0) (h5 : N % 5 ≠ 0) : N
   have hcases : g = 1 ∨ g = 2 ∨ g = 3 ∨ g = 4 ∨ g = 5 ∨ g = 6 ∨ g = 7 ∨ g = 8 ∨ g = 9 ∨ g = 10 := by omega
   rcases hcases with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> omega
 
-theorem coprime30_of_not_dvd (N : Nat) (h2 : N % 2 ≠ 0) (h3 : N % 3 ≠ 0) (h5 : N % 5 ≠ 0) :
-    Nat.Coprime N 30 := by
-  unfold Nat.Coprime
-  obtain ⟨g, hg⟩ : ∃ g, g = Nat.gcd N 30 := ⟨_, rfl⟩
-  have h1 : g ∣ N := hg ▸ Nat.gcd_dvd_left N 30
-  have h6 : g ∣ 30 := hg ▸ Nat.gcd_dvd_right N 30
-  have hle : g ≤ 30 := Nat.le_of_dvd (by decide) h6
-  rw [← hg]
-  have hpos : 0 < g := Nat.pos_of_dvd_of_pos h6 (by decide)
-  have hcases : g = 1 ∨ g = 2 ∨ g = 3 ∨ g = 4 ∨ g = 5 ∨ g = 6 ∨ g = 7 ∨ g = 8 ∨ g = 9 ∨ g = 10
-      ∨ g = 11 ∨ g = 12 ∨ g = 13 ∨ g = 14 ∨ g = 15 ∨ g = 16 ∨ g = 17 ∨ g = 18 ∨ g = 19 ∨ g = 20
-      ∨ g = 21 ∨ g = 22 ∨ g = 23 ∨ g = 24 ∨ g = 25 ∨ g = 26 ∨ g = 27 ∨ g = 28 ∨ g = 29
-      ∨ g = 30 := by omega
-  rcases hcases with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
-    | rfl | rfl | rfl <;> omega
-
 theorem split_two_five (N : Nat) (hN : 1 ≤ N) :
     ∃ a b M, N = 2 ^ a * 5 ^ b * M ∧ Nat.Coprime M 10 := by
   induction N using Nat.strongRecOn with
@@ -1638,7 +1615,7 @@ theorem hasWord_all_short [NeZero Q] (hQ2 : Q % 2 = 1) (hall : ∀ x, ∃ n, Has
 
 end Short
 
-theorem closure_word_short (M K w : Nat) [NeZero M] (hM : Nat.Coprime M 30) (hw : w % 5 ≠ 0) (x : Nat) :
+theorem closure_word_short (M K w : Nat) [NeZero M] (hM : Nat.Coprime M 10) (hw : w % 5 ≠ 0) (x : Nat) :
     ∃ (u : List Nat) (k : Nat), (∀ e ∈ u, e ≤ 1) ∧ u.length ≤ 5 ^ (K + 1) * M ∧
       (5 ^ oneCount u * x + offset u) % (5 ^ (K + 1) * M) = (2 ^ (u.length + k) * w) % (5 ^ (K + 1) * M) := by
   haveI : NeZero (5 ^ (K + 1) * M) :=
@@ -1683,7 +1660,7 @@ theorem offset_le : ∀ u : List Nat, (∀ e ∈ u, e ≤ 1) → offset u ≤ 10
 theorem mod_mul_right_cong {Q a b : Nat} (c : Nat) (h : a % Q = b % Q) : (a * c) % Q = (b * c) % Q := by
   rw [Nat.mul_mod, h, ← Nat.mul_mod]
 
-theorem pow2_period_lift (M K D' : Nat) (hM : Nat.Coprime M 30)
+theorem pow2_period_lift (M K D' : Nat) (hM : Nat.Coprime M 10)
     (hD : 2 ^ (5 ^ K * D') % M = 1 % M) :
     2 ^ (4 * 5 ^ K * D') % (5 ^ (K + 1) * M) = 1 % (5 ^ (K + 1) * M) := by
   have hM3 : Nat.Coprime 5 M := Nat.Coprime.symm (Nat.Coprime.coprime_dvd_right (by decide) hM)
@@ -1765,7 +1742,7 @@ theorem bound_arith (X K jv len d' κ C B : Nat) (hX3 : 3 ≤ X) (hK : 5 ^ K ≤
     omega
   exact pow2bound_le hmain (by omega)
 
-theorem hit_residue (M b' e B w X : Nat) (hM : Nat.Coprime M 30) (hw : w % 5 ≠ 0)
+theorem hit_residue (M b' e B w X : Nat) (hM : Nat.Coprime M 10) (hw : w % 5 ≠ 0)
     (hX : 5 * (5 ^ b' * M * M) ≤ X) (hBX : B ≤ X) :
     ∃ m, B < m ∧ m % (5 ^ b' * M) = e % (5 ^ b' * M) ∧ Reaches w m ∧ m ≤ w * 2 ^ (2 ^ (20 * X)) := by
   have hM0 : 0 < M := by
@@ -1885,7 +1862,7 @@ theorem hit_residue (M b' e B w X : Nat) (hM : Nat.Coprime M 30) (hw : w % 5 ≠
       _ ≤ 2 ^ (2 ^ (20 * X)) * w := Nat.mul_le_mul_right w h3
       _ = w * 2 ^ (2 ^ (20 * X)) := Nat.mul_comm _ _
 
-theorem remainder_bounded (N : Nat) (hN : 1 ≤ N) (hN3 : N % 3 ≠ 0) (w : Nat) (hw5 : w % 5 ≠ 0)
+theorem remainder_bounded (N : Nat) (hN : 1 ≤ N) (w : Nat) (hw5 : w % 5 ≠ 0)
     (r B : Nat) :
     ∃ n : Nat, B < n ∧ Reaches w n ∧ n % N = r % N ∧
       n ≤ w * 2 ^ (2 ^ (21 * (5 * N ^ 5 * (B + 1)))) := by
@@ -1911,14 +1888,7 @@ theorem remainder_bounded (N : Nat) (hN : 1 ≤ N) (hN3 : N % 3 ≠ 0) (w : Nat)
     have hc5 : Nat.Coprime 5 10 := Nat.Coprime.coprime_dvd_left hd5 h6
     have := Nat.Coprime.eq_one_of_dvd hc5 (by decide : 5 ∣ 10)
     omega
-  have hM3m : M % 3 ≠ 0 := by
-    intro h0
-    have hMb : (5 ^ b * M) % 3 = 0 := by
-      rw [Nat.mul_mod, h0, Nat.mul_zero, Nat.zero_mod]
-    have hzero : N % 3 = 0 := by
-      rw [hNe, Nat.mul_mod, hMb, Nat.mul_zero, Nat.zero_mod]
-    omega
-  have hM30 : Nat.Coprime M 30 := coprime30_of_not_dvd M hM2 hM3m hM5
+  have hM10' : Nat.Coprime M 10 := coprime10_of_not_dvd M hM2 hM5
   have h2aN : 2 ^ α ≤ N := by
     rw [hNe]; exact Nat.le_mul_of_pos_right _ h3bM
   have h3bMN : 5 ^ b * M ≤ N := by
@@ -1963,7 +1933,7 @@ theorem remainder_bounded (N : Nat) (hN : 1 ≤ N) (hN3 : N % 3 ≠ 0) (w : Nat)
     have h3 : 5 * N ^ 5 * (B + 1) = 5 * (N ^ 5 * B) + 5 * N ^ 5 := by grind
     omega
   obtain ⟨m, hmB, hmc, hmw, hmbd⟩ :=
-    hit_residue M (oneCount p + b) e (e + 5 ^ oneCount p * B) w (5 * N ^ 5 * (B + 1)) hM30 hw5 hX hBX
+    hit_residue M (oneCount p + b) e (e + 5 ^ oneCount p * B) w (5 * N ^ 5 * (B + 1)) hM10' hw5 hX hBX
   have hj0 : 0 < 5 ^ oneCount p := Nat.pow_pos (by omega)
   have h0 := Nat.sub_mod_eq_zero_of_mod_eq hmc
   obtain ⟨s, hs⟩ := Nat.dvd_of_mod_eq_zero h0
@@ -2023,37 +1993,19 @@ theorem remainder_bounded (N : Nat) (hN : 1 ≤ N) (hN3 : N % 3 ≠ 0) (w : Nat)
       _ ≤ w * 2 ^ (2 ^ (21 * (5 * N ^ 5 * (B + 1)))) :=
           Nat.mul_le_mul_left w (Nat.pow_le_pow_right (by omega) hexp)
 
-theorem effective_remainder_everywhere (N : Nat) (hN : 1 ≤ N) (hN3 : N % 3 ≠ 0) (w : Nat)
+theorem effective_remainder_everywhere (N : Nat) (hN : 1 ≤ N) (w : Nat)
     (hw5 : w % 5 ≠ 0) (r : Nat) :
     ∃ n : Nat, Reaches w n ∧ n % N = r % N ∧ n ≤ w * 2 ^ (2 ^ (105 * N ^ 5)) := by
-  obtain ⟨n, -, h1, h2, h3⟩ := remainder_bounded N hN hN3 w hw5 r 0
+  obtain ⟨n, -, h1, h2, h3⟩ := remainder_bounded N hN w hw5 r 0
   have e : 21 * (5 * N ^ 5 * (0 + 1)) = 105 * N ^ 5 := by
     rw [Nat.add_zero, Nat.mul_one, ← Nat.mul_assoc]
   rw [e] at h3
   exact ⟨n, h1, h2, h3⟩
 
-theorem remainder_infinitely_often (N : Nat) (hN : 1 ≤ N) (hN3 : N % 3 ≠ 0) (w : Nat)
-    (hw5 : w % 5 ≠ 0)
-    (r L : Nat) :
-    ∃ n : Nat, L < n ∧ Reaches w n ∧ n % N = r % N := by
-  have hN' : 1 ≤ N * (3 * L + 4) := Nat.mul_pos hN (by omega)
-  have hL4 : (3 * L + 4) % 3 = 1 := by omega
-  have hN'3 : N * (3 * L + 4) % 3 ≠ 0 := by
-    rw [Nat.mul_mod, hL4, Nat.mul_one, Nat.mod_mod]
-    exact hN3
-  obtain ⟨n, hR, hmod, -⟩ :=
-    effective_remainder_everywhere (N * (3 * L + 4)) hN' hN'3 w hw5 (r % N + N * (L + 1))
-  have hrN : r % N < N := Nat.mod_lt r (by omega)
-  have e : N * (3 * L + 4) = N * (L + 1) + N * (2 * L + 3) := by grind
-  have hL1 : L + 1 ≤ N * (L + 1) := Nat.le_mul_of_pos_left (L + 1) (by omega)
-  have hNL : N ≤ N * (2 * L + 3) := Nat.le_mul_of_pos_right N (by omega)
-  have hlt : r % N + N * (L + 1) < N * (3 * L + 4) := by
-    rw [e]; generalize N * (L + 1) = A at *; omega
-  rw [Nat.mod_eq_of_lt hlt] at hmod
-  refine ⟨n, ?_, hR, ?_⟩
-  · have := Nat.mod_le n (N * (3 * L + 4))
-    generalize N * (L + 1) = A at *; omega
-  · rw [← Nat.mod_mul_right_mod n N (3 * L + 4), hmod, Nat.add_mul_mod_self_left, Nat.mod_mod]
+theorem remainder_infinitely_often (N : Nat) (hN : 1 ≤ N) (w : Nat) (hw5 : w % 5 ≠ 0)
+    (r L : Nat) : ∃ n : Nat, L < n ∧ Reaches w n ∧ n % N = r % N := by
+  obtain ⟨n, h0, h1, h2, -⟩ := remainder_bounded N hN w hw5 r L
+  exact ⟨n, h0, h1, h2⟩
 
 end ERE5
 #print axioms ERE5.effective_remainder_everywhere
