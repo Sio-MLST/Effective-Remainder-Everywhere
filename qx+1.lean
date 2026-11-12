@@ -1,5 +1,100 @@
+macro "nat_ring" : tactic => `(tactic| first
+  | omega
+  | (simp only [Nat.mul_add, Nat.add_mul, Nat.mul_one, Nat.one_mul, Nat.mul_zero, Nat.zero_mul, Nat.add_zero, Nat.zero_add, Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] <;> omega)
+  | (simp only [Nat.mul_add, Nat.add_mul, Nat.mul_one, Nat.one_mul, Nat.mul_zero, Nat.zero_mul, Nat.add_zero, Nat.zero_add, Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] at * <;> omega))
+
+macro "int_ring" : tactic => `(tactic| first
+  | omega
+  | (simp only [Int.mul_add, Int.add_mul, Int.mul_sub, Int.sub_mul, Int.mul_one, Int.one_mul, Int.mul_zero, Int.zero_mul, Int.add_zero, Int.zero_add, Int.mul_comm, Int.mul_left_comm, Int.mul_assoc, Int.add_assoc, Int.add_comm, Int.add_left_comm, Int.neg_mul, Int.mul_neg, Int.sub_eq_add_neg] <;> omega)
+  | (simp only [Int.mul_add, Int.add_mul, Int.mul_sub, Int.sub_mul, Int.mul_one, Int.one_mul, Int.mul_zero, Int.zero_mul, Int.add_zero, Int.zero_add, Int.mul_comm, Int.mul_left_comm, Int.mul_assoc, Int.add_assoc, Int.add_comm, Int.add_left_comm, Int.neg_mul, Int.mul_neg, Int.sub_eq_add_neg] at * <;> omega))
 
 namespace Collatz
+
+theorem nat_beq_iff {x y : Nat} : (x == y) = true ↔ x = y :=
+  ⟨Nat.eq_of_beq_eq_true, fun h => h ▸ Nat.beq_refl x⟩
+
+theorem my_nodup_range : ∀ n, (List.range n).Nodup
+  | 0 => List.nodup_nil
+  | n + 1 => by
+    rw [List.range_succ, List.nodup_append]
+    refine ⟨my_nodup_range n, List.nodup_cons.2 ⟨List.not_mem_nil, List.nodup_nil⟩, ?_⟩
+    intro a ha b hb hab
+    rw [List.mem_singleton] at hb
+    subst hb; subst hab
+    exact Nat.lt_irrefl _ (List.mem_range.mp ha)
+
+theorem my_mem_erase {α : Type} [DecidableEq α] : ∀ (l : List α) (a x : α), x ≠ a → (x ∈ l.erase a ↔ x ∈ l)
+  | [], _, _, _ => Iff.rfl
+  | b :: l, a, x, hx => by
+    rw [List.erase_cons]
+    split
+    · rename_i h
+      have hba : b = a := eq_of_beq h
+      subst hba
+      exact ⟨fun h' => List.mem_cons_of_mem _ h', fun h' => by
+        rcases List.mem_cons.1 h' with h1 | h1
+        · exact absurd h1 hx
+        · exact h1⟩
+    · constructor
+      · intro h'
+        rcases List.mem_cons.1 h' with h1 | h1
+        · exact List.mem_cons.2 (Or.inl h1)
+        · exact List.mem_cons.2 (Or.inr ((my_mem_erase l a x hx).1 h1))
+      · intro h'
+        rcases List.mem_cons.1 h' with h1 | h1
+        · exact List.mem_cons.2 (Or.inl h1)
+        · exact List.mem_cons.2 (Or.inr ((my_mem_erase l a x hx).2 h1))
+
+theorem my_length_erase {α : Type} [DecidableEq α] : ∀ (l : List α) (a : α), a ∈ l → (l.erase a).length + 1 = l.length
+  | [], _, h => absurd h List.not_mem_nil
+  | b :: l, a, h => by
+    rw [List.erase_cons]
+    split
+    · rename_i hb
+      have hba : b = a := eq_of_beq hb
+      subst hba
+      rfl
+    · rename_i hb
+      have hab : a ≠ b := fun e => hb (beq_iff_eq.2 e.symm)
+      have hal : a ∈ l := by
+        rcases List.mem_cons.1 h with h1 | h1
+        · exact absurd h1 hab
+        · exact h1
+      rw [List.length_cons, List.length_cons]
+      exact congrArg Nat.succ (my_length_erase l a hal)
+
+theorem my_len_le {α : Type} [DecidableEq α] : ∀ (l1 l2 : List α), l1.Nodup → (∀ x ∈ l1, x ∈ l2) → l1.length ≤ l2.length
+  | [], _, _, _ => Nat.zero_le _
+  | a :: t, l2, hnd, hs => by
+    obtain ⟨hat, htnd⟩ := List.nodup_cons.1 hnd
+    have ha : a ∈ l2 := hs a (List.mem_cons.2 (Or.inl rfl))
+    have hsub : ∀ x ∈ t, x ∈ l2.erase a := fun x hx =>
+      (my_mem_erase l2 a x (fun h => hat (by rw [← h]; exact hx))).2 (hs x (List.mem_cons.2 (Or.inr hx)))
+    have key := my_len_le t (l2.erase a) htnd hsub
+    rw [List.length_cons, ← my_length_erase l2 a ha]
+    exact Nat.add_le_add_right key 1
+
+theorem my_countP_eq_zero {α : Type} : ∀ (l : List α) (p : α → Bool), l.countP p = 0 ↔ ∀ x ∈ l, p x = false
+  | [], _ => ⟨fun _ _ h => absurd h List.not_mem_nil, fun _ => rfl⟩
+  | a :: l, p => by
+    cases hp : p a
+    · rw [List.countP_cons_of_neg (by rw [hp]; exact Bool.false_ne_true)]
+      constructor
+      · intro h x hx
+        rcases List.mem_cons.1 hx with rfl | hx
+        · exact hp
+        · exact (my_countP_eq_zero l p).1 h x hx
+      · intro h
+        exact (my_countP_eq_zero l p).2 (fun x hx => h x (List.mem_cons.2 (Or.inr hx)))
+    · rw [List.countP_cons_of_pos (by rw [hp])]
+      constructor
+      · intro h
+        exact absurd h (Nat.succ_ne_zero _)
+      · intro h
+        exact absurd (h a (List.mem_cons.2 (Or.inl rfl))) (by rw [hp]; exact Bool.noConfusion)
+
+theorem my_len_le' {α : Type} [DecidableEq α] {l1 l2 : List α} (h1 : l1.Nodup) (hs : l1 ⊆ l2) : l1.length ≤ l2.length :=
+  my_len_le l1 l2 h1 (fun _x hx => hs hx)
 
 def triangle : Nat → Nat
   | 0 => 0
@@ -12,29 +107,45 @@ theorem triangle_two (n : Nat) : 2 * triangle n = n * (n - 1) := by
     show 2 * (triangle n + n) = (n + 1) * n
     rw [Nat.mul_add, ih]; cases n with
     | zero => rfl
-    | succ n => simp; grind
+    | succ n => simp [Nat.mul_add, Nat.add_mul, Nat.mul_comm]; omega
 
 theorem binom_cubic (a : Nat) : ∀ n, ∃ z, (1 + a) ^ n = 1 + n * a + triangle n * a ^ 2 + a ^ 3 * z
   | 0 => ⟨0, by simp [triangle]⟩
   | n + 1 => by
     obtain ⟨z, hz⟩ := binom_cubic a n
     refine ⟨triangle n + z + z * a, ?_⟩
-    rw [Nat.pow_succ, hz]; show _ = 1 + (n + 1) * a + (triangle n + n) * a ^ 2 + a ^ 3 * (triangle n + z + z * a)
-    grind
+    rw [Nat.pow_succ, hz]
+    show (1 + n * a + triangle n * a ^ 2 + a ^ 3 * z) * (1 + a) = 1 + (n + 1) * a + triangle (n + 1) * a ^ 2 + a ^ 3 * (triangle n + z + z * a)
+    simp [Nat.mul_add, Nat.pow_succ, Nat.mul_comm, Nat.mul_left_comm, triangle]
+    omega
 
 theorem binom_quadratic (a : Nat) : ∀ n, ∃ z, (1 + a) ^ n = 1 + n * a + a ^ 2 * z := by
   intro n; obtain ⟨z, hz⟩ := binom_cubic a n
-  exact ⟨triangle n + a * z, by rw [hz]; grind⟩
+  exact ⟨triangle n + a * z, by
+    rw [hz]
+    have h : a ^ 3 * z = a ^ 2 * (a * z) := by
+      rw [Nat.pow_succ]
+      rw [← Nat.mul_assoc]
+    calc 1 + n * a + triangle n * a ^ 2 + a ^ 3 * z
+        = 1 + n * a + triangle n * a ^ 2 + a ^ 2 * (a * z) := by rw [h]
+      _ = 1 + n * a + a ^ 2 * triangle n + a ^ 2 * (a * z) := by rw [Nat.mul_comm (triangle n) (a ^ 2)]
+      _ = 1 + n * a + (a ^ 2 * triangle n + a ^ 2 * (a * z)) := by rw [← Nat.add_assoc]
+      _ = 1 + n * a + a ^ 2 * (triangle n + a * z) := by rw [← Nat.mul_add]
+  ⟩
 
 theorem lift_step {q j u : Nat} (hp : q % 2 = 1) (hj : 1 ≤ j) (hu : Nat.Coprime q u) :
     ∃ w, Nat.Coprime q w ∧ (1 + q ^ j * u) ^ q = 1 + q ^ (j + 1) * w := by
   obtain ⟨z, hz⟩ := binom_cubic (q ^ j * u) q
   obtain ⟨h, hh⟩ : ∃ h, triangle q = q * h := by
     refine ⟨(q - 1) / 2, ?_⟩
-    have := triangle_two q
-    have : (q - 1) % 2 = 0 := by omega
+    have htwo := triangle_two q
+    have hmod : (q - 1) % 2 = 0 := by omega
     have e : q - 1 = 2 * ((q - 1) / 2) := by omega
-    rw [e] at *; grind
+    rw [e] at htwo
+    rw [← Nat.mul_assoc] at htwo
+    rw [Nat.mul_comm q 2] at htwo
+    rw [Nat.mul_assoc] at htwo
+    exact Nat.mul_left_cancel (by omega : 0 < 2) htwo
   obtain ⟨k, rfl⟩ : ∃ k, j = k + 1 := ⟨j - 1, by omega⟩
   let w := u + q * (h * q ^ k * u ^ 2 + q ^ (2 * k) * u ^ 3 * z)
   refine ⟨w, ?_, ?_⟩
@@ -42,61 +153,16 @@ theorem lift_step {q j u : Nat} (hp : q % 2 = 1) (hj : 1 ≤ j) (hu : Nat.Coprim
     rw [Nat.Coprime, Nat.gcd_add_mul_left_right]; exact hu
   · rw [hz, hh]
     show _ = 1 + q ^ (k + 1 + 1) * (u + q * (h * q ^ k * u ^ 2 + q ^ (2 * k) * u ^ 3 * z))
-    have e1 : q ^ (k + 1 + 1) = q * q * q ^ k := by rw [Nat.pow_succ, Nat.pow_succ]; grind
-    have e2 : q ^ (k + 1) = q * q ^ k := by rw [Nat.pow_succ]; grind
+    have e1 : q ^ (k + 1 + 1) = q * q * q ^ k := by
+      rw [Nat.pow_succ]
+      rw [Nat.pow_succ]
+      rw [Nat.mul_assoc]
+      rw [Nat.mul_comm (q ^ k)]
+    have e2 : q ^ (k + 1) = q * q ^ k := by
+      rw [Nat.pow_succ]
+      rw [Nat.mul_comm]
     have e3 : q ^ (2 * k) = q ^ k * q ^ k := by rw [Nat.two_mul, Nat.pow_add]
-    rw [e1, e2, e3]; generalize q ^ k = A; grind
-
-theorem lift_exponent {q u : Nat} (hp : q % 2 = 1) (hu : Nat.Coprime q u) :
-    ∀ n, ∃ w, Nat.Coprime q w ∧ (1 + q * u) ^ (q ^ n) = 1 + q ^ (n + 1) * w
-  | 0 => ⟨u, hu, by simp⟩
-  | n + 1 => by
-    obtain ⟨w, hw, hx⟩ := lift_exponent hp hu n
-    obtain ⟨w', hw', hx'⟩ := lift_step (j := n + 1) hp (by omega) hw
-    exact ⟨w', hw', by rw [Nat.pow_succ, Nat.pow_mul, hx, hx']⟩
-
-theorem order_iff {q u : Nat} (hp : q % 2 = 1) (hp3 : 3 ≤ q) (hu : Nat.Coprime q u) :
-    ∀ K m, (1 + q * u) ^ m % q ^ (K + 1) = 1 ↔ q ^ K ∣ m := by
-  have hP : ∀ K, 1 < q ^ (K + 1) := fun K =>
-    Nat.lt_of_lt_of_le (by omega) (Nat.le_self_pow (by omega) q)
-  intro K
-  induction K with
-  | zero =>
-    intro m
-    obtain ⟨z, hz⟩ := binom_quadratic (q * u) m
-    simp only [Nat.pow_zero, Nat.one_dvd, iff_true, Nat.zero_add, Nat.pow_one]
-    rw [hz, show 1 + m * (q * u) + (q * u) ^ 2 * z = 1 + q * (m * u + q * u ^ 2 * z) by grind,
-      Nat.add_mul_mod_self_left]; exact Nat.mod_eq_of_lt (by omega)
-  | succ K ih =>
-    intro m
-    constructor
-    · intro h
-      have h1 : (1 + q * u) ^ m % q ^ (K + 1) = 1 := by
-        rw [← Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow q (by omega : K + 1 ≤ K + 1 + 1)), h]
-        exact Nat.mod_eq_of_lt (hP K)
-      obtain ⟨k, rfl⟩ := (ih m).1 h1
-      by_cases hpk : q ∣ k
-      · obtain ⟨k', rfl⟩ := hpk; exact ⟨k', by rw [Nat.pow_succ]; grind⟩
-      · exfalso
-        obtain ⟨w, hw, hx⟩ := lift_exponent hp hu K
-        obtain ⟨z, hz⟩ := binom_quadratic (q ^ (K + 1) * w) k
-        rw [Nat.pow_mul, hx, hz,
-          show 1 + k * (q ^ (K + 1) * w) + (q ^ (K + 1) * w) ^ 2 * z
-            = 1 + q ^ (K + 1) * (k * w + q ^ (K + 1) * (w ^ 2 * z)) by grind,
-          show q ^ (K + 1 + 1) = q ^ (K + 1) * q by rw [Nat.pow_succ]] at h
-        have hd : q ^ (K + 1) * q ∣ q ^ (K + 1) * (k * w + q ^ (K + 1) * (w ^ 2 * z)) := by
-          have h2 := Nat.sub_mod_eq_zero_of_mod_eq
-            (h.trans (Nat.mod_eq_of_lt (by have := hP (K + 1); rwa [Nat.pow_succ] at this)).symm)
-          simpa using Nat.dvd_of_mod_eq_zero h2
-        have hd2 := Nat.dvd_of_mul_dvd_mul_left (Nat.pow_pos (by omega)) hd
-        have hd3 : q ∣ q ^ (K + 1) * (w ^ 2 * z) :=
-          Nat.dvd_trans ⟨q ^ K, by rw [Nat.pow_succ, Nat.mul_comm]⟩ (Nat.dvd_mul_right _ _)
-        have hkw : q ∣ k * w := (Nat.dvd_add_left hd3).1 hd2
-        exact hpk (Nat.Coprime.dvd_of_dvd_mul_right hw hkw)
-    · rintro ⟨k, rfl⟩
-      obtain ⟨w, hw, hx⟩ := lift_exponent hp hu (K + 1)
-      rw [Nat.pow_mul, hx, Nat.pow_mod, Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt (hP _),
-        Nat.one_pow, Nat.mod_eq_of_lt (hP _)]
+    rw [e1, e2, e3]; generalize q ^ k = A; simp only [Nat.mul_add, Nat.mul_comm, Nat.mul_left_comm, Nat.pow_succ, Nat.pow_zero, Nat.mul_one]; omega
 
 theorem coprime_two_of_odd {q : Nat} (hp : q % 2 = 1) : Nat.Coprime q 2 := by
   unfold Nat.Coprime; rw [Nat.gcd_comm, Nat.gcd_rec, hp]; rfl
@@ -115,40 +181,120 @@ theorem mod_cancel_mul_left {m a x y : Nat} (hcop : Nat.Coprime m a) (hxy : y �
 theorem coprime_of_mod_one {q x : Nat} (h : x % q = 1) : Nat.Coprime q x := by
   unfold Nat.Coprime; rw [Nat.gcd_rec, h, Nat.gcd_one_left]
 
-theorem pow_mod_one {q x : Nat} (hp : 2 ≤ q) (h : x % q = 1) (t : Nat) : x ^ t % q = 1 := by
-  rw [Nat.pow_mod, h, Nat.one_pow]; exact Nat.mod_eq_of_lt (by omega)
+theorem pow_mod_one (n a k : Nat) (h : a % n = 1 % n) : a ^ k % n = 1 % n := by
+  rw [Nat.pow_mod, h, ← Nat.pow_mod, Nat.one_pow]
 
-theorem unit_power_cover {q u : Nat} (hp : q % 2 = 1) (hp3 : 3 ≤ q) (hu : Nat.Coprime q u)
-    (K x : Nat) (hx : x % q = 1) : ∃ t, t < q ^ K ∧ (1 + q * u) ^ t % q ^ (K + 1) = x % q ^ (K + 1) := by
-  apply Classical.byContradiction
-  intro hno
-  have hP : 0 < q ^ (K + 1) := Nat.pow_pos (by omega)
-  have hpK : 0 < q ^ K := Nat.pow_pos (by omega)
-  have hPe : q ^ (K + 1) = q * q ^ K := by rw [Nat.pow_succ, Nat.mul_comm]
-  have hdv : q ∣ q ^ (K + 1) := ⟨q ^ K, hPe⟩
-  have hc1 : (1 + q * u) % q = 1 := by rw [Nat.add_mul_mod_self_left]; exact Nat.mod_eq_of_lt (by omega)
-  have hcop : Nat.Coprime (q ^ (K + 1)) (1 + q * u) := Nat.Coprime.pow_left _ (coprime_of_mod_one hc1)
-  let U : List Nat := (List.range (q ^ (K + 1))).filter (fun y => decide (y % q = 1))
-  let L1 : List Nat := (List.range (q ^ K)).map (fun t => (1 + q * u) ^ t % q ^ (K + 1))
-  have hUnodup : U.Nodup := List.Pairwise.filter _ List.nodup_range
-  have key : ∀ a b, a ≤ b → b < q ^ K →
-      (1 + q * u) ^ a % q ^ (K + 1) = (1 + q * u) ^ b % q ^ (K + 1) → a = b := by
+def natMemDec (a : Nat) : (L : List Nat) → Decidable (a ∈ L)
+  | [] => isFalse (List.not_mem_nil)
+  | b :: L =>
+    match Nat.decEq a b with
+    | isTrue h => isTrue (h ▸ List.mem_cons_self)
+    | isFalse h =>
+      match natMemDec a L with
+      | isTrue hL => isTrue (List.mem_cons_of_mem b hL)
+      | isFalse hL => isFalse (fun hm => by
+          rcases List.mem_cons.1 hm with h' | h'
+          · exact h h'
+          · exact hL h')
+
+instance (priority := high) natMemDecInst (a : Nat) (L : List Nat) : Decidable (a ∈ L) := natMemDec a L
+theorem lift_exponent {q j u : Nat} (hp : q % 2 = 1) (hj : 1 ≤ j) (hu : Nat.Coprime q u) :
+    ∀ n, ∃ w, Nat.Coprime q w ∧ (1 + q ^ j * u) ^ (q ^ n) = 1 + q ^ (j + n) * w
+  | 0 => ⟨u, hu, by simp⟩
+  | n + 1 => by
+    obtain ⟨w, hw, hx⟩ := lift_exponent hp hj hu n
+    obtain ⟨w', hw', hx'⟩ := lift_step (j := j + n) hp (by omega) hw
+    exact ⟨w', hw', by rw [Nat.pow_succ, Nat.pow_mul, hx]; exact hx'⟩
+
+theorem order_iff {q u j : Nat} (hp : q % 2 = 1) (hq3 : 3 ≤ q) (hj : 1 ≤ j)
+    (hu : Nat.Coprime q u) :
+    ∀ M m, (1 + q ^ j * u) ^ m % q ^ (j + M) = 1 ↔ q ^ M ∣ m := by
+  have hP : ∀ M, 1 < q ^ (j + M) := fun M =>
+    Nat.lt_of_lt_of_le (by omega) (Nat.le_self_pow (by omega) q)
+  intro M
+  induction M with
+  | zero =>
+    intro m
+    obtain ⟨z, hz⟩ := binom_quadratic (q ^ j * u) m
+    simp only [Nat.add_zero, Nat.pow_zero, Nat.one_dvd, iff_true]
+    rw [hz, show 1 + m * (q ^ j * u) + (q ^ j * u) ^ 2 * z
+        = 1 + q ^ j * (m * u + q ^ j * (u ^ 2 * z)) by
+          simp only [Nat.mul_add, Nat.pow_two]; ac_rfl,
+      Nat.add_mul_mod_self_left]
+    exact Nat.mod_eq_of_lt (hP 0)
+  | succ M ih =>
+    intro m
+    constructor
+    · intro h
+      have hA : (1 + q ^ j * u) ^ m % q ^ (j + M) = 1 := by
+        rw [← Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow q (by omega : j + M ≤ j + (M + 1))), h]
+        exact Nat.mod_eq_of_lt (hP M)
+      obtain ⟨k, rfl⟩ := (ih m).1 hA
+      obtain ⟨w, hw, hx⟩ := lift_exponent hp hj hu M
+      obtain ⟨z, hz⟩ := binom_quadratic (q ^ (j + M) * w) k
+      rw [Nat.pow_mul, hx, hz] at h
+      have hc : 1 ≤ j + M := by omega
+      have eX : k * (q ^ (j + M) * w) + (q ^ (j + M) * w) ^ 2 * z
+          = q ^ (j + M) * (k * w + q ^ (j + M) * (w ^ 2 * z)) := by
+        simp only [Nat.mul_add, Nat.pow_two]; ac_rfl
+      have hX : q ^ (j + M + 1) ∣ k * (q ^ (j + M) * w) + (q ^ (j + M) * w) ^ 2 * z := by
+        have h2 := Nat.sub_mod_eq_zero_of_mod_eq (h.trans (Nat.mod_eq_of_lt (hP (M + 1))).symm)
+        have e1 : 1 + k * (q ^ (j + M) * w) + (q ^ (j + M) * w) ^ 2 * z - 1
+            = k * (q ^ (j + M) * w) + (q ^ (j + M) * w) ^ 2 * z := by omega
+        rw [e1] at h2
+        exact Nat.dvd_of_mod_eq_zero h2
+      rw [eX, show q ^ (j + M + 1) = q ^ (j + M) * q by rw [Nat.pow_succ]] at hX
+      have hY := Nat.dvd_of_mul_dvd_mul_left (Nat.pow_pos (by omega)) hX
+      have hqc : q ∣ q ^ (j + M) := by
+        have := Nat.pow_dvd_pow q hc
+        rwa [Nat.pow_one] at this
+      have hd3 : q ∣ q ^ (j + M) * (w ^ 2 * z) := Nat.dvd_trans hqc (Nat.dvd_mul_right _ _)
+      have hkw : q ∣ k * w := (Nat.dvd_add_left hd3).1 hY
+      obtain ⟨k', rfl⟩ := Nat.Coprime.dvd_of_dvd_mul_right hw hkw
+      exact ⟨k', by rw [Nat.pow_succ]; ac_rfl⟩
+    · rintro ⟨k, rfl⟩
+      obtain ⟨w, hw, hx⟩ := lift_exponent hp hj hu (M + 1)
+      rw [Nat.pow_mul, hx, Nat.pow_mod, Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt (hP (M + 1)),
+        Nat.one_pow, Nat.mod_eq_of_lt (hP (M + 1))]
+
+theorem unit_power_cover {q u j : Nat} (hp : q % 2 = 1) (hq3 : 3 ≤ q) (hj : 1 ≤ j)
+    (hu : Nat.Coprime q u) (M x : Nat) (hx : x % q ^ j = 1) :
+    ∃ t, t < q ^ M ∧ (1 + q ^ j * u) ^ t % q ^ (j + M) = x % q ^ (j + M) := by
+  have hP : ∀ M, 1 < q ^ (j + M) := fun M =>
+    Nat.lt_of_lt_of_le (by omega) (Nat.le_self_pow (by omega) q)
+  have hPj : 1 < q ^ j := by
+    have := hP 0; rwa [Nat.add_zero] at this
+  have hQ : 0 < q ^ (j + M) := Nat.lt_trans Nat.zero_lt_one (hP M)
+  have hpM : 0 < q ^ M := Nat.pow_pos (by omega)
+  have hpj : 0 < q ^ j := Nat.lt_trans Nat.zero_lt_one hPj
+  have hQe : q ^ (j + M) = q ^ j * q ^ M := Nat.pow_add q j M
+  have hcq : (1 + q ^ j * u) % q = 1 := by
+    obtain ⟨i, rfl⟩ : ∃ i, j = i + 1 := ⟨j - 1, by omega⟩
+    rw [Nat.pow_succ, Nat.mul_comm (q ^ i) q, Nat.mul_assoc, Nat.add_mul_mod_self_left]
+    exact Nat.mod_eq_of_lt (by omega)
+  have hcop : Nat.Coprime q (1 + q ^ j * u) := coprime_of_mod_one hcq
+  have hcopQ : Nat.Coprime (q ^ (j + M)) (1 + q ^ j * u) := Nat.Coprime.pow_left _ hcop
+  have hc1 : (1 + q ^ j * u) % q ^ j = 1 := by
+    rw [Nat.add_mul_mod_self_left]; exact Nat.mod_eq_of_lt hPj
+  let U : List Nat := (List.range (q ^ (j + M))).filter (fun y => decide (y % q ^ j = 1))
+  let L1 : List Nat := (List.range (q ^ M)).map (fun t => (1 + q ^ j * u) ^ t % q ^ (j + M))
+  have hUnodup : U.Nodup := List.Pairwise.filter _ (my_nodup_range _)
+  have key : ∀ a b, a ≤ b → b < q ^ M →
+      (1 + q ^ j * u) ^ a % q ^ (j + M) = (1 + q ^ j * u) ^ b % q ^ (j + M) → a = b := by
     intro a b hab hb h
-    have hb' : (1 + q * u) ^ b = (1 + q * u) ^ a * (1 + q * u) ^ (b - a) := by
+    have hb' : (1 + q ^ j * u) ^ b = (1 + q ^ j * u) ^ a * (1 + q ^ j * u) ^ (b - a) := by
       rw [← Nat.pow_add]; congr 1; omega
-    have h' : ((1 + q * u) ^ a * (1 + q * u) ^ (b - a)) % q ^ (K + 1)
-        = ((1 + q * u) ^ a * 1) % q ^ (K + 1) := by rw [← hb', Nat.mul_one]; exact h.symm
-    have h'' := mod_cancel_mul_left (Nat.Coprime.pow_right a hcop)
-      (Nat.pow_pos (Nat.lt_of_lt_of_le Nat.one_pos (Nat.le_add_right 1 _))) h'
-    have h1P : 1 % q ^ (K + 1) = 1 :=
-      Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (by omega) (Nat.le_self_pow (by omega) q))
-    rw [h1P] at h''
-    have hd := (order_iff hp hp3 hu K (b - a)).1 h''
+    have h' : ((1 + q ^ j * u) ^ a * (1 + q ^ j * u) ^ (b - a)) % q ^ (j + M)
+        = ((1 + q ^ j * u) ^ a * 1) % q ^ (j + M) := by
+      rw [← hb', Nat.mul_one]; exact h.symm
+    have h'' := mod_cancel_mul_left (Nat.Coprime.pow_right a hcopQ)
+      (Nat.one_le_pow _ _ (by omega)) h'
+    have hd := (order_iff hp hq3 hj hu M (b - a)).1 (h''.trans (Nat.mod_eq_of_lt (hP M)))
     have : b - a = 0 := Nat.eq_zero_of_dvd_of_lt hd (by omega)
     omega
   have hL1nodup : L1.Nodup := by
     apply List.pairwise_map.2
-    apply List.Pairwise.imp_of_mem _ List.nodup_range
+    apply List.Pairwise.imp_of_mem _ (my_nodup_range _)
     intro a b ha hb hab heq
     rw [List.mem_range] at ha hb
     rcases Nat.le_total a b with hle | hle
@@ -159,35 +305,47 @@ theorem unit_power_cover {q u : Nat} (hp : q % 2 = 1) (hp3 : 3 ≤ q) (hu : Nat.
     rw [List.mem_map] at hy
     obtain ⟨t, _, rfl⟩ := hy
     rw [List.mem_filter, List.mem_range]
-    refine ⟨Nat.mod_lt _ hP, ?_⟩
-    rw [Nat.mod_mod_of_dvd _ hdv, pow_mod_one (by omega) hc1]; simp
-  have hxU : x % q ^ (K + 1) ∈ U := by
+    refine ⟨Nat.mod_lt _ hQ, ?_⟩
+    rw [Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow q (by omega : j ≤ j + M)),
+      pow_mod_one (q ^ j) (1 + q ^ j * u) _ (by rw [hc1]; exact (Nat.mod_eq_of_lt (show 1 < q ^ j by omega)).symm)]
+    simp [Nat.mod_eq_of_lt (show 1 < q ^ j by omega)]
+  have hxU : x % q ^ (j + M) ∈ U := by
     rw [List.mem_filter, List.mem_range]
-    refine ⟨Nat.mod_lt _ hP, ?_⟩
-    rw [Nat.mod_mod_of_dvd _ hdv, hx]; simp
-  have hxL : x % q ^ (K + 1) ∉ L1 := by
-    intro h; rw [List.mem_map] at h
-    obtain ⟨t, ht, he⟩ := h
-    exact hno ⟨t, List.mem_range.1 ht, he⟩
-  have hsub : (x % q ^ (K + 1) :: L1) ⊆ U := by
-    intro y hy
-    rcases List.mem_cons.1 hy with h | h
-    · rw [h]; exact hxU
-    · exact hL1U h
-  have hlen1 := (List.nodup_cons.2 ⟨hxL, hL1nodup⟩).length_le_of_subset hsub
-  have hUsub : U ⊆ (List.range (q ^ K)).map (fun j => q * j + 1) := by
+    refine ⟨Nat.mod_lt _ hQ, ?_⟩
+    rw [Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow q (by omega : j ≤ j + M)), hx]
+    simp
+  have hUsub : U ⊆ (List.range (q ^ M)).map (fun z => 1 + q ^ j * z) := by
     intro y hy
     rw [List.mem_filter, List.mem_range] at hy
     obtain ⟨hy1, hy2⟩ := hy
-    have hy2' : y % q = 1 := by simpa using hy2
+    have hy2' : y % q ^ j = 1 := by simpa using hy2
     rw [List.mem_map]
-    refine ⟨y / q, List.mem_range.2 ((Nat.div_lt_iff_lt_mul (by omega)).2 (by rw [← hPe, Nat.mul_comm] at *; rw [Nat.mul_comm]; rwa [hPe] at hy1)), ?_⟩
-    have := Nat.div_add_mod y q; omega
-  have hlen2 : U.length ≤ q ^ K := by
-    have := hUnodup.length_le_of_subset hUsub; simpa using this
-  have hL1len : L1.length = q ^ K := by simp [L1]
-  simp only [List.length_cons] at hlen1
-  omega
+    refine ⟨y / q ^ j, List.mem_range.2 ?_, ?_⟩
+    · rw [Nat.div_lt_iff_lt_mul hpj, Nat.mul_comm, ← hQe]
+      exact hy1
+    · have := Nat.div_add_mod y (q ^ j)
+      rw [hy2'] at this
+      show 1 + q ^ j * (y / q ^ j) = y
+      rw [Nat.add_comm]; exact this
+  have hlen2 : U.length ≤ q ^ M := by
+    have := my_len_le' hUnodup hUsub; simpa using this
+  have hL1len : L1.length = q ^ M := by simp [L1]
+  have hmem : x % q ^ (j + M) ∈ L1 := by
+    match (inferInstance : Decidable (x % q ^ (j + M) ∈ L1)) with
+    | isTrue hin => exact hin
+    | isFalse hxL =>
+    have hsub : (x % q ^ (j + M) :: L1) ⊆ U := by
+      intro y hy
+      rcases List.mem_cons.1 hy with h | h
+      · rw [h]; exact hxU
+      · exact hL1U h
+    have hlen1 := my_len_le' (List.nodup_cons.2 ⟨hxL, hL1nodup⟩) hsub
+    simp only [List.length_cons] at hlen1
+    omega
+  rw [List.mem_map] at hmem
+  obtain ⟨t, ht, he⟩ := hmem
+  exact ⟨t, List.mem_range.1 ht, he⟩
+
 
 section Map
 variable (q : Nat)
@@ -232,49 +390,65 @@ theorem mod_cancel_mul_right {m c x y : Nat} (hcop : Nat.Coprime m c)
   · exact mod_cancel_mul_left hcop hle (by rwa [Nat.mul_comm c x, Nat.mul_comm c y])
   · exact (mod_cancel_mul_left hcop hle (by rw [Nat.mul_comm c x, Nat.mul_comm c y]; exact h.symm)).symm
 
-theorem exists_least (P : Nat → Prop) : (∃ n, P n) → ∃ n, P n ∧ ∀ r, r < n → ¬ P r := by
+theorem exists_least (P : Nat → Prop) [DecidablePred P] :
+    (∃ n, P n) → ∃ n, P n ∧ ∀ r, r < n → ¬ P r := by
+  have aux : ∀ N, (∀ r, r < N → ¬ P r) ∨ ∃ n, P n ∧ ∀ r, r < n → ¬ P r := by
+    intro N
+    induction N with
+    | zero => exact Or.inl (fun r hr _ => absurd hr (Nat.not_lt_zero r))
+    | succ N ih =>
+      rcases ih with h | h
+      · match (inferInstance : Decidable (P N)) with
+        | isTrue hN =>
+          exact Or.inr ⟨N, hN, h⟩
+        | isFalse hN =>
+          refine Or.inl (fun r hr hPr => ?_)
+          rcases Nat.lt_or_eq_of_le (Nat.le_of_lt_succ hr) with hlt | heq
+          · exact h r hlt hPr
+          · exact hN (by rw [← heq]; exact hPr)
+      · exact Or.inr h
   rintro ⟨n, hn⟩
-  revert hn
-  induction n using Nat.strongRecOn with
-  | _ n ih =>
-    intro hn
-    by_cases h : ∀ r, r < n → ¬ P r
-    · exact ⟨n, hn, h⟩
-    · obtain ⟨r, hr, hPr⟩ : ∃ r, r < n ∧ P r := by
-        apply Classical.byContradiction
-        intro hh
-        apply h
-        intro r hr hp
-        exact hh ⟨r, hr, hp⟩
-      exact ih r hr hPr
+  rcases aux (n + 1) with h | h
+  · exact absurd hn (h n (Nat.lt_succ_self n))
+  · exact h
 
 theorem exists_pow2_period (m' : Nat) (hM : 0 < m') (hc : Nat.Coprime m' 2) :
     ∃ D, 0 < D ∧ D ≤ m' ∧ 2 ^ D % m' = 1 % m' := by
-  apply Classical.byContradiction
-  intro hno
-  have hinj : ∀ a b, a < b → b ≤ m' → 2 ^ a % m' ≠ 2 ^ b % m' := by
-    intro a b hab hb heq
-    apply hno
-    refine ⟨b - a, by omega, by omega, ?_⟩
-    have hcop : Nat.Coprime m' (2 ^ a) := Nat.Coprime.pow_right _ hc
-    exact mod_cancel_mul_right (x := 2 ^ (b - a)) (y := 1) hcop
-      (by rw [← Nat.pow_add, Nat.sub_add_cancel (by omega), Nat.one_mul]; exact heq.symm)
-  have hnd : ((List.range (m' + 1)).map (fun i => 2 ^ i % m')).Nodup := by
-    apply List.pairwise_map.2
-    apply List.Pairwise.imp_of_mem _ List.nodup_range
-    intro a b ha hb hab
-    rw [List.mem_range] at ha hb
-    rcases Nat.lt_or_gt_of_ne hab with h | h
-    · exact hinj a b h (by omega)
-    · exact fun h' => hinj b a h (by omega) h'.symm
-  have hsub : ((List.range (m' + 1)).map (fun i => 2 ^ i % m')) ⊆ List.range m' := by
-    intro v hv
-    rw [List.mem_map] at hv
-    obtain ⟨i, _, rfl⟩ := hv
-    rw [List.mem_range]; exact Nat.mod_lt _ hM
-  have := hnd.length_le_of_subset hsub
-  simp at this
-  omega
+  cases hf : (List.range (m' + 1)).find? (fun D => decide (0 < D ∧ D ≤ m' ∧ 2 ^ D % m' = 1 % m')) with
+  | some D =>
+    have hD := List.find?_some hf
+    simp only [decide_eq_true_eq] at hD
+    exact ⟨D, hD⟩
+  | none =>
+    exfalso
+    have hno : ¬ ∃ D, 0 < D ∧ D ≤ m' ∧ 2 ^ D % m' = 1 % m' := by
+      rintro ⟨D, hD0, hDm, hDe⟩
+      have hn := List.find?_eq_none.1 hf D (List.mem_range.2 (by omega))
+      simp only [decide_eq_true_eq] at hn
+      exact hn ⟨hD0, hDm, hDe⟩
+    have hinj : ∀ a b, a < b → b ≤ m' → 2 ^ a % m' ≠ 2 ^ b % m' := by
+      intro a b hab hb heq
+      apply hno
+      refine ⟨b - a, by omega, by omega, ?_⟩
+      have hcop : Nat.Coprime m' (2 ^ a) := Nat.Coprime.pow_right _ hc
+      exact mod_cancel_mul_right (x := 2 ^ (b - a)) (y := 1) hcop
+        (by rw [← Nat.pow_add, Nat.sub_add_cancel (by omega), Nat.one_mul]; exact heq.symm)
+    have hnd : ((List.range (m' + 1)).map (fun i => 2 ^ i % m')).Nodup := by
+      apply List.pairwise_map.2
+      apply List.Pairwise.imp_of_mem _ (my_nodup_range _)
+      intro a b ha hb hab
+      rw [List.mem_range] at ha hb
+      rcases Nat.lt_or_gt_of_ne hab with h | h
+      · exact hinj a b h (by omega)
+      · exact fun h' => hinj b a h (by omega) h'.symm
+    have hsub : ((List.range (m' + 1)).map (fun i => 2 ^ i % m')) ⊆ List.range m' := by
+      intro v hv
+      rw [List.mem_map] at hv
+      obtain ⟨i, _, rfl⟩ := hv
+      rw [List.mem_range]; exact Nat.mod_lt _ hM
+    have := my_len_le' hnd hsub
+    simp at this
+    omega
 
 theorem NonWieferich.odd {q : Nat} [NonWieferich q] : q % 2 = 1 := by
   obtain ⟨d, u, hd, hu⟩ := NonWieferich.unit (q := q)
@@ -284,28 +458,28 @@ theorem NonWieferich.odd {q : Nat} [NonWieferich q] : q % 2 = 1 := by
       rcases Nat.eq_zero_or_pos u with h | h
       · exact h
       · have : q * u ≥ 1 * 1 := Nat.mul_le_mul (by omega) h
-        simp at hd; omega
+        rw [Nat.pow_zero] at hd; omega
     rw [hu0, Nat.Coprime, Nat.gcd_zero_right] at hu; omega
   · rcases Nat.mod_two_eq_zero_or_one q with h | h
-    · have e1 : (2 ^ (d + 1)) % 2 = 0 := by rw [Nat.pow_succ]; simp
-      rw [hd, Nat.add_mod, Nat.mul_mod, h] at e1; simp at e1
+    · have e1 : (2 ^ (d + 1)) % 2 = 0 := by rw [Nat.pow_succ]; omega
+      rw [hd, Nat.add_mod, Nat.mul_mod, h] at e1; omega
     · exact h
 
 theorem NonWieferich.three_le {q : Nat} [NonWieferich q] : 3 ≤ q := by
   have := NonWieferich.odd (q := q); have := NonWieferich.one_lt (q := q); omega
 
-theorem NonWieferich.gen {q : Nat} [NonWieferich q] : ∃ d u, 0 < d ∧ d ≤ q ∧ 2 ^ d = 1 + q * u ∧ Nat.Coprime q u := by
+theorem NonWieferich.gen {q : Nat} [NonWieferich q] : ∃ d u, 0 < d ∧ 2 ^ d = 1 + q * u ∧ Nat.Coprime q u := by
   obtain ⟨d, u, hd, hu⟩ := NonWieferich.unit (q := q)
   have hp3 := NonWieferich.three_le (q := q)
   have hodd := NonWieferich.odd (q := q)
   obtain ⟨D0, hD0, hD0p, hD0m⟩ := exists_pow2_period q (by omega) (coprime_two_of_odd hodd)
   obtain ⟨D, ⟨hD, hDm⟩, hmin⟩ := exists_least (fun D => 0 < D ∧ 2 ^ D % q = 1 % q) ⟨D0, hD0, hD0m⟩
-  have hDp : D ≤ q := by
-    apply Classical.byContradiction; intro h
-    exact hmin D0 (by omega) ⟨hD0, hD0m⟩
   have hdm : 2 ^ d % q = 1 % q := by rw [hd, Nat.add_mul_mod_self_left]
   have hr : d % D = 0 := by
-    apply Classical.byContradiction; intro h
+    match (inferInstance : Decidable (d % D = 0)) with
+    | isTrue hg => exact hg
+    | isFalse h =>
+    exfalso
     have e := pow_mod_period hDm (d % D) (d / D)
     rw [Nat.mod_add_div] at e
     exact hmin (d % D) (Nat.mod_lt _ hD) ⟨by omega, by rw [← e]; exact hdm⟩
@@ -316,9 +490,9 @@ theorem NonWieferich.gen {q : Nat} [NonWieferich q] : ∃ d u, 0 < d ∧ d ≤ q
   obtain ⟨z, hz⟩ := binom_quadratic (q * (2 ^ D / q)) (d / D)
   have hpu : q * u = q * ((2 ^ D / q) * (d / D + q * (2 ^ D / q) * z)) := by
     have e : 2 ^ d = (2 ^ D) ^ (d / D) := by rw [← Nat.pow_mul, ← hdD]
-    rw [e, hv, hz] at hd; grind
+    rw [e, hv, hz] at hd; (generalize 2 ^ D / q = W at *; rw [Nat.pow_two] at hd; nat_ring)
   have hu' := Nat.eq_of_mul_eq_mul_left (by omega) hpu
-  refine ⟨D, 2 ^ D / q, hD, hDp, hv, ?_⟩
+  refine ⟨D, 2 ^ D / q, hD, hv, ?_⟩
   exact Nat.Coprime.coprime_dvd_right ⟨_, hu'⟩ hu
 
 theorem p_dvd_pow (q K : Nat) : q ∣ q ^ (K + 1) := ⟨q ^ K, by rw [Nat.pow_succ, Nat.mul_comm]⟩
@@ -339,15 +513,15 @@ theorem powp_odd (n : Nat) : q ^ n % 2 = 1 := by
 theorem one_mod_P (K : Nat) : 1 % q ^ (K + 1) = 1 := Nat.mod_eq_of_lt (one_lt_powp q K)
 
 theorem period (K : Nat) : ∃ T, 0 < T ∧ 2 ^ T % q ^ (K + 1) = 1 % q ^ (K + 1) := by
-  obtain ⟨d, u, hd0, -, hd, hu⟩ := NonWieferich.gen (q := q)
+  obtain ⟨d, u, hd0, hd, hu⟩ := NonWieferich.gen (q := q)
   refine ⟨d * q ^ K, Nat.mul_pos hd0 (powp_pos q K), ?_⟩
   rw [Nat.pow_mul, hd, one_mod_P]
-  exact (order_iff NonWieferich.odd NonWieferich.three_le hu K _).2 (Nat.dvd_refl _)
+  simpa [Nat.pow_one, Nat.add_comm] using (order_iff NonWieferich.odd NonWieferich.three_le (Nat.le_refl 1) hu K _).2 (Nat.dvd_refl _)
 
 theorem two_gen (K x : Nat) (hx : x % q = 1) : ∃ s, 2 ^ s % q ^ (K + 1) = x % q ^ (K + 1) := by
-  obtain ⟨d, u, _, -, hd, hu⟩ := NonWieferich.gen (q := q)
-  obtain ⟨t, _, ht⟩ := unit_power_cover NonWieferich.odd NonWieferich.three_le hu K x hx
-  exact ⟨d * t, by rw [Nat.pow_mul, hd]; exact ht⟩
+  obtain ⟨d, u, _, hd, hu⟩ := NonWieferich.gen (q := q)
+  obtain ⟨t, _, ht⟩ := unit_power_cover NonWieferich.odd NonWieferich.three_le (Nat.le_refl 1) hu K x (by rw [Nat.pow_one]; exact hx)
+  exact ⟨d * t, by rw [Nat.pow_mul, hd]; simpa [Nat.pow_one, Nat.add_comm] using ht⟩
 
 def InPowTwo (K a : Nat) : Prop := ∃ m, 2 ^ m % q ^ (K + 1) = a % q ^ (K + 1)
 
@@ -384,547 +558,6 @@ theorem target_inPowTwo {w i : Nat} (hw : w % q = 2 ^ i % q) (K : Nat) : InPowTw
 
 end Basics
 
-section Residues
-variable (m' : Nat) [NeZero m']
-
-def residue (n : Nat) : Fin m' := Fin.ofNat m' n
-
-theorem residue_val (n : Nat) : (residue m' n).val = n % m' := Fin.val_ofNat m' n
-
-theorem residue_eq_iff (a b : Nat) : residue m' a = residue m' b ↔ a % m' = b % m' := by
-  constructor
-  · intro h; have := congrArg Fin.val h; rwa [residue_val, residue_val] at this
-  · intro h; apply Fin.ext; rw [residue_val, residue_val]; exact h
-
-theorem residue_add (a b : Nat) : residue m' (a + b) = residue m' a + residue m' b := by
-  apply Fin.ext; rw [Fin.val_add, residue_val, residue_val, residue_val, Nat.add_mod]
-
-theorem residue_mul (a b : Nat) : residue m' (a * b) = residue m' a * residue m' b := by
-  apply Fin.ext; rw [Fin.val_mul, residue_val, residue_val, residue_val, Nat.mul_mod]
-
-theorem residue_zero : residue m' 0 = (0 : Fin m') := rfl
-theorem residue_one : residue m' 1 = (1 : Fin m') := rfl
-theorem residue_two : residue m' 2 = (2 : Fin m') := rfl
-class Invertible2p (q m' : Nat) [NeZero m'] : Prop where
-  two : ∃ b : Fin m', (2 : Fin m') * b = 1
-  pinv : ∃ b : Fin m', residue m' q * b = 1
-
-open Classical in
-noncomputable def unitInv (a : Fin m') : Fin m' := if h : ∃ b : Fin m', a * b = 1 then h.choose else 0
-
-theorem mul_unitInv {a : Fin m'} (h : ∃ b : Fin m', a * b = 1) : a * unitInv m' a = 1 := by
-  unfold unitInv
-  split
-  · rename_i h'; exact h'.choose_spec
-  · rename_i h'; exact absurd h h'
-
-theorem two_mul_unitInv {q : Nat} [Invertible2p q m'] : (2 : Fin m') * unitInv m' 2 = 1 := mul_unitInv m' (Invertible2p.two (q := q))
-theorem cancel_invertible {u v a b : Fin m'} (hu : u * v = 1) (h : u * a = u * b) : a = b := by
-  calc a = (u * v) * a := by rw [hu]; grind
-    _ = v * (u * a) := by grind
-    _ = v * (u * b) := by rw [h]
-    _ = (u * v) * b := by grind
-    _ = b := by rw [hu]; grind
-
-end Residues
-
-section Counting
-variable {m' : Nat}
-
-open Classical in
-noncomputable def cardinality (S : Fin m' → Prop) : Nat :=
-  ((List.finRange m').filter (fun t => decide (S t))).length
-
-open Classical in
-theorem mem_cardlist {S : Fin m' → Prop} {t : Fin m'} :
-    t ∈ (List.finRange m').filter (fun t => decide (S t)) ↔ S t := by
-  rw [List.mem_filter]; simp [List.mem_finRange]
-
-open Classical in
-theorem cardinality_le_of_inj {S T : Fin m' → Prop} (g : Fin m' → Fin m')
-    (hinj : ∀ a b, g a = g b → a = b) (hmap : ∀ t, S t → T (g t)) : cardinality S ≤ cardinality T := by
-  unfold cardinality
-  have hnd : ((List.finRange m').filter (fun t => decide (S t))).Nodup :=
-    List.Pairwise.filter _ (List.nodup_finRange m')
-  have hnd2 : (((List.finRange m').filter (fun t => decide (S t))).map g).Nodup := by
-    apply List.pairwise_map.2
-    apply List.Pairwise.imp_of_mem _ hnd
-    intro a b _ _ hab hg
-    exact hab (hinj a b hg)
-  have hsub : ((List.finRange m').filter (fun t => decide (S t))).map g
-      ⊆ (List.finRange m').filter (fun t => decide (T t)) := by
-    intro u hu
-    rw [List.mem_map] at hu
-    obtain ⟨t, ht, rfl⟩ := hu
-    rw [mem_cardlist] at ht ⊢
-    exact hmap t ht
-  have := hnd2.length_le_of_subset hsub
-  simpa using this
-
-open Classical in
-theorem cardinality_eq_of_sub {S T : Fin m' → Prop} (hsub : ∀ t, S t → T t) (hc : cardinality T ≤ cardinality S) :
-    ∀ t, T t → S t := by
-  intro t0 ht0
-  apply Classical.byContradiction
-  intro hn
-  unfold cardinality at hc
-  have hnd : ((List.finRange m').filter (fun t => decide (S t))).Nodup :=
-    List.Pairwise.filter _ (List.nodup_finRange m')
-  have hnd2 : (t0 :: (List.finRange m').filter (fun t => decide (S t))).Nodup := by
-    rw [List.nodup_cons]
-    exact ⟨fun h => hn ((mem_cardlist).1 h), hnd⟩
-  have hsub2 : (t0 :: (List.finRange m').filter (fun t => decide (S t)))
-      ⊆ (List.finRange m').filter (fun t => decide (T t)) := by
-    intro u hu
-    rcases List.mem_cons.1 hu with rfl | hu
-    · exact (mem_cardlist).2 ht0
-    · exact (mem_cardlist).2 (hsub u ((mem_cardlist).1 hu))
-  have := hnd2.length_le_of_subset hsub2
-  simp only [List.length_cons] at this
-  omega
-
-end Counting
-
-theorem exists_inv_of_coprime {m' : Nat} [NeZero m'] (a : Fin m') (hcop : Nat.Coprime m' a.val) :
-    ∃ b : Fin m', a * b = 1 := by
-  have hinj : ∀ s t : Fin m', a * s = a * t → s = t := by
-    intro s t h
-    have h1 := congrArg Fin.val h
-    rw [Fin.val_mul, Fin.val_mul] at h1
-    have h2 : (s.val * a.val) % m' = (t.val * a.val) % m' := by
-      rw [Nat.mul_comm s.val, Nat.mul_comm t.val]; exact h1
-    have h3 := mod_cancel_mul_right hcop h2
-    rw [Nat.mod_eq_of_lt s.isLt, Nat.mod_eq_of_lt t.isLt] at h3
-    exact Fin.ext h3
-  have hc : cardinality (fun _ : Fin m' => True) ≤ cardinality (fun t : Fin m' => ∃ s, a * s = t) :=
-    cardinality_le_of_inj (fun t => a * t) hinj (fun t _ => ⟨t, rfl⟩)
-  exact cardinality_eq_of_sub (S := fun t : Fin m' => ∃ s, a * s = t) (T := fun _ : Fin m' => True)
-    (fun _ _ => trivial) hc 1 trivial
-
-theorem exists_inv_residue {m' : Nat} [NeZero m'] (n : Nat) (hcop : Nat.Coprime m' n) :
-    ∃ b : Fin m', residue m' n * b = 1 := by
-  apply exists_inv_of_coprime
-  rw [residue_val]
-  unfold Nat.Coprime at hcop ⊢
-  rw [Nat.gcd_comm, ← Nat.gcd_rec]; exact hcop
-
-theorem invertible2p_of_coprime {q m' : Nat} [NeZero m'] (h : Nat.Coprime m' (2 * q)) : Invertible2p q m' :=
-  ⟨exists_inv_residue 2 (Nat.Coprime.coprime_dvd_right (Nat.dvd_mul_right 2 q) h),
-   exists_inv_residue q (Nat.Coprime.coprime_dvd_right (Nat.dvd_mul_left q 2) h)⟩
-
-theorem mod_combine_le {a b n r : Nat} (hPQ : Nat.Coprime a b) (hle : r ≤ n)
-    (hP : n % a = r % a) (hQ : n % b = r % b) : n % (a * b) = r % (a * b) := by
-  have h1 : a ∣ n - r := Nat.dvd_of_mod_eq_zero (Nat.sub_mod_eq_zero_of_mod_eq hP)
-  have h2 : b ∣ n - r := Nat.dvd_of_mod_eq_zero (Nat.sub_mod_eq_zero_of_mod_eq hQ)
-  obtain ⟨k, hk⟩ := Nat.Coprime.mul_dvd_of_dvd_of_dvd hPQ h1 h2
-  have : n = r + (a * b) * k := by omega
-  rw [this, Nat.add_mul_mod_self_left]
-
-theorem mod_combine {a b n r : Nat} (hPQ : Nat.Coprime a b)
-    (hP : n % a = r % a) (hQ : n % b = r % b) : n % (a * b) = r % (a * b) := by
-  rcases Nat.le_total r n with h | h
-  · exact mod_combine_le hPQ h hP hQ
-  · exact (mod_combine_le hPQ h hP.symm hQ.symm).symm
-
-theorem residue_self_val {n : Nat} [NeZero n] (v : Fin n) : residue n v.val = v :=
-  Fin.ext (by rw [residue_val, Nat.mod_eq_of_lt v.isLt])
-
-section Least
-variable (m' : Nat) [NeZero m']
-theorem residue_self : residue m' m' = 0 := by
-  rw [← residue_zero m']; apply (residue_eq_iff m' _ _).2; simp
-
-end Least
-
-theorem mod_eq_of_le_sub {m X Y : Nat} (hle : Y ≤ X) (h : (X - Y) % m = 0) : X % m = Y % m := by
-  obtain ⟨k, hk⟩ := Nat.dvd_of_mod_eq_zero h
-  have : X = Y + m * k := by omega
-  rw [this, Nat.add_mul_mod_self_left]
-
-theorem mod_add_left_cancel {m e X Y : Nat} (h : (e + X) % m = (e + Y) % m) : X % m = Y % m := by
-  rcases Nat.le_total Y X with hle | hle
-  · exact mod_eq_of_le_sub hle (by
-      have := Nat.sub_mod_eq_zero_of_mod_eq h
-      rwa [show e + X - (e + Y) = X - Y by omega] at this)
-  · exact (mod_eq_of_le_sub hle (by
-      have := Nat.sub_mod_eq_zero_of_mod_eq h.symm
-      rwa [show e + Y - (e + X) = Y - X by omega] at this)).symm
-theorem mod_of_dvd_mod {a b P Z : Nat} (hZ : Z ∣ P) (h : a % P = b % P) : a % Z = b % Z := by
-  rw [← Nat.mod_mod_of_dvd a hZ, h, Nat.mod_mod_of_dvd b hZ]
-
-theorem coprime_p_of_coprime_two_mul {m' q : Nat} (hM : Nat.Coprime m' (2 * q)) : Nat.Coprime m' q :=
-  Nat.Coprime.coprime_dvd_right (Nat.dvd_mul_left q 2) hM
-theorem coprime_two_of_coprime_two_mul {m' q : Nat} (hM : Nat.Coprime m' (2 * q)) : Nat.Coprime m' 2 :=
-  Nat.Coprime.coprime_dvd_right (Nat.dvd_mul_right 2 q) hM
-
-section Words
-variable (q : Nat)
-
-def oneCount : List Nat → Nat
-  | [] => 0
-  | e :: u => oneCount u + e
-
-def offset : List Nat → Nat
-  | [] => 0
-  | e :: u => q ^ oneCount u * e + 2 * offset u
-
-theorem collatz_odd [NonWieferich q] (y : Nat) :
-    collatz q (2 * y + 1) = 2 * (q * y + (q + 1) / 2) := by
-  have := NonWieferich.odd (q := q)
-  unfold collatz
-  rw [ite_eq_right (by omega)]
-  have h : q + 1 = 2 * ((q + 1) / 2) := by omega
-  generalize (q + 1) / 2 = c at h ⊢
-  grind
-
-theorem integrality [NonWieferich q] : ∀ (u : List Nat), (∀ e ∈ u, e ≤ 1) → ∀ x : Nat,
-    2 ^ u.length ∣ q ^ oneCount u * x + offset q u →
-    ∃ k, iter (collatz q) k x = (q ^ oneCount u * x + offset q u) / 2 ^ u.length
-  | [], _, x, _ => ⟨0, by simp [oneCount, offset, iter]⟩
-  | e :: u, hu, x, h => by
-    have he : e = 0 ∨ e = 1 := by have := hu e (by simp); omega
-    have hu' : ∀ d ∈ u, d ≤ 1 := fun d hd => hu d (by simp [hd])
-    have hp : q ^ oneCount u % 2 = 1 := powp_odd q _
-    have hc : q + 1 = 2 * ((q + 1) / 2) := by have := NonWieferich.odd (q := q); omega
-    have h2 : 2 ∣ 2 ^ (u.length + 1) := ⟨2 ^ u.length, by grind⟩
-    have hpow : 2 ^ (u.length + 1) = 2 * 2 ^ u.length := by grind
-    simp only [List.length_cons, oneCount, offset] at h ⊢
-    rcases he with rfl | rfl
-    · have h0 := Nat.dvd_trans h2 h
-      obtain ⟨y, hy | hy⟩ : ∃ y, x = 2 * y ∨ x = 2 * y + 1 := ⟨x / 2, by omega⟩
-      · subst hy
-        have hn : q ^ (oneCount u + 0) * (2 * y) + (q ^ oneCount u * 0 + 2 * offset q u)
-            = 2 * (q ^ oneCount u * y + offset q u) := by grind
-        rw [hn, hpow] at h
-        have h' := (Nat.mul_dvd_mul_iff_left (by omega : 0 < 2)).1 h
-        obtain ⟨k, hk⟩ := integrality u hu' y h'
-        refine ⟨k + 1, ?_⟩
-        show iter (collatz q) k (collatz q (2 * y)) = _
-        rw [collatz_double, hk, hn, hpow, Nat.mul_div_mul_left _ _ (by omega : 0 < 2)]
-      · subst hy
-        exfalso
-        have hn : q ^ (oneCount u + 0) * (2 * y + 1) + (q ^ oneCount u * 0 + 2 * offset q u)
-            = 2 * (q ^ oneCount u * y + offset q u) + q ^ oneCount u := by grind
-        rw [hn] at h0
-        generalize q ^ oneCount u * y + offset q u = P at h0
-        omega
-    · have h0 := Nat.dvd_trans h2 h
-      obtain ⟨y, hy | hy⟩ : ∃ y, x = 2 * y ∨ x = 2 * y + 1 := ⟨x / 2, by omega⟩
-      · subst hy
-        exfalso
-        have hn : q ^ (oneCount u + 1) * (2 * y) + (q ^ oneCount u * 1 + 2 * offset q u)
-            = 2 * (q ^ oneCount u * (q * y) + offset q u) + q ^ oneCount u := by grind
-        rw [hn] at h0
-        generalize q ^ oneCount u * (q * y) + offset q u = P at h0
-        omega
-      · subst hy
-        have hn : q ^ (oneCount u + 1) * (2 * y + 1) + (q ^ oneCount u * 1 + 2 * offset q u)
-            = 2 * (q ^ oneCount u * (q * y + (q + 1) / 2) + offset q u) := by
-          rw [Nat.pow_succ]
-          generalize (q + 1) / 2 = c at hc ⊢
-          grind
-        rw [hn, hpow] at h
-        have h' := (Nat.mul_dvd_mul_iff_left (by omega : 0 < 2)).1 h
-        obtain ⟨k, hk⟩ := integrality u hu' (q * y + (q + 1) / 2) h'
-        refine ⟨k + 2, ?_⟩
-        show iter (collatz q) k (collatz q (collatz q (2 * y + 1))) = _
-        rw [collatz_odd, collatz_double, hk, hn, hpow, Nat.mul_div_mul_left _ _ (by omega : 0 < 2)]
-
-theorem integrality_reaches [NonWieferich q] (u : List Nat) (hu : ∀ e ∈ u, e ≤ 1) (x : Nat)
-    (h : 2 ^ u.length ∣ q ^ oneCount u * x + offset q u) :
-    Reaches q x ((q ^ oneCount u * x + offset q u) / 2 ^ u.length) := integrality q u hu x h
-
-theorem oneCount_le : ∀ u : List Nat, (∀ e ∈ u, e ≤ 1) → oneCount u ≤ u.length
-  | [], _ => by simp [oneCount]
-  | e :: u, hu => by
-    have h1 := oneCount_le u (fun d hd => hu d (by simp [hd]))
-    have h2 := hu e (by simp)
-    simp only [oneCount, List.length_cons]; omega
-
-theorem reaches_pow2 [NonWieferich q] (w : Nat) : ∀ n, Reaches q (2 ^ n * w) w
-  | 0 => ⟨0, by simp [iter]⟩
-  | n + 1 => by
-    obtain ⟨k, hk⟩ := reaches_pow2 w n
-    refine ⟨k + 1, ?_⟩
-    rw [iter_add]
-    show iter (collatz q) k (collatz q (2 ^ (n + 1) * w)) = w
-    rw [show 2 ^ (n + 1) * w = 2 * (2 ^ n * w) by rw [Nat.pow_succ]; grind, collatz_double]; exact hk
-
-end Words
-
-theorem coprime_target (q : Nat) [NonWieferich q] {w : Nat} (hw : ∃ i, w % q = 2 ^ i % q) : Nat.Coprime q w := by
-  obtain ⟨i, hi⟩ := hw
-  have h : Nat.Coprime q (2 ^ i) := Nat.Coprime.pow_right i (coprime_p_two q)
-  unfold Nat.Coprime at h ⊢
-  rw [Nat.gcd_rec, hi, ← Nat.gcd_rec]; exact h
-
-theorem oneCount_append (u v : List Nat) : oneCount (u ++ v) = oneCount u + oneCount v := by
-  induction u with
-  | nil => simp [oneCount]
-  | cons e u ih => simp only [List.cons_append, oneCount, ih]; omega
-
-theorem offset_append (q : Nat) (u v : List Nat) :
-    offset q (u ++ v) = q ^ oneCount v * offset q u + 2 ^ u.length * offset q v := by
-  induction u with
-  | nil => simp [offset]
-  | cons e u ih =>
-    simp only [List.cons_append, offset, oneCount_append, ih, List.length_cons]
-    rw [Nat.pow_add, Nat.pow_succ]
-    grind
-
-theorem oneCount_replicate_zero (m : Nat) : oneCount (List.replicate m 0) = 0 := by
-  induction m with
-  | zero => rfl
-  | succ m ih => simp [List.replicate_succ, oneCount, ih]
-
-theorem offset_replicate_zero (q m : Nat) : offset q (List.replicate m 0) = 0 := by
-  induction m with
-  | zero => rfl
-  | succ m ih => simp [List.replicate_succ, offset, ih]
-
-theorem oneCount_replicate_one (k : Nat) : oneCount (List.replicate k 1) = k := by
-  induction k with
-  | zero => rfl
-  | succ k ih => simp [List.replicate_succ, oneCount, ih]
-
-theorem offset_ones (q k : Nat) :
-    (q + 2) ^ k = 2 ^ k + q * offset (q + 2) (List.replicate k 1) := by
-  induction k with
-  | zero => simp [offset]
-  | succ k ih =>
-    have e : offset (q + 2) (List.replicate (k + 1) 1)
-        = (q + 2) ^ k + 2 * offset (q + 2) (List.replicate k 1) := by
-      simp [List.replicate_succ, offset, oneCount_replicate_one]
-    rw [e, Nat.pow_succ, Nat.pow_succ]
-    generalize offset (q + 2) (List.replicate k 1) = o at *
-    generalize (q + 2) ^ k = A at *
-    grind
-
-theorem pow_period_pow (P T : Nat) (hT : 2 ^ T % P = 1 % P) : ∀ k : Nat, (2 ^ T) ^ k % P = 1 % P := by
-  intro k
-  induction k with
-  | zero => rfl
-  | succ k ih => rw [Nat.pow_succ, Nat.mul_mod, ih, hT, ← Nat.mul_mod, Nat.one_mul]
-
-theorem pow_two_mod_period (P T : Nat) (hT : 2 ^ T % P = 1 % P) (x y : Nat) (hxy : x % T = y % T) :
-    2 ^ x % P = 2 ^ y % P := by
-  have key : ∀ z : Nat, 2 ^ z % P = 2 ^ (z % T) % P := by
-    intro z
-    have hz : 2 ^ z = (2 ^ T) ^ (z / T) * 2 ^ (z % T) := by
-      rw [← Nat.pow_mul, ← Nat.pow_add, Nat.div_add_mod]
-    rw [hz, Nat.mul_mod, pow_period_pow P T hT, ← Nat.mul_mod, Nat.one_mul]
-  rw [key x, key y, hxy]
-
-variable {m' : Nat} [NeZero m']
-
-noncomputable def backStep (q : Nat) [Invertible2p q m'] (e : Nat) (x : Fin m') : Fin m' :=
-  (residue m' (q ^ e) * x + residue m' e) * unitInv m' 2
-
-noncomputable def backWord (q : Nat) [Invertible2p q m'] : List Nat → Fin m' → Fin m'
-  | [] => fun x => x
-  | e :: u => fun x => backWord q u (backStep q e x)
-
-theorem cancel_two (q : Nat) [Invertible2p q m'] (a b : Fin m') (h : (2 : Fin m') * a = 2 * b) : a = b :=
-  cancel_invertible (m' := m') (two_mul_unitInv (m' := m') (q := q)) h
-
-theorem two_mul_backStep (q : Nat) [Invertible2p q m'] (e : Nat) (x : Fin m') :
-    (2 : Fin m') * backStep q e x = residue m' (q ^ e) * x + residue m' e := by
-  unfold backStep
-  have h2 : (2 : Fin m') * unitInv m' 2 = 1 := two_mul_unitInv (m' := m') (q := q)
-  grind
-
-theorem residue_two_pow (k : Nat) : residue m' (2 ^ (k + 1)) = 2 * residue m' (2 ^ k) := by
-  rw [Nat.pow_succ, residue_mul, residue_two]; grind
-
-theorem residue_p_pow_add (q a e : Nat) :
-    residue m' (q ^ (a + e)) = residue m' (q ^ a) * residue m' (q ^ e) := by
-  rw [Nat.pow_add, residue_mul]
-
-theorem backWord_iff (q : Nat) [Invertible2p q m'] : ∀ (u : List Nat) (s t : Fin m'),
-    residue m' (q ^ oneCount u) * s + residue m' (offset q u) = residue m' (2 ^ u.length) * t
-      ↔ backWord q u s = t := by
-  intro u
-  induction u with
-  | nil =>
-    intro s t
-    simp [oneCount, offset, backWord, residue_zero, residue_one]
-    grind
-  | cons e u ih =>
-    intro s t
-    have hsf := two_mul_backStep (m' := m') q e s
-    have hIH := ih (backStep q e s) t
-    show _ ↔ backWord q u (backStep q e s) = t
-    rw [← hIH]
-    have hoff : residue m' (offset q (e :: u)) = residue m' (q ^ oneCount u) * residue m' e
-        + 2 * residue m' (offset q u) := by
-      simp only [offset, residue_add, residue_mul, residue_two]
-    have hon : residue m' (q ^ oneCount (e :: u))
-        = residue m' (q ^ oneCount u) * residue m' (q ^ e) := by
-      rw [oneCount, Nat.add_comm, residue_p_pow_add]; grind
-    have hlen : residue m' (2 ^ (e :: u).length) = 2 * residue m' (2 ^ u.length) := by
-      rw [List.length_cons, residue_two_pow]
-    rw [hon, hoff, hlen]
-    generalize residue m' (q ^ oneCount u) = A at *
-    generalize residue m' (offset q u) = B at *
-    generalize residue m' (2 ^ u.length) = C at *
-    generalize residue m' (q ^ e) = Qe at *
-    generalize residue m' e = E at *
-    generalize backStep q e s = sf at *
-    constructor
-    · intro h
-      apply cancel_two q
-      grind
-    · intro h
-      grind
-
-theorem backStep_zero (q : Nat) [Invertible2p q m'] (y : Fin m') : backStep q 0 y = y * unitInv m' 2 := by
-  unfold backStep; rw [Nat.pow_zero, residue_one, residue_zero]; grind
-
-theorem backWord_append (q : Nat) [Invertible2p q m'] : ∀ (u v : List Nat) (x : Fin m'),
-    backWord q (u ++ v) x = backWord q v (backWord q u x) := by
-  intro u
-  induction u with
-  | nil => intro v x; rfl
-  | cons e u ih => intro v x; exact ih v (backStep q e x)
-
-theorem backWord_zeros (q : Nat) [Invertible2p q m'] : ∀ (m : Nat) (y : Fin m'),
-    backWord q (List.replicate m 0) (residue m' (2 ^ m) * y) = y := by
-  intro m
-  induction m with
-  | zero => intro y; simp [backWord, residue_one]; grind
-  | succ m ih =>
-    intro y
-    have h2 : (2 : Fin m') * unitInv m' 2 = 1 := two_mul_unitInv (m' := m') (q := q)
-    have hstep : backStep q 0 (residue m' (2 ^ (m + 1)) * y) = residue m' (2 ^ m) * y := by
-      rw [backStep_zero, residue_two_pow]
-      grind
-    show backWord q (List.replicate m 0) (backStep q 0 (residue m' (2 ^ (m + 1)) * y)) = y
-    rw [hstep, ih]
-
-theorem backWord_ones_iff (q : Nat) [Invertible2p q m'] (k : Nat) (x t : Fin m') :
-    residue m' (q ^ k) * x + residue m' (offset q (List.replicate k 1))
-      = residue m' (2 ^ k) * t ↔ backWord q (List.replicate k 1) x = t := by
-  have h := backWord_iff (m' := m') q (List.replicate k 1) x t
-  have hc : oneCount (List.replicate k 1) = k := oneCount_replicate_one k
-  have hl : (List.replicate k 1).length = k := List.length_replicate
-  rw [hc, hl] at h
-  exact h
-
-theorem ones_surj (q : Nat) [Invertible2p q m'] (hM : Nat.Coprime m' (2 * q)) (k : Nat) (tgt : Fin m') :
-    ∃ t : Fin m', backWord q (List.replicate k 1) t = tgt := by
-  obtain ⟨b, hb⟩ := exists_inv_residue (m' := m') (q ^ k)
-    (Nat.Coprime.pow_right k (coprime_p_of_coprime_two_mul hM))
-  refine ⟨b * (residue m' (2 ^ k) * tgt - residue m' (offset q (List.replicate k 1))), ?_⟩
-  rw [← backWord_ones_iff]
-  grind
-
-theorem fixed_point (q K : Nat) (hp : Nat.Coprime q 2) [NeZero (q ^ (K + 1))] :
-    ∃ b : Fin (q ^ (K + 1)), (2 : Fin (q ^ (K + 1))) * b = residue (q ^ (K + 1)) q * b + 1 := by
-  have hp0 : 0 < q := by
-    rcases Nat.eq_zero_or_pos q with h | h
-    · subst h; simp [Nat.Coprime] at hp
-    · exact h
-  have hpP : q ≤ q ^ (K + 1) := by
-    have := Nat.pow_le_pow_right hp0 (show 1 ≤ K + 1 by omega)
-    simpa using this
-  obtain ⟨n, hn⟩ : ∃ n, n = q ^ (K + 1) + 2 - q := ⟨_, rfl⟩
-  have hnp : n + q = q ^ (K + 1) + 2 := by omega
-  have hgp : Nat.Coprime q n := by
-    have h1 : Nat.gcd q n ∣ 2 := by
-      have d1 : Nat.gcd q n ∣ q := Nat.gcd_dvd_left q n
-      have d2 : Nat.gcd q n ∣ n := Nat.gcd_dvd_right q n
-      have d3 : Nat.gcd q n ∣ q ^ (K + 1) :=
-        Nat.dvd_trans d1 (by simpa using Nat.pow_dvd_pow q (show 1 ≤ K + 1 by omega))
-      have d4 : Nat.gcd q n ∣ q ^ (K + 1) + 2 := by
-        rw [← hnp]; exact Nat.dvd_add d2 d1
-      exact (Nat.dvd_add_right d3).1 d4
-    have h2 : Nat.gcd (Nat.gcd q n) 2 = 1 := Nat.Coprime.coprime_dvd_left (Nat.gcd_dvd_left q n) hp
-    rw [Nat.gcd_eq_left h1] at h2
-    exact h2
-  have hcopn : Nat.Coprime (q ^ (K + 1)) n := Nat.Coprime.pow_left (K + 1) hgp
-  obtain ⟨b, hb⟩ := exists_inv_residue n hcopn
-  have hrel : residue (q ^ (K + 1)) n + residue (q ^ (K + 1)) q = (2 : Fin (q ^ (K + 1))) := by
-    rw [← residue_add, hnp, residue_add, residue_self, residue_two]; grind
-  refine ⟨b, ?_⟩
-  rw [← hrel]; grind
-
-theorem ones_offset_fin (q K : Nat) (hp3 : 3 ≤ q) [NeZero (q ^ (K + 1))]
-    (b : Fin (q ^ (K + 1))) (hb : (2 : Fin (q ^ (K + 1))) * b = residue (q ^ (K + 1)) q * b + 1) :
-    residue (q ^ (K + 1)) (offset q (List.replicate (K + 1) 1))
-      = residue (q ^ (K + 1)) (2 ^ (K + 1)) * b := by
-  obtain ⟨c, rfl⟩ : ∃ c, q = c + 2 := ⟨q - 2, by omega⟩
-  have h := offset_ones c (K + 1)
-  have hres : residue ((c + 2) ^ (K + 1)) (2 ^ (K + 1) + c * offset (c + 2) (List.replicate (K + 1) 1))
-      = 0 := by
-    rw [← h]; exact residue_self _
-  rw [residue_add, residue_mul] at hres
-  have hq : residue ((c + 2) ^ (K + 1)) c + 2 = residue ((c + 2) ^ (K + 1)) (c + 2) := by
-    rw [residue_add, residue_two]
-  grind
-
-theorem padic_word (q K d u w : Nat) [NonWieferich q] (hp3 : 3 ≤ q) (hodd : q % 2 = 1) (hd0 : 0 < d)
-    (hd : 2 ^ d = 1 + q * u) (hu : Nat.Coprime q u) (hw : ∃ i, w % q = 2 ^ i % q) :
-    ∃ nz, nz < d * q ^ K ∧
-      (2 ^ (K + 1 + nz) * w) % q ^ (K + 1) = offset q (List.replicate (K + 1) 1) % q ^ (K + 1) := by
-  haveI : NeZero (q ^ (K + 1)) := ⟨Nat.pos_iff_ne_zero.1 (Nat.pow_pos (by omega))⟩
-  obtain ⟨b, hb⟩ := fixed_point q K (coprime_two_of_odd hodd)
-  have hO := ones_offset_fin q K hp3 b hb
-
-  have hbp : b.val % q = 2 ^ (d - 1) % q := by
-    have e1 : residue (q ^ (K + 1)) (2 * b.val) = residue (q ^ (K + 1)) (q * b.val + 1) := by
-      rw [residue_mul, residue_self_val, residue_add, residue_mul, residue_self_val, residue_one]
-      exact hb
-    have e2 : (2 * b.val) % q = 1 % q := by
-      have hpP : q ∣ q ^ (K + 1) := ⟨q ^ K, by rw [Nat.pow_succ, Nat.mul_comm]⟩
-      have := (residue_eq_iff _ _ _).1 e1
-      rw [← Nat.mod_mod_of_dvd (2 * b.val) hpP, this, Nat.mod_mod_of_dvd _ hpP, Nat.mul_add_mod]
-    have hd1 : d - 1 + 1 = d := by omega
-    have e3 : (2 ^ (d - 1) * 2) % q = 1 % q := by
-      have h2d : 2 ^ d = 2 ^ (d - 1) * 2 :=
-        calc 2 ^ d = 2 ^ (d - 1 + 1) := by rw [hd1]
-          _ = 2 ^ (d - 1) * 2 := Nat.pow_succ 2 (d - 1)
-      rw [← h2d, hd, Nat.add_mul_mod_self_left]
-    have h4 : (2 ^ (d - 1) * (2 * b.val)) % q = (2 ^ (d - 1) * 2 * b.val) % q := by
-      rw [Nat.mul_assoc]
-    have h5 : (2 ^ (d - 1) * (2 * b.val)) % q = 2 ^ (d - 1) % q := by
-      rw [Nat.mul_mod, e2, ← Nat.mul_mod, Nat.mul_one]
-    have h6 : (2 ^ (d - 1) * 2 * b.val) % q = b.val % q := by
-      rw [Nat.mul_mod, e3, ← Nat.mul_mod, Nat.one_mul]
-    rw [← h6, ← h4, h5]
-  obtain ⟨s, hs⟩ := target_inPowTwo q hbp K
-  obtain ⟨i, hi⟩ := hw
-  obtain ⟨m0, hm0⟩ := target_inPowTwo q hi K
-  have hPgt : 1 < q ^ (K + 1) := Nat.lt_of_lt_of_le (by omega : 1 < q) (Nat.le_self_pow (by omega) q)
-  have hT : 2 ^ (d * q ^ K) % q ^ (K + 1) = 1 % q ^ (K + 1) := by
-    rw [Nat.pow_mul, hd, Nat.mod_eq_of_lt hPgt]
-    exact (order_iff hodd hp3 hu K (q ^ K)).2 (Nat.dvd_refl _)
-  have hTpos : 0 < d * q ^ K := Nat.mul_pos hd0 (Nat.pow_pos (by omega))
-  obtain ⟨T, hTdef⟩ : ∃ T, T = d * q ^ K := ⟨_, rfl⟩
-  rw [← hTdef] at hT hTpos
-  rw [← hTdef]
-  refine ⟨(s + (T - 1) * m0) % T, Nat.mod_lt _ hTpos, ?_⟩
-  have hmodeq : ((s + (T - 1) * m0) % T + m0) % T = s % T := by
-    rw [Nat.mod_add_mod]
-    have : s + (T - 1) * m0 + m0 = s + T * m0 := by
-      have h1 : (T - 1) * m0 + m0 = T * m0 := by
-        rw [← Nat.succ_mul]; congr 1; omega
-      omega
-    rw [this, Nat.add_mul_mod_self_left]
-  generalize (s + (T - 1) * m0) % T = nz at hmodeq ⊢
-  have e : residue (q ^ (K + 1)) w = residue (q ^ (K + 1)) (2 ^ m0) :=
-    (residue_eq_iff _ _ _).2 hm0.symm
-  have hA : residue (q ^ (K + 1)) (2 ^ nz) * residue (q ^ (K + 1)) w = b := by
-    rw [e, ← residue_mul, ← Nat.pow_add]
-    have f : residue (q ^ (K + 1)) (2 ^ (nz + m0)) = residue (q ^ (K + 1)) (2 ^ s) :=
-      (residue_eq_iff _ _ _).2 (pow_two_mod_period _ T hT _ _ hmodeq)
-    rw [f, (residue_eq_iff _ _ _).2 hs, residue_self_val]
-  have hmain : residue (q ^ (K + 1)) (2 ^ (K + 1 + nz) * w)
-      = residue (q ^ (K + 1)) (offset q (List.replicate (K + 1) 1)) := by
-    rw [show 2 ^ (K + 1 + nz) = 2 ^ (K + 1) * 2 ^ nz from Nat.pow_add 2 (K + 1) nz,
-      residue_mul, residue_mul, hO]
-    grind
-  exact (residue_eq_iff _ _ _).1 hmain
-
 theorem bezout (m n : Nat) : ∃ x y : Int, ((Nat.gcd m n : Nat) : Int) = x * m + y * n := by
   induction m, n using Nat.gcd.induction with
   | H0 n => exact ⟨0, 1, by simp⟩
@@ -938,340 +571,7 @@ theorem bezout (m n : Nat) : ∃ x y : Int, ((Nat.gcd m n : Nat) : Int) = x * m 
     rw [hxy]
     have : (((n % m : Nat)) : Int) = (n : Int) - (m : Int) * ((n / m : Nat) : Int) := by omega
     rw [this]
-    grind
-
-theorem linear_congruence (D N a : Nat) (hN : 0 < N) (hg : Nat.gcd D N ∣ a) :
-    ∃ t : Nat, (N : Int) ∣ ((D : Int) * (t : Int) - (a : Int)) := by
-  obtain ⟨x, y, hxy⟩ := bezout D N
-  obtain ⟨c, hc⟩ := hg
-  have ha : (a : Int) = (c : Int) * x * D + (c : Int) * y * N := by
-    have h1 : (a : Int) = ((Nat.gcd D N : Nat) : Int) * (c : Int) := by
-      rw [hc]; push_cast; grind
-    rw [h1, hxy]; grind
-  have hNi : (0 : Int) < N := by exact_mod_cast hN
-  have hnn : (0 : Int) ≤ ((c : Int) * x) % (N : Int) := Int.emod_nonneg _ (by omega)
-  refine ⟨(((c : Int) * x) % (N : Int)).toNat, ?_⟩
-  rw [Int.toNat_of_nonneg hnn]
-  have e : ((c : Int) * x) % (N : Int) = (c : Int) * x - (N : Int) * (((c : Int) * x) / (N : Int)) :=
-    Int.emod_def _ _
-  rw [e, ha]
-  exact ⟨-((c : Int) * y) - (D : Int) * (((c : Int) * x) / (N : Int)), by grind⟩
-
-theorem exponent_linear (D d q j s : Nat) (_hD : 0 < D) (hdp : 0 < d * q ^ j)
-    (hcompat : Nat.gcd D (d * q ^ j) ∣ d * s) :
-    ∃ E : Nat, D ∣ E ∧ ((d * q ^ j : Nat) : Int) ∣ ((E : Int) - ((d * s : Nat) : Int)) := by
-  obtain ⟨t, ht⟩ := linear_congruence D (d * q ^ j) (d * s) hdp hcompat
-  refine ⟨D * t, Nat.dvd_mul_right D t, ?_⟩
-  have : ((D * t : Nat) : Int) = (D : Int) * (t : Int) := by push_cast; rfl
-  rw [this]
-  exact ht
-
-theorem gcd_compat (q K D' d j : Nat) (hD' : Nat.Coprime q D') :
-    Nat.gcd (q ^ K * D') (d * q ^ j) ∣ d * q ^ K := by
-  rcases Nat.le_total j K with hjK | hjK
-  · have h1 : d * q ^ j ∣ d * q ^ K :=
-      Nat.mul_dvd_mul_left d (Nat.pow_dvd_pow q hjK)
-    exact Nat.dvd_trans (Nat.gcd_dvd_right _ _) h1
-  · obtain ⟨i, rfl⟩ : ∃ i, j = K + i := ⟨j - K, by omega⟩
-    have e : d * q ^ (K + i) = q ^ K * (d * q ^ i) := by
-      rw [Nat.pow_add]; grind
-    rw [e, Nat.gcd_mul_left]
-    have hc : Nat.Coprime D' (q ^ i) := (Nat.Coprime.pow_left i hD').symm
-    have h2 : Nat.gcd D' (d * q ^ i) ∣ d := by
-      rw [Nat.gcd_comm, Nat.Coprime.gcd_mul_right_cancel d hc.symm]
-      exact Nat.gcd_dvd_left _ _
-    rw [Nat.mul_comm d (q ^ K)]
-    exact Nat.mul_dvd_mul_left _ h2
-
-theorem int_dvd_sub_mod (E a T : Nat) (h : (T : Int) ∣ (E : Int) - (a : Int)) : E % T = a % T := by
-  have h1 : ((E : Int) - (a : Int)) % (T : Int) = 0 := Int.emod_eq_zero_of_dvd h
-  have h2 := (Int.emod_emod_of_dvd)
-  have h3 : (E : Int) % (T : Int) = (a : Int) % (T : Int) :=
-    Int.emod_eq_emod_iff_emod_sub_eq_zero.2 h1
-  exact_mod_cast h3
-
-theorem exponent_padic (q : Nat) [NonWieferich q] {d u : Nat} (hd : 2 ^ d = 1 + q * u) (hu : Nat.Coprime q u)
-    (K j w ℓ Y : Nat) (hw : ∃ i, w % q = 2 ^ i % q) (hKj : K ≤ j)
-    (hY : Y % (q ^ (K + 1)) = (2 ^ ℓ * w) % (q ^ (K + 1))) :
-    ∃ s, q ^ K ∣ s ∧ ∀ E, E % (d * q ^ j) = (d * s) % (d * q ^ j) →
-      (2 ^ (ℓ + E) * w) % q ^ (j + 1) = Y % q ^ (j + 1) := by
-  have hp := NonWieferich.odd (q := q)
-  have hp3 := NonWieferich.three_le (q := q)
-  have hone : ∀ n, 1 < q ^ (n + 1) := fun n =>
-    Nat.lt_of_lt_of_le (by omega) (Nat.le_self_pow (by omega) q)
-  have hpm : q ^ (K + 1) ∣ q ^ (j + 1) := Nat.pow_dvd_pow q (by omega)
-  obtain ⟨i, hi⟩ := hw
-  have ha : (2 ^ ℓ * w) % q = 2 ^ (ℓ + i) % q := by
-    rw [Nat.mul_mod, hi, ← Nat.mul_mod, ← Nat.pow_add]
-  have hYp : Y % q = (2 ^ ℓ * w) % q := mod_of_dvd_mod (p_dvd_pow q K) hY
-  have hInA : InPowTwo q j (2 ^ ℓ * w) := target_inPowTwo q ha j
-  have hInY : InPowTwo q j Y := target_inPowTwo q (hYp.trans ha) j
-  obtain ⟨j', hj'⟩ := inPowTwo_ratio q hInA hInY
-  have hcopa : Nat.Coprime (q ^ (K + 1)) (2 ^ ℓ * w) :=
-    Nat.Coprime.pow_left (K + 1)
-      (Nat.Coprime.mul_right (Nat.Coprime.pow_right ℓ (coprime_p_two q)) (coprime_target q ⟨i, hi⟩))
-  have hP1 : (2 ^ j' * (2 ^ ℓ * w)) % q ^ (K + 1) = (1 * (2 ^ ℓ * w)) % q ^ (K + 1) := by
-    rw [Nat.one_mul, mod_of_dvd_mod hpm hj']
-    exact hY
-  have hg1 : 2 ^ j' % q ^ (K + 1) = 1 % q ^ (K + 1) := mod_cancel_mul_right hcopa hP1
-  have hone' : 1 % q ^ (K + 1) = 1 := Nat.mod_eq_of_lt (hone K)
-  have hgp : 2 ^ j' % q = 1 := by
-    have := mod_of_dvd_mod (p_dvd_pow q K) hg1
-    rw [this]; exact Nat.mod_eq_of_lt (by omega)
-  obtain ⟨t, -, ht⟩ := unit_power_cover hp hp3 hu j (2 ^ j') hgp
-  have ht1 : (1 + q * u) ^ t % q ^ (K + 1) = 1 := by
-    have e : (1 + q * u) ^ t % q ^ (K + 1) = 2 ^ j' % q ^ (K + 1) := by
-      rw [← Nat.mod_mod_of_dvd ((1 + q * u) ^ t) hpm, ht, Nat.mod_mod_of_dvd _ hpm]
-    rw [e, hg1, hone']
-  have hpt : q ^ K ∣ t := (order_iff hp hp3 hu K t).1 ht1
-  refine ⟨t, hpt, ?_⟩
-  intro E hE
-  have hT : 2 ^ (d * q ^ j) % q ^ (j + 1) = 1 % q ^ (j + 1) := by
-    rw [Nat.pow_mul, hd, (order_iff hp hp3 hu j (q ^ j)).2 (Nat.dvd_refl _),
-      Nat.mod_eq_of_lt (hone j)]
-  have h2E := pow_two_mod_period (q ^ (j + 1)) (d * q ^ j) hT E (d * t) hE
-  rw [Nat.pow_mul, hd, ht] at h2E
-  have e2 : 2 ^ (ℓ + E) * w = 2 ^ E * (2 ^ ℓ * w) := by
-    rw [Nat.pow_add]; grind
-  rw [e2, Nat.mul_mod, h2E, ← Nat.mul_mod]
-  exact hj'
-
-theorem exponent_lemma (q : Nat) [NonWieferich q] {d u : Nat} (hd0 : 0 < d) (hd : 2 ^ d = 1 + q * u)
-    (hu : Nat.Coprime q u) (m' K j w D' ℓ Y : Nat) (hM : Nat.Coprime m' (2 * q))
-    (hw : ∃ i, w % q = 2 ^ i % q) (hD0 : 0 < D') (hD3 : Nat.Coprime q D')
-    (hD : 2 ^ (q ^ K * D') % m' = 1 % m') (hKj : K ≤ j)
-    (hY : Y % (q ^ (K + 1) * m') = (2 ^ ℓ * w) % (q ^ (K + 1) * m')) :
-    ∃ E0, ∀ E, E % Nat.lcm (q ^ K * D') (d * q ^ j) = E0 % Nat.lcm (q ^ K * D') (d * q ^ j) →
-      (2 ^ (ℓ + E) * w) % (q ^ (j + 1) * m') = Y % (q ^ (j + 1) * m') := by
-  have hpK : 0 < q ^ K := powp_pos q K
-  have hDpos : 0 < q ^ K * D' := Nat.mul_pos hpK hD0
-  have hY1 : Y % q ^ (K + 1) = (2 ^ ℓ * w) % q ^ (K + 1) :=
-    mod_of_dvd_mod (Nat.dvd_mul_right _ _) hY
-  have hYM : Y % m' = (2 ^ ℓ * w) % m' := mod_of_dvd_mod (Nat.dvd_mul_left _ _) hY
-  obtain ⟨s, hps, hs⟩ := exponent_padic q hd hu K j w ℓ Y hw hKj hY1
-  have hdpj : 0 < d * q ^ j := Nat.mul_pos hd0 (powp_pos q j)
-  have hcompat : Nat.gcd (q ^ K * D') (d * q ^ j) ∣ d * s :=
-    Nat.dvd_trans (gcd_compat q K D' d j hD3) (Nat.mul_dvd_mul_left d hps)
-  obtain ⟨E1, hE1D, hE1⟩ := exponent_linear (q ^ K * D') d q j s hDpos hdpj hcompat
-  have hE1m : E1 % (d * q ^ j) = (d * s) % (d * q ^ j) := int_dvd_sub_mod _ _ _ hE1
-  have hL0 : 0 < Nat.lcm (q ^ K * D') (d * q ^ j) := Nat.lcm_pos hDpos hdpj
-  have hDL : q ^ K * D' ∣ Nat.lcm (q ^ K * D') (d * q ^ j) := Nat.dvd_lcm_left _ _
-  have hPL : d * q ^ j ∣ Nat.lcm (q ^ K * D') (d * q ^ j) := Nat.dvd_lcm_right _ _
-  refine ⟨E1, ?_⟩
-  intro E hE
-  have hED : E % (q ^ K * D') = E1 % (q ^ K * D') := mod_of_dvd_mod hDL hE
-  have hEdv : (q ^ K * D') ∣ E := by
-    have h0 : E1 % (q ^ K * D') = 0 := Nat.mod_eq_zero_of_dvd hE1D
-    exact Nat.dvd_of_mod_eq_zero (hED.trans h0)
-  have hET : E % (d * q ^ j) = (d * s) % (d * q ^ j) := by
-    rw [mod_of_dvd_mod hPL hE]; exact hE1m
-  have hpart := hs E hET
-  obtain ⟨k, hk⟩ := hEdv
-  have hMpart : (2 ^ (ℓ + E) * w) % m' = Y % m' := by
-    have h2 : 2 ^ E % m' = 1 % m' := by rw [hk, Nat.pow_mul]; exact pow_period_pow m' _ hD k
-    have e2 : 2 ^ (ℓ + E) * w = 2 ^ E * (2 ^ ℓ * w) := by rw [Nat.pow_add]; grind
-    rw [e2, Nat.mul_mod, h2, ← Nat.mul_mod, Nat.one_mul, hYM]
-  have hcop : Nat.Coprime (q ^ (j + 1)) m' := Nat.Coprime.pow_left (j + 1) (coprime_p_of_coprime_two_mul hM).symm
-  exact mod_combine hcop hpart hMpart
-
-theorem offset_le_pow (q : Nat) (hp : 2 ≤ q) : ∀ u : List Nat, (∀ e ∈ u, e ≤ 1) →
-    offset q u ≤ q ^ oneCount u * 2 ^ u.length
-  | [], _ => by simp [offset, oneCount]
-  | e :: u, hu => by
-    have hu' : ∀ d ∈ u, d ≤ 1 := fun d hd => hu d (by simp [hd])
-    have ih := offset_le_pow q hp u hu'
-    have he : e = 0 ∨ e = 1 := by have := hu e (by simp); omega
-    have hB : 0 < 2 ^ u.length := Nat.pow_pos (by omega)
-    have hA : 0 < q ^ oneCount u := Nat.pow_pos (by omega)
-    rcases he with rfl | rfl
-    · simp only [offset, oneCount, List.length_cons, Nat.add_zero, Nat.mul_zero, Nat.zero_add]
-      rw [Nat.pow_succ (2 : Nat)]
-      generalize q ^ oneCount u = A at *
-      generalize 2 ^ u.length = B at *
-      generalize offset q u = O at *
-      have : A * (B * 2) = (A * B) * 2 := by grind
-      omega
-    · simp only [offset, oneCount, List.length_cons, Nat.mul_one]
-      rw [Nat.pow_succ (2 : Nat), Nat.pow_succ q]
-      generalize q ^ oneCount u = A at *
-      generalize 2 ^ u.length = B at *
-      generalize offset q u = O at *
-      have h1 : A * 2 * (B * 2) ≤ A * q * (B * 2) :=
-        Nat.mul_le_mul_right _ (Nat.mul_le_mul_left A hp)
-      have h2 : A * 2 * (B * 2) = 4 * (A * B) := by grind
-      have h3 : A ≤ A * B := Nat.le_mul_of_pos_right A hB
-      omega
-
-theorem exists_in_class (a e T : Nat) (hT : 0 < T) :
-    ∃ E, e ≤ E ∧ E < e + T ∧ E % T = a % T := by
-  refine ⟨e + (a + (T - e % T)) % T, by omega, ?_, ?_⟩
-  · have := Nat.mod_lt (a + (T - e % T)) hT
-    omega
-  · rw [Nat.add_mod e, Nat.mod_mod, Nat.add_mod_mod]
-    have h1 := Nat.mod_lt e hT
-    have : e % T + (a + (T - e % T)) = a + T := by omega
-    rw [this, Nat.add_mod_right]
-
-theorem exists_pow_two_between (V ℓ : Nat) (hV : 2 ^ ℓ ≤ V) :
-    ∃ e, V ≤ 2 ^ (ℓ + e) ∧ 2 ^ (ℓ + e) ≤ 2 * V := by
-  have hex : ∃ e, V ≤ 2 ^ (ℓ + e) :=
-    ⟨V, Nat.le_trans (Nat.le_of_lt Nat.lt_two_pow_self)
-      (Nat.pow_le_pow_right (by omega) (by omega))⟩
-  obtain ⟨e, he, hmin⟩ := exists_least _ hex
-  refine ⟨e, he, ?_⟩
-  cases e with
-  | zero => simpa using Nat.le_trans hV (by omega : V ≤ 2 * V)
-  | succ e =>
-    have h := hmin e (by omega)
-    have h2 : 2 ^ (ℓ + e) < V := Nat.lt_of_not_le h
-    rw [show ℓ + (e + 1) = (ℓ + e) + 1 by omega, Nat.pow_succ]
-    omega
-
-theorem witness_exists (q o C z1 Z m' : Nat) (hpo : 0 < q ^ o) (hC : C ≤ Z)
-    (h : Z % (q ^ o * m') = (q ^ o * z1 + C) % (q ^ o * m')) :
-    ∃ z, Z = q ^ o * z + C ∧ z % m' = z1 % m' := by
-  have h1 : Z % q ^ o = C % q ^ o := by
-    rw [mod_of_dvd_mod (Nat.dvd_mul_right (q ^ o) m') h, Nat.add_comm, Nat.add_mul_mod_self_left]
-  have h2 := Nat.sub_mod_eq_zero_of_mod_eq h1
-  obtain ⟨z, hz⟩ := Nat.dvd_of_mod_eq_zero h2
-  have hZ : Z = q ^ o * z + C := by omega
-  refine ⟨z, hZ, ?_⟩
-  rw [hZ, Nat.add_comm (q ^ o * z), Nat.add_comm (q ^ o * z1)] at h
-  have h3 := mod_add_left_cancel h
-  rw [Nat.mul_mod_mul_left, Nat.mul_mod_mul_left] at h3
-  exact Nat.eq_of_mul_eq_mul_left hpo h3
-
-theorem parity_prefix (q : Nat) [NonWieferich q] : ∀ α x : Nat, ∃ u : List Nat, (∀ e ∈ u, e ≤ 1) ∧
-    u.length = α ∧ 2 ^ α ∣ q ^ oneCount u * x + offset q u := by
-  intro α
-  induction α with
-  | zero => intro x; exact ⟨[], by simp, rfl, by simp⟩
-  | succ α ih =>
-    intro x
-    have hc : q + 1 = 2 * ((q + 1) / 2) := by have := NonWieferich.odd (q := q); omega
-    obtain ⟨y, hy | hy⟩ : ∃ y, x = 2 * y ∨ x = 2 * y + 1 := ⟨x / 2, by omega⟩
-    · obtain ⟨u, hu, hl, hd⟩ := ih y
-      refine ⟨0 :: u, ?_, by simp [hl], ?_⟩
-      · intro e he; simp at he; rcases he with rfl | he; omega; exact hu e he
-      · simp only [oneCount, offset]
-        have hn : q ^ (oneCount u + 0) * x + (q ^ oneCount u * 0 + 2 * offset q u)
-            = 2 * (q ^ oneCount u * y + offset q u) := by subst hy; grind
-        rw [hn, Nat.pow_succ']
-        exact Nat.mul_dvd_mul_left 2 hd
-    · obtain ⟨u, hu, hl, hd⟩ := ih (q * y + (q + 1) / 2)
-      refine ⟨1 :: u, ?_, by simp [hl], ?_⟩
-      · intro e he; simp at he; rcases he with rfl | he; omega; exact hu e he
-      · simp only [oneCount, offset]
-        have hn : q ^ (oneCount u + 1) * x + (q ^ oneCount u * 1 + 2 * offset q u)
-            = 2 * (q ^ oneCount u * (q * y + (q + 1) / 2) + offset q u) := by
-          subst hy; rw [Nat.pow_succ]
-          generalize (q + 1) / 2 = c at hc ⊢
-          grind
-        rw [hn, Nat.pow_succ']
-        exact Nat.mul_dvd_mul_left 2 hd
-
-theorem prefix_mod (q : Nat) [NonWieferich q] (α o C x y : Nat)
-    (hx : 2 ^ α ∣ q ^ o * x + C) (hy : 2 ^ α ∣ q ^ o * y + C) : x % 2 ^ α = y % 2 ^ α := by
-  have hcop : Nat.Coprime (2 ^ α) (q ^ o) :=
-    Nat.Coprime.pow _ _ (coprime_p_two q).symm
-  have h1 : (C + q ^ o * x) % 2 ^ α = (C + q ^ o * y) % 2 ^ α := by
-    rw [Nat.add_comm C, Nat.add_comm C, Nat.mod_eq_zero_of_dvd hx, Nat.mod_eq_zero_of_dvd hy]
-  have h2 := mod_add_left_cancel h1
-  rcases Nat.le_total y x with h | h
-  · exact mod_cancel_mul_left hcop h h2
-  · exact (mod_cancel_mul_left hcop h h2.symm).symm
-
-theorem follow_prefix (q : Nat) [NonWieferich q] (u v : List Nat) (n : Nat)
-    (h : 2 ^ (u ++ v).length ∣ q ^ oneCount (u ++ v) * n + offset q (u ++ v)) :
-    2 ^ u.length ∣ q ^ oneCount u * n + offset q u := by
-  rw [offset_append, oneCount_append, List.length_append, Nat.pow_add] at h
-  have e : q ^ (oneCount u + oneCount v) * n + (q ^ oneCount v * offset q u + 2 ^ u.length * offset q v)
-      = q ^ oneCount v * (q ^ oneCount u * n + offset q u) + 2 ^ u.length * offset q v := by
-    rw [Nat.pow_add]; grind
-  rw [e] at h
-  have h1 := Nat.dvd_trans (Nat.dvd_mul_right _ _) h
-  have h2 : 2 ^ u.length ∣ q ^ oneCount v * (q ^ oneCount u * n + offset q u) :=
-    (Nat.dvd_add_right (Nat.dvd_mul_right _ _)).1 (by rwa [Nat.add_comm] at h1)
-  exact (Nat.Coprime.pow _ _ (coprime_p_two q).symm).dvd_of_dvd_mul_left h2
-
-theorem witness_size (P C ℓ E E0 Λ w n B : Nat) (hP : 0 < P) (hw : 1 ≤ w)
-    (hC : C ≤ P * 2 ^ ℓ) (hn : P * n + C = 2 ^ (ℓ + E) * w)
-    (h1 : P * (B + 1 + 2 ^ ℓ) ≤ 2 ^ (ℓ + E0)) (h2 : 2 ^ (ℓ + E0) ≤ 2 * (P * (B + 1 + 2 ^ ℓ)))
-    (hE1 : E0 ≤ E) (hE2 : E < E0 + Λ) :
-    B < n ∧ n ≤ (B + 1) * w * 2 ^ (Λ + ℓ + 1) := by
-  have hGG : 2 ^ (ℓ + E0) ≤ 2 ^ (ℓ + E) := Nat.pow_le_pow_right (by omega) (by omega)
-  have h2G : 2 * 2 ^ (ℓ + E) ≤ 2 ^ (ℓ + E0) * 2 ^ Λ := by
-    rw [← Nat.pow_succ', ← Nat.pow_add]; exact Nat.pow_le_pow_right (by omega) (by omega)
-  have hT : 1 ≤ 2 ^ ℓ := Nat.one_le_two_pow
-  have hpow : 2 ^ (Λ + ℓ + 1) = 2 ^ Λ * 2 ^ ℓ * 2 := by rw [Nat.pow_succ, Nat.pow_add]
-  rw [hpow]
-  generalize 2 ^ (ℓ + E) = G at *
-  generalize 2 ^ (ℓ + E0) = G0 at *
-  generalize 2 ^ Λ = S at *
-  generalize 2 ^ ℓ = T at *
-  constructor
-  ·
-    have hGw : G ≤ G * w := Nat.le_mul_of_pos_right _ (by omega)
-    have e1 : P * (B + 1 + T) = P * (B + 1) + P * T := by grind
-    have : P * (B + 1) ≤ P * n := by omega
-    exact Nat.le_of_mul_le_mul_left this hP
-  · have e1 : 2 * (P * n) ≤ 2 * G * w := by
-      have : P * n ≤ G * w := by omega
-      have := Nat.mul_le_mul_left 2 this; grind
-    have e2 : 2 * G * w ≤ G0 * S * w := Nat.mul_le_mul_right _ h2G
-    have e3 : G0 * S * w ≤ 2 * (P * (B + 1 + T)) * S * w :=
-      Nat.mul_le_mul_right _ (Nat.mul_le_mul_right _ h2)
-    have e4 : 2 * (P * (B + 1 + T)) * S * w = 2 * (P * ((B + 1 + T) * S * w)) := by grind
-    have e5 : P * n ≤ P * ((B + 1 + T) * S * w) := by omega
-    have e6 := Nat.le_of_mul_le_mul_left e5 hP
-    have e7 : B + 1 + T ≤ (B + 1) * T * 2 := by
-      have : (B + 1) * T ≥ T := Nat.le_mul_of_pos_left _ (by omega)
-      have : (B + 1) * T ≥ B + 1 := Nat.le_mul_of_pos_right _ (by omega)
-      omega
-    have e8 : (B + 1 + T) * S * w ≤ (B + 1) * T * 2 * S * w :=
-      Nat.mul_le_mul_right _ (Nat.mul_le_mul_right _ e7)
-    have e9 : (B + 1) * T * 2 * S * w = (B + 1) * w * (S * T * 2) := by grind
-    omega
-
-theorem split_coprime (a : Nat) : ∀ X, 1 ≤ X → ∃ A Y k, X = A * Y ∧ Nat.Coprime Y a ∧ A ∣ a ^ k ∧ 2 ^ k ≤ A := by
-  intro X
-  induction X using Nat.strongRecOn with
-  | _ X ih =>
-    intro hX
-    by_cases hc : Nat.Coprime X a
-    · exact ⟨1, X, 0, by simp, hc, by simp, by simp⟩
-    · have hg1 : Nat.gcd X a ≠ 1 := hc
-      have hg0 : 0 < Nat.gcd X a := Nat.gcd_pos_of_pos_left _ (by omega)
-      obtain ⟨X1, hX1⟩ := Nat.gcd_dvd_left X a
-      have hga := Nat.gcd_dvd_right X a
-      generalize Nat.gcd X a = g at hg1 hg0 hX1 hga
-      have hX10 : 1 ≤ X1 := by
-        apply Classical.byContradiction; intro h
-        have : X1 = 0 := by omega
-        rw [this, Nat.mul_zero] at hX1; omega
-      have hlt : X1 < X := by
-        have : X1 * 2 ≤ X1 * g := Nat.mul_le_mul_left _ (by omega)
-        have e : X1 * g = g * X1 := Nat.mul_comm _ _
-        omega
-      obtain ⟨A1, Y, k, h1, h2, h3, h4⟩ := ih X1 hlt hX10
-      refine ⟨g * A1, Y, k + 1, ?_, h2, ?_, ?_⟩
-      · rw [hX1, h1, Nat.mul_assoc]
-      · rw [Nat.pow_succ, Nat.mul_comm (a ^ k)]
-        exact Nat.mul_dvd_mul hga h3
-      · rw [Nat.pow_succ, Nat.mul_comm]
-        exact Nat.mul_le_mul (by omega) h4
-
-theorem split_two_power : ∀ m, 1 ≤ m → ∃ α O, m = 2 ^ α * O ∧ O % 2 = 1 := by
-  intro m
-  induction m using Nat.strongRecOn with
-  | _ m ih =>
-    intro hN
-    rcases Nat.mod_two_eq_zero_or_one m with h | h
-    · obtain ⟨α, O, h1, h2⟩ := ih (m / 2) (by omega) (by omega)
-      exact ⟨α + 1, O, by rw [Nat.pow_succ, Nat.mul_comm (2 ^ α) 2, Nat.mul_assoc, ← h1]; omega, h2⟩
-    · exact ⟨0, m, by simp, h⟩
-
-namespace TS
+    (first | nat_ring | int_ring)
 
 theorem nat_bez (a m' : Nat) (hm : 1 < m') (h : Nat.gcd a m' = 1) :
     ∃ k w : Nat, a * k = m' * w + 1 := by
@@ -1284,7 +584,9 @@ theorem nat_bez (a m' : Nat) (hm : 1 < m') (h : Nat.gcd a m' = 1) :
   generalize x % m' = r at *
   generalize x / m' = c at *
   subst hq
-  have key : r * a = 1 - (y + c * a) * m' := by grind
+  have key : r * a = 1 - (y + c * a) * m' := by
+    simp only [Int.add_mul, Int.mul_add, Int.mul_comm, Int.mul_left_comm, Int.mul_assoc, Int.add_comm, Int.add_left_comm] at hxy ⊢
+    omega
   generalize hz : y + c * a = z at key
   have hra : 0 ≤ r * a := Int.mul_nonneg hr0 (by omega)
   have hz0 : z ≤ 0 := by
@@ -1299,8 +601,191 @@ theorem nat_bez (a m' : Nat) (hm : 1 < m') (h : Nat.gcd a m' = 1) :
   have : ((a * r.toNat : Nat) : Int) = ((m' * (-z).toNat + 1 : Nat) : Int) := by
     push_cast
     rw [Int.toNat_of_nonneg hr0, Int.toNat_of_nonneg (by omega)]
-    grind
+    (first | nat_ring | int_ring)
   exact_mod_cast this
+
+theorem mod_of_dvd_mod {a b P Z : Nat} (hZ : Z ∣ P) (h : a % P = b % P) : a % Z = b % Z := by
+  rw [← Nat.mod_mod_of_dvd a hZ, h, Nat.mod_mod_of_dvd b hZ]
+
+theorem coprime_p_of_coprime_two_mul {m' q : Nat} (hM : Nat.Coprime m' (2 * q)) : Nat.Coprime m' q :=
+  Nat.Coprime.coprime_dvd_right (Nat.dvd_mul_left q 2) hM
+theorem coprime_two_of_coprime_two_mul {m' q : Nat} (hM : Nat.Coprime m' (2 * q)) : Nat.Coprime m' 2 :=
+  Nat.Coprime.coprime_dvd_right (Nat.dvd_mul_right 2 q) hM
+
+section Words
+variable (q : Nat)
+
+def ones : List Nat → Nat
+  | [] => 0
+  | e :: u => ones u + e
+
+def kappa : List Nat → Nat
+  | [] => 0
+  | e :: u => q ^ ones u * e + 2 * kappa u
+
+theorem collatz_odd [NonWieferich q] (y : Nat) :
+    collatz q (2 * y + 1) = 2 * (q * y + (q + 1) / 2) := by
+  have := NonWieferich.odd (q := q)
+  unfold collatz
+  rw [ite_eq_right (by omega)]
+  have h : q + 1 = 2 * ((q + 1) / 2) := by omega
+  generalize (q + 1) / 2 = c at h ⊢
+  (first | nat_ring | int_ring)
+
+theorem word_trajectory [NonWieferich q] : ∀ (u : List Nat), (∀ e ∈ u, e ≤ 1) → ∀ x : Nat,
+    2 ^ u.length ∣ q ^ ones u * x + kappa q u →
+    ∃ k, iter (collatz q) k x = (q ^ ones u * x + kappa q u) / 2 ^ u.length
+  | [], _, x, _ => ⟨0, by simp [ones, kappa, iter]⟩
+  | e :: u, hu, x, h => by
+    have he : e = 0 ∨ e = 1 := by have := hu e (by simp); omega
+    have hu' : ∀ d ∈ u, d ≤ 1 := fun d hd => hu d (by simp [hd])
+    have hp : q ^ ones u % 2 = 1 := powp_odd q _
+    have hc : q + 1 = 2 * ((q + 1) / 2) := by have := NonWieferich.odd (q := q); omega
+    have h2 : 2 ∣ 2 ^ (u.length + 1) := by rw [Nat.pow_succ, Nat.mul_comm]; exact Nat.dvd_mul_right 2 (2 ^ u.length)
+    have hpow : 2 ^ (u.length + 1) = 2 * 2 ^ u.length := by rw [Nat.pow_succ, Nat.mul_comm]
+    simp only [List.length_cons, ones, kappa] at h ⊢
+    rcases he with rfl | rfl
+    · have h0 := Nat.dvd_trans h2 h
+      obtain ⟨y, hy | hy⟩ : ∃ y, x = 2 * y ∨ x = 2 * y + 1 := ⟨x / 2, by omega⟩
+      · subst hy
+        have hn : q ^ (ones u + 0) * (2 * y) + (q ^ ones u * 0 + 2 * kappa q u)
+            = 2 * (q ^ ones u * y + kappa q u) := by simp [Nat.add_mul, Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm, Nat.zero_add, Nat.add_zero]
+        rw [hn, hpow] at h
+        have h' := (Nat.mul_dvd_mul_iff_left (by omega : 0 < 2)).1 h
+        obtain ⟨k, hk⟩ := word_trajectory u hu' y h'
+        refine ⟨k + 1, ?_⟩
+        show iter (collatz q) k (collatz q (2 * y)) = _
+        rw [collatz_double, hk, hn, hpow, Nat.mul_div_mul_left _ _ (by omega : 0 < 2)]
+      · subst hy
+        exfalso
+        have hn : q ^ (ones u + 0) * (2 * y + 1) + (q ^ ones u * 0 + 2 * kappa q u)
+            = 2 * (q ^ ones u * y + kappa q u) + q ^ ones u := by (first | nat_ring | int_ring)
+        rw [hn] at h0
+        generalize q ^ ones u * y + kappa q u = P at h0
+        omega
+    · have h0 := Nat.dvd_trans h2 h
+      obtain ⟨y, hy | hy⟩ : ∃ y, x = 2 * y ∨ x = 2 * y + 1 := ⟨x / 2, by omega⟩
+      · subst hy
+        exfalso
+        have hn : q ^ (ones u + 1) * (2 * y) + (q ^ ones u * 1 + 2 * kappa q u)
+            = 2 * (q ^ ones u * (q * y) + kappa q u) + q ^ ones u := by (rw [Nat.pow_succ]; nat_ring)
+        rw [hn] at h0
+        generalize q ^ ones u * (q * y) + kappa q u = P at h0
+        omega
+      · subst hy
+        have hn : q ^ (ones u + 1) * (2 * y + 1) + (q ^ ones u * 1 + 2 * kappa q u)
+            = 2 * (q ^ ones u * (q * y + (q + 1) / 2) + kappa q u) := by
+          rw [Nat.pow_succ]
+          generalize (q + 1) / 2 = c at hc ⊢
+          (have hQ : q ^ ones u * (q + 1) = q ^ ones u * (2 * c) := (by rw [hc]); nat_ring)
+        rw [hn, hpow] at h
+        have h' := (Nat.mul_dvd_mul_iff_left (by omega : 0 < 2)).1 h
+        obtain ⟨k, hk⟩ := word_trajectory u hu' (q * y + (q + 1) / 2) h'
+        refine ⟨k + 2, ?_⟩
+        show iter (collatz q) k (collatz q (collatz q (2 * y + 1))) = _
+        rw [collatz_odd, collatz_double, hk, hn, hpow, Nat.mul_div_mul_left _ _ (by omega : 0 < 2)]
+
+theorem reaches_pow2 [NonWieferich q] (w : Nat) : ∀ n, Reaches q (2 ^ n * w) w
+  | 0 => ⟨0, by simp [iter]⟩
+  | n + 1 => by
+    obtain ⟨k, hk⟩ := reaches_pow2 w n
+    refine ⟨k + 1, ?_⟩
+    rw [iter_add]
+    show iter (collatz q) k (collatz q (2 ^ (n + 1) * w)) = w
+    rw [show 2 ^ (n + 1) * w = 2 * (2 ^ n * w) by rw [Nat.pow_succ, Nat.mul_comm (2 ^ n) 2, Nat.mul_assoc], collatz_double]; exact hk
+
+end Words
+
+theorem pow_two_mod_period (P T : Nat) (hT : 2 ^ T % P = 1 % P) (x y : Nat) (hxy : x % T = y % T) :
+    2 ^ x % P = 2 ^ y % P := by
+  have key : ∀ z : Nat, 2 ^ z % P = 2 ^ (z % T) % P := by
+    intro z
+    have hz : 2 ^ z = (2 ^ T) ^ (z / T) * 2 ^ (z % T) := by
+      rw [← Nat.pow_mul, ← Nat.pow_add, Nat.div_add_mod]
+    rw [hz, Nat.mul_mod, pow_mod_one P (2 ^ T) _ hT, ← Nat.mul_mod, Nat.one_mul]
+  rw [key x, key y, hxy]
+
+theorem exists_in_class (a e T : Nat) (hT : 0 < T) :
+    ∃ E, e ≤ E ∧ E < e + T ∧ E % T = a % T := by
+  refine ⟨e + (a + (T - e % T)) % T, by omega, ?_, ?_⟩
+  · have := Nat.mod_lt (a + (T - e % T)) hT
+    omega
+  · rw [Nat.add_mod e, Nat.mod_mod, Nat.add_mod_mod]
+    have h1 := Nat.mod_lt e hT
+    have : e % T + (a + (T - e % T)) = a + T := by omega
+    rw [this, Nat.add_mod_right]
+
+theorem parity_prefix (q : Nat) [NonWieferich q] : ∀ α x : Nat, ∃ u : List Nat, (∀ e ∈ u, e ≤ 1) ∧
+    u.length = α ∧ 2 ^ α ∣ q ^ ones u * x + kappa q u := by
+  intro α
+  induction α with
+  | zero => intro x; exact ⟨[], by simp, rfl, by simp⟩
+  | succ α ih =>
+    intro x
+    have hc : q + 1 = 2 * ((q + 1) / 2) := by have := NonWieferich.odd (q := q); omega
+    obtain ⟨y, hy | hy⟩ : ∃ y, x = 2 * y ∨ x = 2 * y + 1 := ⟨x / 2, by omega⟩
+    · obtain ⟨u, hu, hl, hd⟩ := ih y
+      refine ⟨0 :: u, ?_, by simp [hl], ?_⟩
+      · intro e he; simp at he; rcases he with rfl | he; omega; exact hu e he
+      · simp only [ones, kappa]
+        have hn : q ^ (ones u + 0) * x + (q ^ ones u * 0 + 2 * kappa q u)
+            = 2 * (q ^ ones u * y + kappa q u) := by subst hy; (first | nat_ring | int_ring)
+        rw [hn, Nat.pow_succ']
+        exact Nat.mul_dvd_mul_left 2 hd
+    · obtain ⟨u, hu, hl, hd⟩ := ih (q * y + (q + 1) / 2)
+      refine ⟨1 :: u, ?_, by simp [hl], ?_⟩
+      · intro e he; simp at he; rcases he with rfl | he; omega; exact hu e he
+      · simp only [ones, kappa]
+        have hn : q ^ (ones u + 1) * x + (q ^ ones u * 1 + 2 * kappa q u)
+            = 2 * (q ^ ones u * (q * y + (q + 1) / 2) + kappa q u) := by
+          subst hy; rw [Nat.pow_succ]
+          generalize (q + 1) / 2 = c at hc ⊢
+          (have hQ : q ^ ones u * (q + 1) = q ^ ones u * (2 * c) := (by rw [hc]); nat_ring)
+        rw [hn, Nat.pow_succ']
+        exact Nat.mul_dvd_mul_left 2 hd
+
+theorem split_coprime (a : Nat) : ∀ X, 1 ≤ X → ∃ A Y k, X = A * Y ∧ Nat.Coprime Y a ∧ A ∣ a ^ k := by
+  intro X
+  induction X using Nat.strongRecOn with
+  | _ X ih =>
+    intro hX
+    match (inferInstance : Decidable (Nat.gcd X a = 1)) with
+    | isTrue hc =>
+      exact ⟨1, X, 0, by simp, hc, by simp⟩
+    | isFalse hc =>
+      have hg1 : Nat.gcd X a ≠ 1 := hc
+      have hg0 : 0 < Nat.gcd X a := Nat.gcd_pos_of_pos_left _ (by omega)
+      obtain ⟨X1, hX1⟩ := Nat.gcd_dvd_left X a
+      have hga := Nat.gcd_dvd_right X a
+      generalize Nat.gcd X a = g at hg1 hg0 hX1 hga
+      have hX10 : 1 ≤ X1 := by
+        match (inferInstance : Decidable (1 ≤ X1)) with
+        | isTrue hg => exact hg
+        | isFalse h =>
+        exfalso
+        have : X1 = 0 := by omega
+        rw [this, Nat.mul_zero] at hX1; omega
+      have hlt : X1 < X := by
+        have : X1 * 2 ≤ X1 * g := Nat.mul_le_mul_left _ (by omega)
+        have e : X1 * g = g * X1 := Nat.mul_comm _ _
+        omega
+      obtain ⟨A1, Y, k, h1, h2, h3⟩ := ih X1 hlt hX10
+      refine ⟨g * A1, Y, k + 1, ?_, h2, ?_⟩
+      · rw [hX1, h1, Nat.mul_assoc]
+      · rw [Nat.pow_succ, Nat.mul_comm (a ^ k)]
+        exact Nat.mul_dvd_mul hga h3
+
+theorem split_two_power : ∀ m, 1 ≤ m → ∃ α O, m = 2 ^ α * O ∧ O % 2 = 1 := by
+  intro m
+  induction m using Nat.strongRecOn with
+  | _ m ih =>
+    intro hN
+    rcases Nat.mod_two_eq_zero_or_one m with h | h
+    · obtain ⟨α, O, h1, h2⟩ := ih (m / 2) (by omega) (by omega)
+      exact ⟨α + 1, O, by rw [Nat.pow_succ, Nat.mul_comm (2 ^ α) 2, Nat.mul_assoc, ← h1]; omega, h2⟩
+    · exact ⟨0, m, by simp, h⟩
+
+namespace TS
 
 def card (m' : Nat) (S : Nat → Bool) : Nat := (List.range m').countP S
 
@@ -1344,7 +829,7 @@ theorem eq_of_card {S T : Nat → Bool} (h : ∀ x, x < m' → S x → T x)
   have e := countP_split S T (List.range m') (fun y hy => h y (List.mem_range.mp hy))
   unfold card at hc
   have z : (List.range m').countP (fun y => T y && !S y) = 0 := by omega
-  rw [List.countP_eq_zero] at z
+  rw [my_countP_eq_zero] at z
   have := z x (List.mem_range.mpr hx)
   cases hS : S x <;> simp_all
 
@@ -1365,8 +850,11 @@ theorem card_le_one_zero {S : Nat → Bool} (h : ∀ x, x < m' → S x → x = 0
     unfold card
     rw [List.range_succ_eq_map, List.countP_cons, List.countP_map]
     have : (List.range n).countP (S ∘ Nat.succ) = 0 := by
-      rw [List.countP_eq_zero]; intro y hy hS
-      have := h (y+1) (by have := List.mem_range.mp hy; omega) hS; omega
+      rw [my_countP_eq_zero]; intro y hy
+      show S (y+1) = false
+      cases hS : S (y+1)
+      · rfl
+      · have := h (y+1) (by have := List.mem_range.mp hy; omega) hS; omega
     rw [this]; cases S 0 <;> simp
 
 theorem card_shift1 (hm : 0 < m') (S : Nat → Bool) :
@@ -1390,9 +878,7 @@ theorem card_shift (hm : 0 < m') (S : Nat → Bool) (u : Nat) :
     exact card_congr (fun x _ => by
       simp only [Nat.mod_add_mod]; congr 2; omega)
 
-variable {m' : Nat}
-
-theorem md (y m' : Nat) (h : y < 2*m') : (y < m' ∧ y % m' = y) ∨ (m' ≤ y ∧ y % m' = y - m') := by
+theorem mod_cases_of_lt_two_mul (y m' : Nat) (h : y < 2*m') : (y < m' ∧ y % m' = y) ∨ (m' ≤ y ∧ y % m' = y - m') := by
   cases Nat.lt_or_ge y m' with
   | inl l => exact Or.inl ⟨l, Nat.mod_eq_of_lt l⟩
   | inr g => exact Or.inr ⟨g, by rw [Nat.mod_eq_sub_mod g, Nat.mod_eq_of_lt (by omega)]⟩
@@ -1405,9 +891,9 @@ theorem mem_add {A B : Nat → Bool} {x : Nat} :
   simp [add, List.any_eq_true, List.mem_range]
 
 theorem sub_add_eq (a b : Nat) (ha : a < m') (hb : b < m') : ((a + b) % m' + (m' - a)) % m' = b := by
-  rcases md (a+b) m' (by omega) with ⟨h1, e1⟩ | ⟨h1, e1⟩ <;> rw [e1]
-  · rcases md (a + b + (m' - a)) m' (by omega) with ⟨h2, e2⟩ | ⟨h2, e2⟩ <;> rw [e2] <;> omega
-  · rcases md (a + b - m' + (m' - a)) m' (by omega) with ⟨h2, e2⟩ | ⟨h2, e2⟩ <;> rw [e2] <;> omega
+  rcases mod_cases_of_lt_two_mul (a+b) m' (by omega) with ⟨h1, e1⟩ | ⟨h1, e1⟩ <;> rw [e1]
+  · rcases mod_cases_of_lt_two_mul (a + b + (m' - a)) m' (by omega) with ⟨h2, e2⟩ | ⟨h2, e2⟩ <;> rw [e2] <;> omega
+  · rcases mod_cases_of_lt_two_mul (a + b - m' + (m' - a)) m' (by omega) with ⟨h2, e2⟩ | ⟨h2, e2⟩ <;> rw [e2] <;> omega
 
 theorem add_of {A B : Nat → Bool} {a b : Nat} (ha : a < m') (hb : b < m')
     (hA : A a = true) (hB : B b = true) : add m' A B ((a + b) % m') = true :=
@@ -1431,8 +917,8 @@ theorem closed_full (hm : 1 < m') (A : Nat → Bool) (a0 : Nat) (ha0 : a0 < m') 
     generalize ht : x + m' - a0 = t
     have : a0 + t = x + m' := by omega
     rw [← this]
-    have : k0 * t * b = t * (b * k0) := by grind
-    rw [this, hbk]; grind
+    have : k0 * t * b = t * (b * k0) := by simp only [Nat.mul_comm, Nat.mul_left_comm]
+    rw [this, hbk]; (first | nat_ring | int_ring)
   rw [e, Nat.add_mul_mod_self_left, Nat.add_mod_right, Nat.mod_eq_of_lt hx] at this
   exact this
 
@@ -1440,19 +926,27 @@ theorem card_le_add {A B : Nat → Bool} (hB : B 0 = true) : card m' A ≤ card 
   card_mono (fun x hx hA => mem_add.mpr ⟨x, hx, hA, by
     rw [show x + (m' - x) = m' by omega, Nat.mod_self]; exact hB⟩)
 
-theorem mod_eq3 (x a a1 : Nat) (hx : x < m') (ha : a < m') (ha1 : a1 < m') :
+theorem mod_sub_sub_eq (x a a1 : Nat) (hx : x < m') (ha : a < m') (ha1 : a1 < m') :
     (x + (m' - ((x + (m' - a1)) % m' + a) % m')) % m' = (a1 + (m' - a)) % m' := by
-  have h1 := md (x + (m' - a1)) m' (by omega)
+  have h1 := mod_cases_of_lt_two_mul (x + (m' - a1)) m' (by omega)
   generalize (x + (m' - a1)) % m' = b1 at *
   have hb1 : b1 < m' := by omega
-  have h2 := md (b1 + a) m' (by omega)
+  have h2 := mod_cases_of_lt_two_mul (b1 + a) m' (by omega)
   generalize (b1 + a) % m' = a2 at *
   have ha2 : a2 < m' := by omega
-  have h3 := md (x + (m' - a2)) m' (by omega)
-  have h4 := md (a1 + (m' - a)) m' (by omega)
+  have h3 := mod_cases_of_lt_two_mul (x + (m' - a2)) m' (by omega)
+  have h4 := mod_cases_of_lt_two_mul (a1 + (m' - a)) m' (by omega)
   generalize (x + (m' - a2)) % m' = l at *
   generalize (a1 + (m' - a)) % m' = r at *
   omega
+
+theorem bool_and3_true {x y z : Bool} (h : (x && y && !z) = true) :
+    x = true ∧ y = true ∧ z = false := by
+  revert h; cases x <;> cases y <;> cases z <;> decide
+
+theorem bool_and3_intro {x y z : Bool} (hx : x = true) (hy : y = true) (hz : z = false) :
+    (x && y && !z) = true := by
+  subst hx hy hz; rfl
 
 theorem chowla (hm : 0 < m') : ∀ n (A B : Nat → Bool), card m' B = n →
     (∃ a, a < m' ∧ A a = true) → B 0 = true →
@@ -1463,8 +957,15 @@ theorem chowla (hm : 0 < m') : ∀ n (A B : Nat → Bool), card m' B = n →
   | ind n ih =>
   intro A B hn hA hB0 hunit
   obtain ⟨a0, ha0, hAa0⟩ := hA
-  by_cases hc : ∃ a b, a < m' ∧ b < m' ∧ A a = true ∧ B b = true ∧ A ((a + b) % m') = false
-  · obtain ⟨a, b, ha, hb, hAa, hBb, hn'⟩ := hc
+  cases hcb : (List.range m').any (fun a => (List.range m').any
+      (fun b => A a && B b && !A ((a + b) % m'))) with
+  | true =>
+    have hc : ∃ a b, a < m' ∧ b < m' ∧ A a = true ∧ B b = true ∧ A ((a + b) % m') = false := by
+      obtain ⟨a, ha, hcb'⟩ := List.any_eq_true.1 hcb
+      obtain ⟨b, hb, hab⟩ := List.any_eq_true.1 hcb'
+      obtain ⟨hAa, hBb, hn'⟩ := bool_and3_true hab
+      exact ⟨a, b, List.mem_range.1 ha, List.mem_range.1 hb, hAa, hBb, hn'⟩
+    obtain ⟨a, b, ha, hb, hAa, hBb, hn'⟩ := hc
     let T : Nat → Bool := fun x => B ((x + (m' - a)) % m')
     let A' : Nat → Bool := fun x => A x || T x
     let B' : Nat → Bool := fun x => B x && A ((x + a) % m')
@@ -1490,38 +991,85 @@ theorem chowla (hm : 0 < m') : ∀ n (A B : Nat → Bool), card m' B = n →
       rcases hA'1 with h1 | h1
       · exact mem_add.mpr ⟨a1, ha1, h1, hB'1.1⟩
       · refine mem_add.mpr ⟨_, Nat.mod_lt _ hm, hB'1.2, ?_⟩
-        rw [mod_eq3 x a a1 hx ha ha1]; exact h1
+        rw [mod_sub_sub_eq x a a1 hx ha ha1]; exact h1
     have : card m' A' + card m' B' = card m' A + card m' B := by
       simp only [A']; omega
     omega
-  · have hcl : ∀ a b, a < m' → b < m' → A a = true → B b = true → A ((a + b) % m') = true := by
+  | false =>
+    have hc : ¬ ∃ a b, a < m' ∧ b < m' ∧ A a = true ∧ B b = true ∧ A ((a + b) % m') = false := by
+      rintro ⟨a, b, ha, hb, hAa, hBb, hn'⟩
+      have ht : (List.range m').any (fun a => (List.range m').any
+          (fun b => A a && B b && !A ((a + b) % m'))) = true :=
+        List.any_eq_true.2 ⟨a, List.mem_range.2 ha,
+          List.any_eq_true.2 ⟨b, List.mem_range.2 hb, bool_and3_intro hAa hBb hn'⟩⟩
+      rw [hcb] at ht
+      cases ht
+    have hcl : ∀ a b, a < m' → b < m' → A a = true → B b = true → A ((a + b) % m') = true := by
       intro a b ha hb hAa hBb
       cases h : A ((a + b) % m')
       · exact absurd ⟨a, b, ha, hb, hAa, hBb, h⟩ hc
       · rfl
     have hle := card_le_add (m' := m') (A := A) hB0
-    by_cases hnz : ∃ b, b < m' ∧ B b = true ∧ b ≠ 0
-    · obtain ⟨b, hb, hBb, hb0⟩ := hnz
+    cases hzb : (List.range m').any (fun b => true && B b && !(b == 0)) with
+    | true =>
+      have hnz : ∃ b, b < m' ∧ B b = true ∧ b ≠ 0 := by
+        obtain ⟨b, hb, hbb⟩ := List.any_eq_true.1 hzb
+        obtain ⟨_, hBb, hb0⟩ := bool_and3_true hbb
+        refine ⟨b, List.mem_range.1 hb, hBb, ?_⟩
+        intro h0; subst h0; exact absurd hb0 (by decide)
+      obtain ⟨b, hb, hBb, hb0⟩ := hnz
       have full := closed_full (by omega) A a0 ha0 hAa0 b (hunit b hb hBb hb0)
         (fun a ha hAa => hcl a b ha hb hAa hBb)
       have := card_full (m' := m') full
       have := card_le (m' := m') (add m' A B)
       omega
-    · have : card m' B ≤ 1 := card_le_one_zero (fun x hx hBx => by
+    | false =>
+      have hnz : ¬ ∃ b, b < m' ∧ B b = true ∧ b ≠ 0 := by
+        rintro ⟨b, hb, hBb, hb0⟩
+        have ht : (List.range m').any (fun b => true && B b && !(b == 0)) = true :=
+          List.any_eq_true.2 ⟨b, List.mem_range.2 hb, bool_and3_intro (x := true) rfl hBb (by rw [show (b == 0) = false from Bool.eq_false_iff.2 (fun c => hb0 (nat_beq_iff.1 c))])⟩
+        rw [hzb] at ht
+        cases ht
+      have : card m' B ≤ 1 := card_le_one_zero (fun x hx hBx => by
         cases Nat.decEq x 0 with
         | isTrue h => exact h
         | isFalse h => exact absurd ⟨x, hx, hBx, h⟩ hnz)
       omega
 
-variable {m' : Nat}
+theorem nat_beq_comm (a b : Nat) : (a == b) = (b == a) := by
+  match Nat.decEq a b with
+  | isTrue h => subst h; rfl
+  | isFalse h =>
+    have h1 : (a == b) = false := Bool.eq_false_iff.2 (fun c => h (nat_beq_iff.1 c))
+    have h2 : (b == a) = false := Bool.eq_false_iff.2 (fun c => h (nat_beq_iff.1 c).symm)
+    rw [h1, h2]
 
-theorem card_single {y : Nat} (hy : y < m') : card m' (fun x => x == y) = 1 := by
-  unfold card
-  rw [← List.count_eq_countP]
-  exact List.Nodup.count_of_mem List.nodup_range (List.mem_range.mpr hy)
+theorem countP_beq_one (y : Nat) : ∀ L : List Nat, L.Nodup → y ∈ L →
+    L.countP (fun x => x == y) = 1
+  | [], _, h => absurd h List.not_mem_nil
+  | a :: L, hn, h => by
+    rw [List.nodup_cons] at hn
+    rw [List.countP_cons]
+    match Nat.decEq a y with
+    | isTrue hay =>
+      subst hay
+      have h0 : L.countP (fun x => x == a) = 0 := (my_countP_eq_zero L _).2
+        (fun x hx => Bool.eq_false_iff.2 (fun c => hn.1 ((nat_beq_iff.1 c) ▸ hx)))
+      have ht : (a == a) = true := nat_beq_iff.2 rfl
+      rw [h0, ht]; rfl
+    | isFalse hay =>
+      have hyL : y ∈ L := by
+        rcases List.mem_cons.1 h with h' | h'
+        · exact absurd h'.symm hay
+        · exact h'
+      have hf : (a == y) = false := Bool.eq_false_iff.2 (fun c => hay (nat_beq_iff.1 c))
+      rw [countP_beq_one y L hn.2 hyL, hf]; rfl
+
+theorem card_single {y : Nat} (hy : y < m') : card m' (fun x => x == y) = 1 :=
+  countP_beq_one y _ (my_nodup_range _) (List.mem_range.mpr hy)
 
 theorem card_zero {S : Nat → Bool} (h : ∀ x, x < m' → S x = false) : card m' S = 0 := by
-  unfold card; rw [List.countP_eq_zero]; intro x hx; simp [h x (List.mem_range.mp hx)]
+  unfold card; rw [my_countP_eq_zero]; intro x hx; simp [h x (List.mem_range.mp hx)]
 
 theorem card_image (f : Nat → Nat) : ∀ (L : List Nat), L.Nodup → (∀ i ∈ L, f i < m') →
     (∀ i ∈ L, ∀ j ∈ L, f i = f j → i = j) →
@@ -1538,15 +1086,15 @@ theorem card_image (f : Nat → Nat) : ∀ (L : List Nat), L.Nodup → (∀ i �
     have h1 := card_single (m' := m') (hf a (List.mem_cons_self ..))
     have h0 : card m' (fun x => (x == f a) && L.any (fun i => f i == x)) = 0 := card_zero (fun x _ => by
       cases hx : (x == f a) <;> simp only [Bool.false_and, Bool.true_and]
-      simp only [beq_iff_eq] at hx; subst hx
+      simp only [nat_beq_iff] at hx; subst hx
       rw [Bool.eq_false_iff]; intro hc
-      simp only [List.any_eq_true, beq_iff_eq] at hc
+      simp only [List.any_eq_true, nat_beq_iff] at hc
       obtain ⟨i, hi, hfi⟩ := hc
       have := hinj a (List.mem_cons_self ..) i (List.mem_cons_of_mem _ hi) hfi.symm
       exact hL.1 (this ▸ hi))
     have e : card m' (fun x => (a :: L).any (fun i => f i == x))
         = card m' (fun x => (x == f a) || L.any (fun i => f i == x)) :=
-      card_congr (fun x _ => by simp only [List.any_cons]; congr 1; exact Bool.beq_comm)
+      card_congr (fun x _ => by simp only [List.any_cons]; congr 1; exact nat_beq_comm _ _)
     simp only [List.length_cons]; omega
 
 section
@@ -1562,17 +1110,6 @@ theorem two_le_e : 2 ≤ e := by
     subst this
     rw [Nat.pow_one, Nat.mod_eq_of_lt (by omega)] at he; omega
 
-theorem pow_mod_one {g a : Nat} (k : Nat) (h : a % g = 1 % g) : a ^ k % g = 1 % g := by
-  rw [Nat.pow_mod, h]
-  cases Nat.lt_or_ge g 2 with
-  | inl hg =>
-    cases Nat.lt_or_ge g 1 with
-    | inl h0 => have : g = 0 := by omega
-                subst this; simp
-    | inr h1 => have : g = 1 := by omega
-                subst this; simp [Nat.mod_one]
-  | inr hg => rw [Nat.mod_eq_of_lt (by omega : 1 < g), Nat.one_pow]; exact Nat.mod_eq_of_lt (by omega)
-
 include hm hodd he he0 in
 theorem unit_two_pow_sub_one (i : Nat) (hi : Nat.gcd i e = 1) : Nat.gcd (2 ^ i - 1) m' = 1 := by
   have e2 := two_le_e hm hodd he he0
@@ -1586,8 +1123,8 @@ theorem unit_two_pow_sub_one (i : Nat) (hi : Nat.gcd i e = 1) : Nat.gcd (2 ^ i -
     rw [show 2 ^ i = 1 + g * c by omega, Nat.add_mul_mod_self_left]
   have B : 2 ^ e % g = 1 % g := by rw [← Nat.mod_mod_of_dvd _ hg2, he]
   obtain ⟨k, w, hkw⟩ := nat_bez i e (by omega) hi
-  have C := pow_mod_one k A
-  rw [← Nat.pow_mul, hkw, Nat.pow_succ, Nat.pow_mul, Nat.mul_mod, pow_mod_one w B] at C
+  have C := pow_mod_one _ _ k A
+  rw [← Nat.pow_mul, hkw, Nat.pow_succ, Nat.pow_mul, Nat.mul_mod, pow_mod_one _ _ w B] at C
   rcases (by omega : g = 1 ∨ g = 2 ∨ 3 ≤ g) with h | h | h
   · exact h
   · subst h; simp at C
@@ -1599,9 +1136,7 @@ include hm hodd hq hmin in
 theorem distinct (s i j : Nat) (hij : i < j) (hj : j < e) :
     (q ^ s * (2 ^ i - 1)) % m' ≠ (q ^ s * (2 ^ j - 1)) % m' := by
   intro h
-  have m2 : Nat.Coprime m' 2 := by
-    show Nat.gcd m' 2 = 1
-    rw [Nat.gcd_comm, Nat.gcd_rec, hodd]; rfl
+  have m2 : Nat.Coprime m' 2 := coprime_two_of_odd hodd
   have cQP : Nat.Coprime m' (q ^ s * 2 ^ i) :=
     Nat.Coprime.mul_right (Nat.Coprime.pow_right s (by show Nat.gcd m' q = 1; rw [Nat.gcd_comm]; exact hq))
       (Nat.Coprime.pow_right i m2)
@@ -1627,27 +1162,27 @@ theorem distinct (s i j : Nat) (hij : i < j) (hj : j < e) :
   rw [show R = 1 + m' * c by omega, Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt hm]
 end
 
-def Hq (m' q e s : Nat) (x : Nat) : Bool := (List.range e).any (fun i => (q ^ s * 2 ^ i) % m' == x)
+def powSet (m' q e s : Nat) (x : Nat) : Bool := (List.range e).any (fun i => (q ^ s * 2 ^ i) % m' == x)
 
-def As (m' q e : Nat) : Nat → Nat → Bool
+def sumset (m' q e : Nat) : Nat → Nat → Bool
   | 0 => fun x => x == 0
-  | s + 1 => add m' (As m' q e s) (Hq m' q e s)
+  | s + 1 => add m' (sumset m' q e s) (powSet m' q e s)
 
 def good (e i : Nat) : Bool := i == 0 || Nat.gcd i e == 1
-def Lg (e : Nat) : List Nat := (List.range e).filter (good e)
-def fD (m' q s i : Nat) : Nat := (q ^ s * (2 ^ i - 1)) % m'
-def D (m' q e s : Nat) (x : Nat) : Bool := (Lg e).any (fun i => fD m' q s i == x)
+def goodIdx (e : Nat) : List Nat := (List.range e).filter (good e)
+def diffVal (m' q s i : Nat) : Nat := (q ^ s * (2 ^ i - 1)) % m'
+def diffSet (m' q e s : Nat) (x : Nat) : Bool := (goodIdx e).any (fun i => diffVal m' q s i == x)
 
 def phi (e : Nat) : Nat := card e (fun i => Nat.gcd i e == 1)
 
-theorem mod_eq4 {m' : Nat} (x a c : Nat) (hx : x < m') (ha : a < m') (hc : c < m') :
+theorem mod_sub_sub_add_cancel {m' : Nat} (x a c : Nat) (hx : x < m') (ha : a < m') (hc : c < m') :
     (((x + (m' - c)) % m' + (m' - a)) % m' + c) % m' = (x + (m' - a)) % m' := by
-  have h1 := md (x + (m' - c)) m' (by omega)
+  have h1 := mod_cases_of_lt_two_mul (x + (m' - c)) m' (by omega)
   generalize (x + (m' - c)) % m' = y at *
-  have h2 := md (y + (m' - a)) m' (by omega)
+  have h2 := mod_cases_of_lt_two_mul (y + (m' - a)) m' (by omega)
   generalize (y + (m' - a)) % m' = z at *
-  have h3 := md (z + c) m' (by omega)
-  have h4 := md (x + (m' - a)) m' (by omega)
+  have h3 := mod_cases_of_lt_two_mul (z + c) m' (by omega)
+  have h4 := mod_cases_of_lt_two_mul (x + (m' - a)) m' (by omega)
   generalize (z + c) % m' = l at *
   generalize (x + (m' - a)) % m' = r at *
   omega
@@ -1657,22 +1192,24 @@ variable {m' q e : Nat} (hm : 1 < m') (hodd : m' % 2 = 1) (hq : Nat.gcd q m' = 1
   (he : 2 ^ e % m' = 1) (hmin : ∀ i, 0 < i → i < e → 2 ^ i % m' ≠ 1) (he0 : 0 < e)
 
 include hm hodd he he0 in
-theorem length_Lg : (Lg e).length = phi e + 1 := by
+theorem length_goodIdx : (goodIdx e).length = phi e + 1 := by
   have e2 := two_le_e hm hodd he he0
   have hU := card_union_inter (m' := e) (fun i => i == 0) (fun i => Nat.gcd i e == 1)
   have h1 := card_single (m' := e) (y := 0) he0
   have h0 : card e (fun i => (i == 0) && (Nat.gcd i e == 1)) = 0 := card_zero (fun x _ => by
     cases hx : (x == 0) <;> simp only [Bool.false_and, Bool.true_and]
-    simp only [beq_iff_eq] at hx; subst hx; simp; omega)
-  have : (Lg e).length = card e (good e) := by
-    unfold Lg card; rw [List.countP_eq_length_filter]
+    simp only [nat_beq_iff] at hx; subst hx
+    rw [Nat.gcd_zero_left]
+    exact Bool.eq_false_iff.2 (fun c => by have := nat_beq_iff.1 c; omega))
+  have : (goodIdx e).length = card e (good e) := by
+    unfold goodIdx card; rw [List.countP_eq_length_filter]
   unfold phi; unfold good at this; omega
 
 include hm hodd hq he hmin he0 in
-theorem card_D (s : Nat) : card m' (D m' q e s) = phi e + 1 := by
-  rw [← length_Lg hm hodd he he0]
+theorem card_diffSet (s : Nat) : card m' (diffSet m' q e s) = phi e + 1 := by
+  rw [← length_goodIdx hm hodd he he0]
   apply card_image
-  · exact List.nodup_range.sublist List.filter_sublist
+  · exact (my_nodup_range _).sublist List.filter_sublist
   · intro i _; exact Nat.mod_lt _ (by omega)
   · intro i hi j hj h
     have hi' := List.mem_range.mp (List.mem_filter.mp hi).1
@@ -1683,178 +1220,107 @@ theorem card_D (s : Nat) : card m' (D m' q e s) = phi e + 1 := by
     · exact absurd h.symm (distinct hm hodd hq hmin s j i l hi')
 
 include hm hodd hq he he0 in
-theorem D_unit (s : Nat) : ∀ b, b < m' → D m' q e s b = true → b ≠ 0 → Nat.gcd b m' = 1 := by
+theorem diffSet_unit (s : Nat) : ∀ b, b < m' → diffSet m' q e s b = true → b ≠ 0 → Nat.gcd b m' = 1 := by
   intro b _ hb hb0
-  simp only [D, List.any_eq_true, beq_iff_eq] at hb
+  simp only [diffSet, List.any_eq_true, nat_beq_iff] at hb
   obtain ⟨i, hi, rfl⟩ := hb
   have hg := (List.mem_filter.mp hi).2
-  simp only [good, Bool.or_eq_true, beq_iff_eq] at hg
+  simp only [good, Bool.or_eq_true, nat_beq_iff] at hg
   rcases hg with h | h
-  · subst h; simp [fD] at hb0
-  · unfold fD
+  · subst h; simp [diffVal] at hb0
+  · unfold diffVal
     rw [← Nat.gcd_rec, Nat.gcd_comm]
     exact Nat.Coprime.symm (Nat.Coprime.mul_right (Nat.Coprime.symm (Nat.Coprime.pow_left s hq))
       (Nat.Coprime.symm (unit_two_pow_sub_one hm hodd he he0 i h)))
 
 include he0 in
-theorem D_zero (s : Nat) : D m' q e s 0 = true := by
-  simp only [D, List.any_eq_true, beq_iff_eq]
-  exact ⟨0, List.mem_filter.mpr ⟨List.mem_range.mpr he0, by simp [good]⟩, by simp [fD]⟩
+theorem diffSet_zero (s : Nat) : diffSet m' q e s 0 = true := by
+  unfold diffSet
+  rw [List.any_eq_true]
+  refine ⟨0, List.mem_filter.mpr ⟨List.mem_range.mpr he0, rfl⟩, ?_⟩
+  have h0 : diffVal m' q s 0 = 0 := by
+    unfold diffVal
+    rw [Nat.pow_zero, Nat.sub_self, Nat.mul_zero, Nat.zero_mod]
+  rw [h0]
+  rfl
 
 include hm in
 theorem shift_sub (s : Nat) : ∀ x, x < m' →
-    add m' (As m' q e s) (D m' q e s) ((x + (m' - q ^ s % m')) % m') = true → As m' q e (s + 1) x = true := by
+    add m' (sumset m' q e s) (diffSet m' q e s) ((x + (m' - q ^ s % m')) % m') = true → sumset m' q e (s + 1) x = true := by
   intro x hx h
   obtain ⟨a, ha, hA, hDa⟩ := mem_add.mp h
-  simp only [D, List.any_eq_true, beq_iff_eq] at hDa
+  simp only [diffSet, List.any_eq_true, nat_beq_iff] at hDa
   obtain ⟨i, hi, hfi⟩ := hDa
   refine mem_add.mpr ⟨a, ha, hA, ?_⟩
-  simp only [Hq, List.any_eq_true, beq_iff_eq, List.mem_range]
+  simp only [powSet, List.any_eq_true, nat_beq_iff, List.mem_range]
   refine ⟨i, List.mem_range.mp (List.mem_filter.mp hi).1, ?_⟩
   have hP := Nat.two_pow_pos i
   have : q ^ s * 2 ^ i = q ^ s * (2 ^ i - 1) + q ^ s := by
     rw [Nat.mul_sub_one]; have := Nat.mul_le_mul_left (q ^ s) hP; simp at this; omega
-  rw [this, Nat.add_mod, ← fD, hfi]
-  exact mod_eq4 x a _ hx ha (Nat.mod_lt _ (by omega))
+  rw [this, Nat.add_mod, ← diffVal, hfi]
+  exact mod_sub_sub_add_cancel x a _ hx ha (Nat.mod_lt _ (by omega))
 
 include he0 in
-theorem As_nonempty (hm0 : 0 < m') : ∀ s, ∃ a, a < m' ∧ As m' q e s a = true := by
+theorem sumset_nonempty (hm0 : 0 < m') : ∀ s, ∃ a, a < m' ∧ sumset m' q e s a = true := by
   intro s; induction s with
-  | zero => exact ⟨0, hm0, by simp [As]⟩
+  | zero => exact ⟨0, hm0, rfl⟩
   | succ s ih =>
     obtain ⟨a, ha, h⟩ := ih
     refine ⟨_, Nat.mod_lt _ hm0, add_of ha (Nat.mod_lt (q ^ s) hm0) h ?_⟩
-    simp only [Hq, List.any_eq_true, beq_iff_eq, List.mem_range]
-    exact ⟨0, he0, by simp⟩
+    simp only [powSet, List.any_eq_true, nat_beq_iff, List.mem_range]
+    exact ⟨0, he0, by rw [Nat.pow_zero, Nat.mul_one]⟩
 
 include hm hodd hq he hmin he0 in
-theorem growth : ∀ s, min m' (1 + s * phi e) ≤ card m' (As m' q e s) := by
+theorem growth : ∀ s, min m' (1 + s * phi e) ≤ card m' (sumset m' q e s) := by
   intro s; induction s with
   | zero =>
     have := card_single (m' := m') (y := 0) (by omega)
-    simp only [As, Nat.zero_mul]; omega
+    simp only [sumset, Nat.zero_mul]; omega
   | succ s ih =>
-    have hc := chowla (m' := m') (by omega) _ (As m' q e s) (D m' q e s) rfl
-      (As_nonempty he0 (by omega) s) (D_zero he0 s) (D_unit hm hodd hq he he0 s)
-    rw [card_D hm hodd hq he hmin he0 s] at hc
-    have hsh := card_shift (m' := m') (by omega) (add m' (As m' q e s) (D m' q e s)) (m' - q ^ s % m')
+    have hc := chowla (m' := m') (by omega) _ (sumset m' q e s) (diffSet m' q e s) rfl
+      (sumset_nonempty he0 (by omega) s) (diffSet_zero he0 s) (diffSet_unit hm hodd hq he he0 s)
+    rw [card_diffSet hm hodd hq he hmin he0 s] at hc
+    have hsh := card_shift (m' := m') (by omega) (add m' (sumset m' q e s) (diffSet m' q e s)) (m' - q ^ s % m')
     have hmono := card_mono (m' := m') (shift_sub (q := q) (e := e) hm s)
     rw [Nat.succ_mul]; omega
 
 include hm hodd hq he hmin he0 in
-theorem covers (s : Nat) (hs : m' ≤ 1 + s * phi e) : ∀ x, x < m' → As m' q e s x = true := by
+theorem covers (s : Nat) (hs : m' ≤ 1 + s * phi e) : ∀ x, x < m' → sumset m' q e s x = true := by
   have g := growth hm hodd hq he hmin he0 s
-  have hle := card_le (m' := m') (As m' q e s)
+  have hle := card_le (m' := m') (sumset m' q e s)
   have hfull := card_full (m' := m') (S := fun _ => true) (fun _ _ => rfl)
   intro x hx
-  exact eq_of_card (S := As m' q e s) (T := fun _ => true) (fun _ _ _ => rfl) (by omega) x hx rfl
+  exact eq_of_card (S := sumset m' q e s) (T := fun _ => true) (fun _ _ _ => rfl) (by omega) x hx rfl
 end
 end TS
-
-def spread (D : Nat) : List Nat → List Nat
-  | [] => []
-  | i :: is => List.replicate i 0 ++ [1] ++ List.replicate (D - 1 - i) 0 ++ spread D is
 
 def wsum (q : Nat) : List Nat → Nat
   | [] => 0
   | i :: is => q ^ is.length * 2 ^ i + wsum q is
 
-theorem spread_binary (D : Nat) (is : List Nat) : ∀ e ∈ spread D is, e ≤ 1 := by
-  induction is with
-  | nil => simp [spread]
-  | cons i is ih =>
-    intro e he
-    simp only [spread, List.mem_append, List.mem_replicate, List.mem_cons, List.not_mem_nil] at he
-    rcases he with ((⟨_, rfl⟩ | rfl | h) | ⟨_, rfl⟩) | h
-    all_goals first | omega | exact ih e h | simp_all
+def Covers (q m' γ : Nat) : Prop :=
+  ∀ x, x < m' → ∃ I : List Nat, I.length = γ ∧ wsum q I % m' = x % m'
 
-theorem oneCount_spread (D : Nat) (is : List Nat) : oneCount (spread D is) = is.length := by
-  induction is with
-  | nil => rfl
-  | cons i is ih =>
-    simp only [spread, oneCount_append, oneCount_replicate_zero, ih, List.length_cons]
-    simp [oneCount]; omega
-
-theorem length_spread (D : Nat) (is : List Nat) (h : ∀ i ∈ is, i < D) :
-    (spread D is).length = D * is.length := by
-  induction is with
-  | nil => simp [spread]
-  | cons i is ih =>
-    have hi := h i (by simp)
-    have := ih (fun j hj => h j (by simp [hj]))
-    simp only [spread, List.length_append, List.length_replicate, List.length_cons, List.length_nil, this]
-    rw [Nat.mul_succ]; omega
-
-theorem offset_block (q D i : Nat) :
-    offset q (List.replicate i 0 ++ [1] ++ List.replicate (D - 1 - i) 0) = 2 ^ i := by
-  rw [offset_append, offset_replicate_zero, Nat.mul_zero, Nat.add_zero, oneCount_replicate_zero,
-    Nat.pow_zero, Nat.one_mul, offset_append, offset_replicate_zero, List.length_replicate]
-  simp [offset, oneCount]
-
-theorem offset_spread (q D m' : Nat) (hD : 2 ^ D % m' = 1 % m') (is : List Nat)
-    (h : ∀ i ∈ is, i < D) : offset q (spread D is) % m' = wsum q is % m' := by
-  induction is with
-  | nil => simp [spread, wsum, offset]
-  | cons i is ih =>
-    have ih' := ih (fun j hj => h j (by simp [hj]))
-    have hblk : (List.replicate i 0 ++ [1] ++ List.replicate (D - 1 - i) 0).length = D := by
-      have := h i (by simp); simp [List.length_append]; omega
-    simp only [spread]
-    rw [offset_append, offset_block, oneCount_spread, hblk]
-    have h2 : (2 ^ D * offset q (spread D is)) % m' = wsum q is % m' := by
-      rw [Nat.mul_mod, hD, ← Nat.mul_mod, Nat.one_mul, ih']
-    simp only [wsum]
-    rw [Nat.add_mod, h2, ← Nat.add_mod]
-
-section
-variable {m' : Nat} [NeZero m']
-
-theorem backWord_spread (q : Nat) [Invertible2p q m'] (D : Nat) (hD : 2 ^ D % m' = 1 % m')
-    (is : List Nat) (h : ∀ i ∈ is, i < D) (z t : Fin m') :
-    backWord q (spread D is) z = t ↔
-      residue m' (q ^ is.length) * z + residue m' (wsum q is) = t := by
-  rw [← backWord_iff, oneCount_spread, length_spread D is h]
-  have h1 : residue m' (2 ^ (D * is.length)) = 1 := by
-    rw [← residue_one, residue_eq_iff, Nat.pow_mul]; exact pow_period_pow m' D hD _
-  have h2 : residue m' (offset q (spread D is)) = residue m' (wsum q is) :=
-    (residue_eq_iff _ _ _).2 (offset_spread q D m' hD is h)
-  rw [h1, h2, Fin.one_mul]
-
-theorem sparse_word (q : Nat) [Invertible2p q m'] (D s : Nat) (hD : 2 ^ D % m' = 1 % m')
-    (hcov : ∀ c : Fin m', ∃ is : List Nat, is.length = s ∧ (∀ i ∈ is, i < D) ∧
-      residue m' (wsum q is) = c)
-    (z t : Fin m') :
-    ∃ ω : List Nat, (∀ e ∈ ω, e ≤ 1) ∧ oneCount ω = s ∧ ω.length = D * s ∧
-      backWord q ω z = t := by
-  obtain ⟨is, hl, hi, hw⟩ := hcov (t - residue m' (q ^ s) * z)
-  refine ⟨spread D is, spread_binary D is, by rw [oneCount_spread, hl], by rw [length_spread D is hi, hl], ?_⟩
-  rw [backWord_spread q D hD is hi, hl, hw]
-  grind
-end
-
-def Covers (q m' s : Nat) : Prop :=
-  ∀ x, x < m' → ∃ I : List Nat, I.length = s ∧ wsum q I % m' = x % m'
-
-theorem As_wsum (q m' e : Nat) (hm0 : 0 < m') : ∀ s x, x < m' → TS.As m' q e s x = true →
+theorem sumset_wsum (q m' e : Nat) (hm0 : 0 < m') : ∀ s x, x < m' → TS.sumset m' q e s x = true →
     ∃ I : List Nat, I.length = s ∧ wsum q I % m' = x := by
   intro s
   induction s with
   | zero =>
     intro x _ h
-    simp only [TS.As, beq_iff_eq] at h
+    simp only [TS.sumset, nat_beq_iff] at h
     exact ⟨[], rfl, by simp [wsum, h]⟩
   | succ s ih =>
     intro x hx h
     obtain ⟨a, ha, hA, hB⟩ := TS.mem_add.mp h
     obtain ⟨I, hl, hw⟩ := ih a ha hA
-    simp only [TS.Hq, List.any_eq_true, beq_iff_eq, List.mem_range] at hB
+    simp only [TS.powSet, List.any_eq_true, nat_beq_iff, List.mem_range] at hB
     obtain ⟨i, _, hi⟩ := hB
     refine ⟨i :: I, by simp [hl], ?_⟩
     simp only [wsum, hl]
     rw [Nat.add_mod, hi, hw]
-    have h1 := TS.md (x + (m' - a)) m' (by omega)
+    have h1 := TS.mod_cases_of_lt_two_mul (x + (m' - a)) m' (by omega)
     generalize (x + (m' - a)) % m' = y at *
-    have h2 := TS.md (y + a) m' (by omega)
+    have h2 := TS.mod_cases_of_lt_two_mul (y + a) m' (by omega)
     generalize (y + a) % m' = z at *
     omega
 
@@ -1865,80 +1331,8 @@ theorem covers_of_growth (q m' e s : Nat) (hm : 1 < m') (hodd : m' % 2 = 1)
   have he' : 2 ^ e % m' = 1 := by rw [he, h1]
   have hmin' : ∀ i, 0 < i → i < e → 2 ^ i % m' ≠ 1 := fun i a b => by rw [← h1]; exact hmin i a b
   intro x hx
-  obtain ⟨I, hl, hw⟩ := As_wsum q m' e (by omega) s x hx (TS.covers hm hodd hq he' hmin' he0 s hs x hx)
+  obtain ⟨I, hl, hw⟩ := sumset_wsum q m' e (by omega) s x hx (TS.covers hm hodd hq he' hmin' he0 s hs x hx)
   exact ⟨I, hl, by rw [hw, Nat.mod_eq_of_lt hx]⟩
-
-theorem exponent_bound_s (q L m α b A m' K Da D' d jj ℓ Λ s D : Nat) (hq3 : 3 ≤ q) (hqL : q ≤ 2 ^ L)
-    (hm2 : 2 ≤ m) (hmA : m = 2 ^ α * A * m') (hbA : 2 ^ b ≤ A) (hKD : 2 ^ K ≤ Da)
-    (hDM : Da * D' ≤ m') (hD'0 : 0 < D') (hDm : D ≤ m') (hdq : d ≤ q)
-    (hjj : jj ≤ α + b + K + s) (hℓ : ℓ + 1 ≤ α + D * s + K + 1 + q * q ^ K)
-    (hΛ : Λ ≤ D' * (d * q ^ jj)) :
-    Λ + ℓ + 1 ≤ 2 * m ^ (L + 1) * q ^ (s + 1) := by
-  have hp0 : 0 < q := by omega
-  have hL : 1 ≤ L := by
-    apply Classical.byContradiction; intro h
-    have : L = 0 := by omega
-    subst this; simp at hqL; omega
-  have hDaM : Da ≤ m' := Nat.le_trans (Nat.le_mul_of_pos_right _ hD'0) hDM
-  have hD'M : D' ≤ m' := Nat.le_trans (Nat.le_mul_of_pos_left _ (Nat.lt_of_lt_of_le Nat.one_le_two_pow hKD)) hDM
-  have hA0 : 0 < A := Nat.lt_of_lt_of_le Nat.one_le_two_pow hbA
-  have hMpos : 0 < m' := by
-    apply Classical.byContradiction; intro h
-    have : m' = 0 := by omega
-    subst this; simp at hmA; omega
-  have hMN : m' ≤ m := by
-    rw [hmA]; exact Nat.le_mul_of_pos_left _ (Nat.mul_pos (Nat.pow_pos (by omega)) hA0)
-  have h2s : 2 ^ (α + b + K) ≤ m := by
-    rw [Nat.pow_add, Nat.pow_add, hmA]
-    exact Nat.mul_le_mul (Nat.mul_le_mul_left _ hbA) (Nat.le_trans hKD hDaM)
-  have hpow : ∀ x, 2 ^ x ≤ m → q ^ x ≤ m ^ L := fun x hx => by
-    calc q ^ x ≤ (2 ^ L) ^ x := Nat.pow_le_pow_left hqL _
-      _ = (2 ^ x) ^ L := by rw [← Nat.pow_mul, ← Nat.pow_mul, Nat.mul_comm]
-      _ ≤ m ^ L := Nat.pow_le_pow_left hx _
-  have hps := hpow _ h2s
-  have h2K : 2 ^ K ≤ m := Nat.le_trans (Nat.pow_le_pow_right (by omega) (by omega)) h2s
-  have hpK := hpow _ h2K
-  have hsN : α + b + K < m := Nat.lt_of_lt_of_le Nat.lt_two_pow_self h2s
-  have hΛ' : Λ ≤ m ^ (L + 1) * q ^ (s + 1) := by
-    have e1 : D' * (d * q ^ jj) ≤ m' * (q * q ^ jj) :=
-      Nat.mul_le_mul hD'M (Nat.mul_le_mul_right _ hdq)
-    have e2 : q * q ^ jj ≤ q ^ (α + b + K) * q ^ (s + 1) := by
-      rw [← Nat.pow_succ', ← Nat.pow_add]; exact Nat.pow_le_pow_right hp0 (by omega)
-    calc Λ ≤ m' * (q ^ (α + b + K) * q ^ (s + 1)) :=
-          Nat.le_trans hΛ (Nat.le_trans e1 (Nat.mul_le_mul_left _ e2))
-      _ ≤ m * (m ^ L * q ^ (s + 1)) := Nat.mul_le_mul hMN (Nat.mul_le_mul_right _ hps)
-      _ = m ^ (L + 1) * q ^ (s + 1) := by rw [Nat.pow_succ]; grind
-  have hsq : s + 1 ≤ q ^ s := by
-    have h1 := Nat.lt_two_pow_self (n := s)
-    have h2 : 2 ^ s ≤ q ^ s := Nat.pow_le_pow_left (by omega) s
-    omega
-  have hqs0 : 1 ≤ q ^ s := Nat.one_le_pow _ _ hp0
-  have hDs : D * s + 1 ≤ m * q ^ s := by
-    have h1 : D * s ≤ m * s := Nat.mul_le_mul_right _ (Nat.le_trans hDm hMN)
-    have h2 : m * (s + 1) ≤ m * q ^ s := Nat.mul_le_mul_left _ hsq
-    rw [Nat.mul_succ] at h2; omega
-  have hmL : m ≤ m ^ L := by
-    calc m = m ^ 1 := (Nat.pow_one m).symm
-      _ ≤ m ^ L := Nat.pow_le_pow_right (by omega) hL
-  have hqK : q * q ^ K ≤ q * m ^ L := Nat.mul_le_mul_left _ hpK
-  have hY1 : q * m ^ L ≤ m ^ L * q * q ^ s := by
-    have := Nat.mul_le_mul_left (m ^ L * q) hqs0; grind
-  have hY2 : 2 * (m * q ^ s) ≤ m ^ L * q * q ^ s := by
-    have := Nat.mul_le_mul (Nat.mul_le_mul hmL (show 2 ≤ q by omega)) (Nat.le_refl (q ^ s)); grind
-  have hR : 2 * (m ^ L * q * q ^ s) ≤ m ^ (L + 1) * q ^ (s + 1) := by
-    have e : m ^ (L + 1) * q ^ (s + 1) = m * (m ^ L * q * q ^ s) := by
-      rw [Nat.pow_succ, Nat.pow_succ]; grind
-    rw [e]; exact Nat.mul_le_mul_right _ hm2
-  have hmq : m ≤ m * q ^ s := Nat.le_mul_of_pos_right _ hqs0
-  have hfin : 2 * m ^ (L + 1) * q ^ (s + 1) = m ^ (L + 1) * q ^ (s + 1) + m ^ (L + 1) * q ^ (s + 1) := by grind
-  rw [hfin]
-  generalize m ^ (L + 1) * q ^ (s + 1) = R at hΛ' hR ⊢
-  generalize m ^ L * q * q ^ s = Y at hY1 hY2 hR
-  generalize m * q ^ s = X at hDs hY2 hmq
-  generalize q * q ^ K = W at hℓ hqK
-  generalize q * m ^ L = V at hqK hY1
-  generalize D * s = Z at hℓ hDs
-  omega
 
 theorem wsum_reduce (q D m' : Nat) (hD : 2 ^ D % m' = 1 % m') :
     ∀ I : List Nat, wsum q (I.map (· % D)) % m' = wsum q I % m' := by
@@ -1950,238 +1344,2125 @@ theorem wsum_reduce (q D m' : Nat) (hD : 2 ^ D % m' = 1 % m') :
     have h2 : 2 ^ (i % D) % m' = 2 ^ i % m' := pow_two_mod_period m' D hD _ _ (Nat.mod_mod _ _)
     rw [Nat.add_mod, Nat.mul_mod, h2, ← Nat.mul_mod, ih, ← Nat.add_mod]
 
-theorem covers_fin (q m' s D : Nat) [NeZero m'] (hD0 : 0 < D) (hD : 2 ^ D % m' = 1 % m')
-    (hcov : Covers q m' s) :
-    ∀ c : Fin m', ∃ is : List Nat, is.length = s ∧ (∀ i ∈ is, i < D) ∧ residue m' (wsum q is) = c := by
-  intro c
-  obtain ⟨I, hl, hw⟩ := hcov c.val c.isLt
-  refine ⟨I.map (· % D), by rw [List.length_map, hl], ?_, ?_⟩
-  · intro i hi; obtain ⟨j, _, rfl⟩ := List.mem_map.1 hi; exact Nat.mod_lt _ hD0
-  · rw [← residue_self_val c, residue_eq_iff, wsum_reduce q D m' hD, hw]
+def CoversBounded (q m' γ e : Nat) : Prop :=
+  ∀ x, x < m' → ∃ I : List Nat, I.length = γ ∧ (∀ a ∈ I, a < e) ∧ wsum q I % m' = x % m'
 
-theorem word_exists_s (q K s : Nat) [NonWieferich q] (m' D x w d u' : Nat) [NeZero m']
-    (hM : Nat.Coprime m' (2 * q)) (hw : ∃ i, w % q = 2 ^ i % q) (hD : 2 ^ D % m' = 1 % m')
-    (hcov : Covers q m' s) (hD0 : 0 < D) (hd0 : 0 < d) (hd : 2 ^ d = 1 + q * u') (hu : Nat.Coprime q u') :
-    ∃ (u₀ : List Nat) (nz : Nat), (∀ e ∈ u₀, e ≤ 1) ∧ oneCount u₀ = s + K + 1 ∧
-      u₀.length = D * s + K + 1 ∧ nz < d * q ^ K ∧
-      (q ^ oneCount (u₀ ++ List.replicate nz 0) * x + offset q (u₀ ++ List.replicate nz 0))
-          % (q ^ (K + 1) * m')
-        = (2 ^ (u₀ ++ List.replicate nz 0).length * w) % (q ^ (K + 1) * m') := by
-  have hodd : q % 2 = 1 := NonWieferich.odd
-  have hp3 : 3 ≤ q := NonWieferich.three_le
-  haveI : Invertible2p q m' := invertible2p_of_coprime hM
-  obtain ⟨nz, hmT, hmP⟩ := padic_word q K d u' w hp3 hodd hd0 hd hu hw
-  obtain ⟨t, ht⟩ := ones_surj (m' := m') q hM (K + 1) (residue m' (2 ^ nz) * residue m' w)
-  obtain ⟨ω, hω, hon, hl, hwω⟩ := sparse_word q D s hD (covers_fin q m' s D hD0 hD hcov) (residue m' x) t
-  have hwM : backWord q (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0) (residue m' x) = residue m' w := by
-    rw [List.append_assoc, backWord_append, backWord_append, hwω, ht, backWord_zeros]
-  refine ⟨ω ++ List.replicate (K + 1) 1, nz, ?_, ?_, ?_, hmT, ?_⟩
-  · intro e he
-    rcases List.mem_append.1 he with h | h
-    · exact hω e h
-    · rw [List.eq_of_mem_replicate h]; exact Nat.le_refl 1
-  · rw [oneCount_append, oneCount_replicate_one, hon]; omega
-  · simp only [List.length_append, List.length_replicate]; omega
+theorem covers_iff_bounded (q m' e : Nat) (he0 : 0 < e) (he : 2 ^ e % m' = 1 % m') (γ : Nat) :
+    Covers q m' γ ↔ CoversBounded q m' γ e := by
+  constructor
+  · intro h x hx
+    obtain ⟨I, hl, hw⟩ := h x hx
+    refine ⟨I.map (· % e), by simp [hl], ?_, ?_⟩
+    · intro a ha
+      obtain ⟨b, -, rfl⟩ := List.mem_map.1 ha
+      exact Nat.mod_lt _ he0
+    · rw [wsum_reduce q e m' he I]; exact hw
+  · rintro h x hx
+    obtain ⟨I, hl, -, hw⟩ := h x hx
+    exact ⟨I, hl, hw⟩
+
+theorem backstep_reaches (q : Nat) [NonWieferich q] (y y' a : Nat) (ha : 1 ≤ a)
+    (h : q * y + 1 = 2 ^ a * y') : Reaches q y y' := by
+  obtain ⟨a', rfl⟩ : ∃ a', a = a' + 1 := ⟨a - 1, by omega⟩
+  have h2 : q * y + 1 = 2 * (2 ^ a' * y') := by rw [h, Nat.pow_succ]; ac_rfl
+  have hyodd : y % 2 = 1 := by
+    rcases Nat.mod_two_eq_zero_or_one y with hy | hy
+    · have hqy : (q * y) % 2 = 0 := by rw [Nat.mul_mod, hy]; simp
+      omega
+    · exact hy
+  have hc : collatz q y = q * y + 1 := by
+    unfold collatz; simp [show ¬ (y % 2 = 0) by omega]
+  have h1 : Reaches q y (q * y + 1) := ⟨1, by simp [iter, hc]⟩
+  have h2' : Reaches q (q * y + 1) y' := by
+    have := reaches_pow2 q y' (a' + 1)
+    rw [← h] at this
+    exact this
+  exact reaches_trans q h1 h2'
+
+theorem cover_int (q u K M : Nat) (hp : q % 2 = 1) (hq3 : 3 ≤ q) (hu : Nat.Coprime q u)
+    (X : Int) (hX : (q : Int) ^ (K + 1) ∣ X - 1) :
+    ∃ t : Nat, t < q ^ M ∧ ∀ j : Nat, j % q ^ M = t →
+      (q : Int) ^ (K + 1 + M) ∣ ((1 + q ^ (K + 1) * u : Nat) : Int) ^ j - X := by
+  have hq1 : 1 < q := by omega
+  have hQ1 : 1 < q ^ (K + 1) := Nat.lt_of_lt_of_le hq1 (Nat.le_self_pow (by omega) q)
+  have hmm : 1 < q ^ (K + 1 + M) := Nat.lt_of_lt_of_le hq1 (Nat.le_self_pow (by omega) q)
+  have hmI : ((q ^ (K + 1 + M) : Nat) : Int) = (q : Int) ^ (K + 1 + M) := Int.natCast_pow _ _
+  have hQI : ((q ^ (K + 1) : Nat) : Int) = (q : Int) ^ (K + 1) := Int.natCast_pow _ _
+  have hqM : (q : Int) ^ (K + 1 + M) = (q : Int) ^ (K + 1) * (q : Int) ^ M := Int.pow_add _ _ _
+  have hmpos : (0 : Int) < (q : Int) ^ (K + 1 + M) := by rw [← hmI]; omega
+  have hmne : (q : Int) ^ (K + 1 + M) ≠ 0 := by omega
+  obtain ⟨Y, hY⟩ : ∃ Y : Nat, (Y : Int) = X % (q : Int) ^ (K + 1 + M) :=
+    ⟨(X % (q : Int) ^ (K + 1 + M)).toNat, Int.toNat_of_nonneg (Int.emod_nonneg _ hmne)⟩
+  have hYlt' : (Y : Int) < (q : Int) ^ (K + 1 + M) := by
+    rw [hY]; exact Int.emod_lt_of_pos _ hmpos
+  have hYlt : Y < q ^ (K + 1 + M) := by
+    rw [← hmI] at hYlt'; omega
+  have hYmod : Y % q ^ (K + 1) = 1 := by
+    have h1 : (Y : Int) % (q : Int) ^ (K + 1) = 1 := by
+      rw [hY, Int.emod_emod_of_dvd _ ⟨(q : Int) ^ M, hqM⟩]
+      obtain ⟨g0, hg0⟩ := hX
+      have hXe : X = 1 + (q : Int) ^ (K + 1) * g0 := by omega
+      rw [hXe, Int.add_mul_emod_self_left]
+      exact Int.emod_eq_of_lt (by omega) (by rw [← hQI]; omega)
+    have h2 := Int.natCast_emod Y (q ^ (K + 1))
+    rw [hQI] at h2
+    omega
+  obtain ⟨t, ht, hte⟩ := unit_power_cover (u := u) hp hq3 (by omega : 1 ≤ K + 1) hu M Y hYmod
+  refine ⟨t, ht, fun j hj => ?_⟩
+  have hper : (1 + q ^ (K + 1) * u) ^ (q ^ M) % q ^ (K + 1 + M) = 1 :=
+    (order_iff hp hq3 (by omega : 1 ≤ K + 1) hu M (q ^ M)).2 (Nat.dvd_refl _)
+  have hjdec : j = t + q ^ M * (j / q ^ M) := by
+    have := Nat.div_add_mod j (q ^ M); omega
+  have hgj : (1 + q ^ (K + 1) * u) ^ j % q ^ (K + 1 + M) = Y := by
+    have e1 : (1 + q ^ (K + 1) * u) ^ j
+        = (1 + q ^ (K + 1) * u) ^ t * ((1 + q ^ (K + 1) * u) ^ (q ^ M)) ^ (j / q ^ M) := by
+      conv => lhs; rw [hjdec]
+      rw [Nat.pow_add, Nat.pow_mul]
+    have hk : ((1 + q ^ (K + 1) * u) ^ (q ^ M)) ^ (j / q ^ M) % q ^ (K + 1 + M) = 1 := by
+      rw [Nat.pow_mod, hper, Nat.one_pow, Nat.mod_eq_of_lt hmm]
+    rw [e1, Nat.mul_mod, hk, Nat.mul_one, Nat.mod_mod, hte, Nat.mod_eq_of_lt hYlt]
+  have hdm := Nat.div_add_mod ((1 + q ^ (K + 1) * u) ^ j) (q ^ (K + 1 + M))
+  rw [hgj] at hdm
+  have hcast : (((1 + q ^ (K + 1) * u) ^ j : Nat) : Int)
+      = (q : Int) ^ (K + 1 + M) * (((1 + q ^ (K + 1) * u) ^ j / q ^ (K + 1 + M) : Nat) : Int) + (Y : Int) := by
+    rw [← hmI]
+    have := congrArg (fun n : Nat => (n : Int)) hdm
+    simp only [Int.natCast_add, Int.natCast_mul] at this
+    exact this.symm
+  rw [Int.natCast_pow] at hcast
+  have hY2 : (Y : Int) = X - (q : Int) ^ (K + 1 + M) * (X / (q : Int) ^ (K + 1 + M)) := by
+    rw [hY, Int.emod_def]
+  refine ⟨(((1 + q ^ (K + 1) * u) ^ j / q ^ (K + 1 + M) : Nat) : Int) - X / (q : Int) ^ (K + 1 + M), ?_⟩
+  rw [Int.mul_sub]
+  omega
+
+theorem ipow_dvd (p : Int) {a b : Nat} (h : a ≤ b) : p ^ a ∣ p ^ b :=
+  ⟨p ^ (b - a), by rw [← Int.pow_add]; congr 1; omega⟩
+
+theorem fp_step (p : Int) (K j : Nat) (hj1 : 1 ≤ j) (hjK : j ≤ K + 1) (c y : Int)
+    (hc : p ^ (K + 1) ∣ (2 - p) * c - 1) (hy : p ^ j ∣ y - c) :
+    ∃ z, 2 * y - 1 = p * z ∧ p ^ (j - 1) ∣ z - c := by
+  obtain ⟨i, rfl⟩ : ∃ i, j = i + 1 := ⟨j - 1, by omega⟩
+  obtain ⟨k, rfl⟩ : ∃ k, K = i + k := ⟨K - i, by omega⟩
+  obtain ⟨h1, hh1⟩ := hc
+  obtain ⟨h2, hh2⟩ := hy
+  have e1 : p ^ (i + k + 1) = p ^ (i + k) * p := Int.pow_succ _ _
+  have e2 : p ^ (i + 1) = p ^ i * p := Int.pow_succ _ _
+  rw [e1] at hh1
+  rw [e2] at hh2
+  refine ⟨c + p ^ (i + k) * h1 + 2 * p ^ i * h2, ?_, ?_⟩
+  · have key : 2 * y - 1 = ((2 - p) * c - 1) + p * c + 2 * (y - c) := by int_ring
+    rw [key, hh1, hh2]
+    int_ring
+  · show p ^ i ∣ c + p ^ (i + k) * h1 + 2 * p ^ i * h2 - c
+    exact ⟨p ^ k * h1 + 2 * h2, by rw [Int.pow_add]; int_ring⟩
+
+theorem locality (p : Int) (hp : p ≠ 0) (K P : Nat) (E : Nat → Int)
+    (hE : ∀ j : Nat, (2 : Int) ^ (j * P) = 1 + p ^ (K + 1) * E j)
+    (b J J' : Nat → Nat) (y y' : Nat → Int) (n : Nat) (hy0 : y' 0 = y 0)
+    (hrel : ∀ i, i < n → p * y (i + 1) + 1 = 2 ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * y i)
+    (hrel' : ∀ i, i < n → p * y' (i + 1) + 1 = 2 ^ (b (i + 1)) * 2 ^ (J' (i + 1) * P) * y' i) :
+    ∀ i, i ≤ n → ∀ v, (∀ l, 1 ≤ l → l + K + 1 ≤ i + v → J l = J' l) → p ^ v ∣ y' i - y i := by
+  intro i
+  induction i with
+  | zero =>
+    intro _ v _
+    rw [hy0, Int.sub_self]
+    exact Int.dvd_zero _
+  | succ i ih =>
+    intro hin v H
+    have IH := ih (by omega) (v + 1) (fun l hl hl2 => H l hl (by omega))
+    have r0 := hrel i (by omega)
+    have r1 := hrel' i (by omega)
+    rw [hE (J (i + 1))] at r0
+    rw [hE (J' (i + 1))] at r1
+    have key : p * (y' (i + 1) - y (i + 1)) = 2 ^ (b (i + 1)) * (y' i - y i)
+        + 2 ^ (b (i + 1)) * p ^ (K + 1) * (E (J' (i + 1)) * y' i - E (J (i + 1)) * y i) := by
+      have hd : p * (y' (i + 1) - y (i + 1))
+          = (p * y' (i + 1) + 1) - (p * y (i + 1) + 1) := by int_ring
+      rw [hd, r0, r1]
+      simp only [Int.mul_add, Int.mul_one]
+      int_ring
+    have hmain : p ^ (v + 1) ∣ p * (y' (i + 1) - y (i + 1)) := by
+      rw [key]
+      apply Int.dvd_add
+      · obtain ⟨g, hg⟩ := IH
+        exact ⟨2 ^ (b (i + 1)) * g, by rw [hg]; int_ring⟩
+      · rcases Nat.lt_or_ge v (K + 1) with hv | hv
+        · obtain ⟨g, hg⟩ := ipow_dvd p (show v + 1 ≤ K + 1 by omega)
+          exact ⟨2 ^ (b (i + 1)) * g * (E (J' (i + 1)) * y' i - E (J (i + 1)) * y i), by
+            rw [hg]; int_ring⟩
+        · have hJ : J (i + 1) = J' (i + 1) := H (i + 1) (by omega)
+            (by omega)
+          rw [← hJ]
+          obtain ⟨g, hg⟩ := IH
+          have hy' : y' i = y i + p ^ (v + 1) * g := by omega
+          exact ⟨2 ^ (b (i + 1)) * p ^ (K + 1) * E (J (i + 1)) * g, by
+            rw [hy']; int_ring⟩
+    have hpv : p ^ (v + 1) = p * p ^ v := by rw [Int.pow_succ, Int.mul_comm]
+    rw [hpv] at hmain
+    exact Int.dvd_of_mul_dvd_mul_left hp hmain
+
+def bsum (b : Nat → Nat) (k : Nat) : Nat → Nat
+  | 0 => 0
+  | i + 1 => bsum b k i + b (k + i + 1)
+
+theorem chain_diff_exact (p : Int) (hp : p ≠ 0) (K P : Nat) (E : Int)
+    (b J J' : Nat → Nat) (y y' : Nat → Int) (k0 n : Nat)
+    (hE : (2 : Int) ^ (J' (k0 + 1) * P) = 1 + p ^ (K + 1) * E)
+    (hrel : ∀ i, i < n → p * y (i + 1) + 1 = 2 ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * y i)
+    (hrel' : ∀ i, i < n → p * y' (i + 1) + 1 = 2 ^ (b (i + 1)) * 2 ^ (J' (i + 1) * P) * y' i)
+    (hy : y' k0 = y k0) (hJ : J (k0 + 1) = 0) (hag : ∀ l, k0 + 1 < l → J' l = J l) :
+    ∀ i, k0 + 1 + i ≤ n → p ^ i * (y' (k0 + 1 + i) - y (k0 + 1 + i))
+      = 2 ^ (bsum (fun l => b l + J l * P) (k0 + 1) i)
+        * (p ^ K * (2 ^ (b (k0 + 1)) * y k0) * E) := by
+  intro i
+  induction i with
+  | zero =>
+    intro hin
+    have r0 := hrel k0 (by omega)
+    have r1 := hrel' k0 (by omega)
+    rw [hJ, Nat.zero_mul, Int.pow_zero, hE, hy] at *
+    have h1 : p * (y' (k0 + 1) - y (k0 + 1)) = p * (p ^ K * (2 ^ (b (k0 + 1)) * y k0) * E) := by
+      have hd : p * (y' (k0 + 1) - y (k0 + 1)) = (p * y' (k0 + 1) + 1) - (p * y (k0 + 1) + 1) := by int_ring
+      rw [hd, r0, r1]
+      have e : p ^ (K + 1) = p ^ K * p := Int.pow_succ _ _
+      rw [e]
+      simp only [Int.mul_add, Int.mul_one]
+      int_ring
+    have h2 := Int.eq_of_mul_eq_mul_left hp h1
+    simp only [bsum, Nat.add_zero, Int.pow_zero, Int.one_mul]
+    exact h2
+  | succ i ih =>
+    intro hin
+    have ih := ih (by omega)
+    have r0 := hrel (k0 + 1 + i) (by omega)
+    have r1 := hrel' (k0 + 1 + i) (by omega)
+    have hJi : J' (k0 + 1 + i + 1) = J (k0 + 1 + i + 1) := hag _ (by omega)
+    rw [hJi] at r1
+    have hd : p * (y' (k0 + 1 + i + 1) - y (k0 + 1 + i + 1))
+        = 2 ^ (b (k0 + 1 + i + 1) + J (k0 + 1 + i + 1) * P) * (y' (k0 + 1 + i) - y (k0 + 1 + i)) := by
+      have e : (2 : Int) ^ (b (k0 + 1 + i + 1) + J (k0 + 1 + i + 1) * P)
+          = 2 ^ (b (k0 + 1 + i + 1)) * 2 ^ (J (k0 + 1 + i + 1) * P) := Int.pow_add _ _ _
+      rw [e]
+      have hd0 : p * (y' (k0 + 1 + i + 1) - y (k0 + 1 + i + 1))
+          = (p * y' (k0 + 1 + i + 1) + 1) - (p * y (k0 + 1 + i + 1) + 1) := by int_ring
+      rw [hd0, r0, r1]
+      int_ring
+    have hp1 : p ^ (i + 1) = p ^ i * p := Int.pow_succ _ _
+    have hb : bsum (fun l => b l + J l * P) (k0 + 1) (i + 1)
+        = bsum (fun l => b l + J l * P) (k0 + 1) i + (b (k0 + 1 + i + 1) + J (k0 + 1 + i + 1) * P) := rfl
+    have hI : k0 + 1 + (i + 1) = k0 + 1 + i + 1 := rfl
+    rw [hI, hp1, hb, Int.pow_add]
+    have step : p ^ i * p * (y' (k0 + 1 + i + 1) - y (k0 + 1 + i + 1))
+        = 2 ^ (b (k0 + 1 + i + 1) + J (k0 + 1 + i + 1) * P) * (p ^ i * (y' (k0 + 1 + i) - y (k0 + 1 + i))) := by
+      rw [Int.mul_assoc, hd]; int_ring
+    rw [step, ih]
+    int_ring
+
+theorem pow_mod_one_int (m : Int) (P j : Nat) (hP : m ∣ (2 : Int) ^ P - 1) :
+    m ∣ (2 : Int) ^ (j * P) - 1 := by
+  induction j with
+  | zero => rw [Nat.zero_mul, Int.pow_zero]; exact ⟨0, by omega⟩
+  | succ j ih =>
+    obtain ⟨g, hg⟩ := ih
+    obtain ⟨h, hh⟩ := hP
+    have e : (2 : Int) ^ ((j + 1) * P) = (2 : Int) ^ (j * P) * (2 : Int) ^ P := by
+      rw [Nat.succ_mul, Int.pow_add]
+    rw [e]
+    refine ⟨g * (2 : Int) ^ P + h, ?_⟩
+    have hA : (2 : Int) ^ P = 1 + m * h := by omega
+    have hB : (2 : Int) ^ (j * P) = 1 + m * g := by omega
+    rw [hA, hB]; int_ring
+
+theorem int_binom_quad (a : Int) : ∀ n : Nat, ∃ z, (1 + a) ^ n = 1 + (n : Int) * a + a ^ 2 * z
+  | 0 => ⟨0, by simp⟩
+  | n + 1 => by
+    obtain ⟨z, hz⟩ := int_binom_quad a n
+    refine ⟨(n : Int) + z + a * z, ?_⟩
+    rw [Int.pow_succ, hz]
+    have e : ((n + 1 : Nat) : Int) = (n : Int) + 1 := by omega
+    rw [e]
+    have e2 : a ^ 2 = a * a := by rw [Int.pow_succ, Int.pow_one]
+    rw [e2]
+    int_ring
+
+def Efun (p : Int) (K P : Nat) (j : Nat) : Int := ((2 : Int) ^ (j * P) - 1) / p ^ (K + 1)
+
+theorem Efun_spec (p : Int) (hp : p ≠ 0) (K P : Nat) (uP : Int)
+    (h : (2 : Int) ^ P = 1 + p ^ (K + 1) * uP) (j : Nat) :
+    (2 : Int) ^ (j * P) = 1 + p ^ (K + 1) * Efun p K P j ∧ p ∣ Efun p K P j - (j : Int) * uP := by
+  obtain ⟨z, hz⟩ := int_binom_quad (p ^ (K + 1) * uP) j
+  have e1 : (2 : Int) ^ (j * P) = ((2 : Int) ^ P) ^ j := by rw [Nat.mul_comm, Int.pow_mul]
+  have hz2 : (2 : Int) ^ (j * P)
+      = 1 + (j : Int) * (p ^ (K + 1) * uP) + (p ^ (K + 1) * uP) ^ 2 * z := by
+    rw [e1, h]; exact hz
+  have hne : p ^ (K + 1) ≠ 0 := Int.pow_ne_zero hp
+  have hid : 1 + (j : Int) * (p ^ (K + 1) * uP) + (p ^ (K + 1) * uP) ^ 2 * z
+      = 1 + p ^ (K + 1) * ((j : Int) * uP + p ^ (K + 1) * (uP ^ 2 * z)) := by
+    have e2 : ∀ x : Int, x ^ 2 = x * x := fun x => by rw [Int.pow_succ, Int.pow_one]
+    rw [Int.mul_pow, e2 (p ^ (K + 1)), e2 uP]; int_ring
+  have hpre : (2 : Int) ^ (j * P) - 1
+      = p ^ (K + 1) * ((j : Int) * uP + p ^ (K + 1) * (uP ^ 2 * z)) := by
+    rw [hz2, hid]; omega
+  have hEf : Efun p K P j = (j : Int) * uP + p ^ (K + 1) * (uP ^ 2 * z) := by
+    unfold Efun
+    rw [hpre]
+    exact Int.mul_ediv_cancel_left _ hne
+  rw [hEf]
+  refine ⟨?_, ?_⟩
+  · rw [hz2, hid]
+  · refine ⟨p ^ K * (uP ^ 2 * z), ?_⟩
+    have e : p ^ (K + 1) = p ^ K * p := Int.pow_succ _ _
+    rw [e]; int_ring
+
+theorem dvd_triple_prod_sub (p a M X E c : Int) (hM : p ∣ M - a) (hX : p ∣ X - 1) (hE : p ∣ E - c) :
+    p ∣ M * X * E - a * c := by
+  obtain ⟨m, hm⟩ := hM
+  obtain ⟨g, hg⟩ := hX
+  obtain ⟨e, he⟩ := hE
+  have hM' : M = a + p * m := by omega
+  have hX' : X = 1 + p * g := by omega
+  have hE' : E = c + p * e := by omega
+  rw [hM', hX', hE']
+  exact ⟨a * e + (a * g + m + p * m * g) * c + p * (a * g + m + p * m * g) * e, by int_ring⟩
+
+theorem bsum_cong (p : Int) (P : Nat) (hG : ∀ j : Nat, p ∣ (2 : Int) ^ (j * P) - 1)
+    (b J : Nat → Nat) (k : Nat) :
+    ∀ i, p ∣ (2 : Int) ^ (bsum (fun l => b l + J l * P) k i) - 2 ^ (bsum b k i)
+  | 0 => by simp [bsum]
+  | i + 1 => by
+    obtain ⟨g, hg⟩ := bsum_cong p P hG b J k i
+    obtain ⟨w, hw⟩ := hG (J (k + i + 1))
+    have e1 : (2 : Int) ^ (bsum (fun l => b l + J l * P) k (i + 1))
+        = 2 ^ (bsum (fun l => b l + J l * P) k i) * (2 ^ (b (k + i + 1)) * 2 ^ (J (k + i + 1) * P)) := by
+      show (2 : Int) ^ (bsum (fun l => b l + J l * P) k i + (b (k + i + 1) + J (k + i + 1) * P)) = _
+      rw [Int.pow_add, Int.pow_add]
+    have e2 : (2 : Int) ^ (bsum b k (i + 1)) = 2 ^ (bsum b k i) * 2 ^ (b (k + i + 1)) := by
+      show (2 : Int) ^ (bsum b k i + b (k + i + 1)) = _
+      rw [Int.pow_add]
+    rw [e1, e2]
+    generalize (2 : Int) ^ (bsum (fun l => b l + J l * P) k i) = X at *
+    generalize (2 : Int) ^ (bsum b k i) = Y at *
+    generalize (2 : Int) ^ (b (k + i + 1)) = Z at *
+    generalize (2 : Int) ^ (J (k + i + 1) * P) = U at *
+    have hU : U = 1 + p * w := by omega
+    have hX : X = Y + p * g := by omega
+    rw [hU, hX]
+    exact ⟨Z * ((Y + p * g) * w + g), by int_ring⟩
+
+theorem chain_diff_congr (p : Int) (hp : p ≠ 0) (K P : Nat) (uP : Int)
+    (h2P : (2 : Int) ^ P = 1 + p ^ (K + 1) * uP)
+    (b J J' : Nat → Nat) (y y' : Nat → Int) (k0 n : Nat)
+    (hrel : ∀ i, i < n → p * y (i + 1) + 1 = 2 ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * y i)
+    (hrel' : ∀ i, i < n → p * y' (i + 1) + 1 = 2 ^ (b (i + 1)) * 2 ^ (J' (i + 1) * P) * y' i)
+    (hy : y' k0 = y k0) (hJ : J (k0 + 1) = 0) (hag : ∀ l, k0 + 1 < l → J' l = J l)
+    (hx : p ∣ 2 ^ (b (k0 + 1)) * y k0 - 1) :
+    ∀ i, i ≤ K → k0 + 1 + i ≤ n →
+      p ^ (K - i + 1) ∣ (y' (k0 + 1 + i) - y (k0 + 1 + i))
+        - p ^ (K - i) * (2 ^ (bsum b (k0 + 1) i) * ((J' (k0 + 1) : Nat) : Int) * uP) := by
+  intro i hi hin
+  obtain ⟨hE, hEc⟩ := Efun_spec p hp K P uP h2P (J' (k0 + 1))
+  have hG : ∀ j : Nat, p ∣ (2 : Int) ^ (j * P) - 1 := fun j =>
+    pow_mod_one_int p P j ⟨p ^ K * uP, by rw [h2P, Int.pow_succ]; int_ring⟩
+  have ex := chain_diff_exact p hp K P (Efun p K P (J' (k0 + 1))) b J J' y y' k0 n hE hrel hrel' hy hJ hag i hin
+  have pK : p ^ K = p ^ i * p ^ (K - i) := by
+    rw [← Int.pow_add]; congr 1; omega
+  have hδ : y' (k0 + 1 + i) - y (k0 + 1 + i)
+      = p ^ (K - i) * (2 ^ (bsum (fun l => b l + J l * P) (k0 + 1) i)
+          * (2 ^ (b (k0 + 1)) * y k0) * Efun p K P (J' (k0 + 1))) := by
+    apply Int.eq_of_mul_eq_mul_left (Int.pow_ne_zero hp : p ^ i ≠ 0)
+    rw [ex, pK]; int_ring
+  obtain ⟨c, hc⟩ := dvd_triple_prod_sub p (2 ^ (bsum b (k0 + 1) i))
+    (2 ^ (bsum (fun l => b l + J l * P) (k0 + 1) i)) (2 ^ (b (k0 + 1)) * y k0)
+    (Efun p K P (J' (k0 + 1))) (((J' (k0 + 1) : Nat) : Int) * uP)
+    (bsum_cong p P hG b J (k0 + 1) i) hx hEc
+  refine ⟨c, ?_⟩
+  have e3 : 2 ^ (bsum (fun l => b l + J l * P) (k0 + 1) i) * (2 ^ (b (k0 + 1)) * y k0)
+      * Efun p K P (J' (k0 + 1))
+      = 2 ^ (bsum b (k0 + 1) i) * (((J' (k0 + 1) : Nat) : Int) * uP) + p * c := by omega
+  rw [hδ, e3, Int.pow_succ]
+  int_ring
+
+structure Setup (p : Int) (K P : Nat) (uP : Int) (b : Nat → Nat) (y0 c : Int) : Prop where
+  hp : p ≠ 0
+  h2P : (2 : Int) ^ P = 1 + p ^ (K + 1) * uP
+  inv2 : ∃ t : Int, p ∣ 2 * t - 1
+  invu : ∃ w : Int, p ∣ uP * w - 1
+  hc : p ^ (K + 1) ∣ (2 - p) * c - 1
+  hy0 : p ^ (K + 1) ∣ y0 - c
+  hb1 : ∀ i, 1 ≤ i → i ≤ K + 1 → b i = 1
+
+def chain (p : Int) (P : Nat) (y0 : Int) (b J : Nat → Nat) : Nat → Int
+  | 0 => y0
+  | i + 1 => ((2 : Int) ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * chain p P y0 b J i - 1) / p
+
+def Integral (p : Int) (P : Nat) (y0 : Int) (b J : Nat → Nat) (n : Nat) : Prop :=
+  ∀ i, i < n → p ∣ (2 : Int) ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * chain p P y0 b J i - 1
+
+theorem chain_rel {p : Int} {P : Nat} {y0 : Int} {b J : Nat → Nat} {n : Nat}
+    (h : Integral p P y0 b J n) : ∀ i, i < n →
+    p * chain p P y0 b J (i + 1) + 1
+      = 2 ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * chain p P y0 b J i := by
+  intro i hi
+  have e := Int.mul_ediv_cancel' (h i hi)
+  show p * (((2 : Int) ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * chain p P y0 b J i - 1) / p) + 1 = _
+  rw [e]; omega
+
+theorem chain_congr (p : Int) (P : Nat) (y0 : Int) (b J J' : Nat → Nat) :
+    ∀ i, (∀ l, 1 ≤ l → l ≤ i → J l = J' l) → chain p P y0 b J i = chain p P y0 b J' i
+  | 0, _ => rfl
+  | i + 1, H => by
+    have ih := chain_congr p P y0 b J J' i (fun l h1 h2 => H l h1 (by omega))
+    show ((2 : Int) ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * chain p P y0 b J i - 1) / p
+      = ((2 : Int) ^ (b (i + 1)) * 2 ^ (J' (i + 1) * P) * chain p P y0 b J' i - 1) / p
+    rw [ih, H (i + 1) (by omega) (by omega)]
+
+theorem step_int_iff (p : Int) (P : Nat) (bb y : Int) (j : Nat)
+    (hG : p ∣ (2 : Int) ^ (j * P) - 1) :
+    p ∣ bb * 2 ^ (j * P) * y - 1 ↔ p ∣ bb * y - 1 := by
+  obtain ⟨w, hw⟩ := hG
+  have hU : (2 : Int) ^ (j * P) = 1 + p * w := by omega
+  rw [hU]
+  have e : bb * (1 + p * w) * y = bb * y + p * (bb * y * w) := by int_ring
+  rw [e]
+  constructor
+  · rintro ⟨g, hg⟩
+    exact ⟨g - bb * y * w, by rw [Int.mul_sub]; omega⟩
+  · rintro ⟨g, hg⟩
+    exact ⟨g + bb * y * w, by rw [Int.mul_add]; omega⟩
+
+theorem Gdiv {p : Int} {K P : Nat} {uP : Int} {b : Nat → Nat} {y0 c : Int}
+    (S : Setup p K P uP b y0 c) (j : Nat) : p ∣ (2 : Int) ^ (j * P) - 1 :=
+  pow_mod_one_int p P j ⟨p ^ K * uP, by rw [S.h2P, Int.pow_succ]; int_ring⟩
+
+theorem integral_transfer {p : Int} {K P : Nat} {uP : Int} {b : Nat → Nat} {y0 c : Int}
+    (S : Setup p K P uP b y0 c) (J J' : Nat → Nat) (m : Nat)
+    (hag : ∀ l, 1 ≤ l → l ≤ m → J l = J' l) :
+    ∀ n, n ≤ m + K + 1 → Integral p P y0 b J n → Integral p P y0 b J' n := by
+  intro n
+  induction n with
+  | zero => intro _ _ i hi; exact absurd hi (Nat.not_lt_zero _)
+  | succ n ih =>
+    intro hn hI
+    have hI0 : Integral p P y0 b J n := fun i hi => hI i (by omega)
+    have hI0' := ih (by omega) hI0
+    intro i hi
+    rcases Nat.lt_or_ge i n with h | h
+    · exact hI0' i h
+    · have hin : i = n := by omega
+      subst hin
+      have hs := (step_int_iff p P _ _ _ (Gdiv S (J (i + 1)))).1 (hI i (by omega))
+      have hloc := locality p S.hp K P (Efun p K P)
+        (fun j => (Efun_spec p S.hp K P uP S.h2P j).1) b J J'
+        (chain p P y0 b J) (chain p P y0 b J') i rfl
+        (chain_rel hI0) (chain_rel hI0') i (Nat.le_refl i) 1
+        (fun l hl hl2 => hag l hl (by omega))
+      rw [Int.pow_one] at hloc
+      refine (step_int_iff p P _ _ _ (Gdiv S (J' (i + 1)))).2 ?_
+      obtain ⟨g1, hg1⟩ := hs
+      obtain ⟨g2, hg2⟩ := hloc
+      refine ⟨g1 + 2 ^ (b (i + 1)) * g2, ?_⟩
+      have h3 : chain p P y0 b J' i = chain p P y0 b J i + p * g2 := by omega
+      rw [h3]
+      generalize chain p P y0 b J i = Y at *
+      have e : (2 : Int) ^ (b (i + 1)) * (Y + p * g2) - 1
+          = ((2 : Int) ^ (b (i + 1)) * Y - 1) + p * ((2 : Int) ^ (b (i + 1)) * g2) := by int_ring
+      rw [e, hg1]; int_ring
+
+theorem inv_mul (p X Xi Y Yi : Int) (hX : p ∣ X * Xi - 1) (hY : p ∣ Y * Yi - 1) :
+    p ∣ (X * Y) * (Xi * Yi) - 1 := by
+  obtain ⟨g1, h1⟩ := hX
+  obtain ⟨g2, h2⟩ := hY
+  have e : (X * Y) * (Xi * Yi) = (X * Xi) * (Y * Yi) := by int_ring
+  have h1' : X * Xi = 1 + p * g1 := by omega
+  have h2' : Y * Yi = 1 + p * g2 := by omega
+  rw [e, h1', h2']
+  exact ⟨g1 * (1 + p * g2) + g2, by int_ring⟩
+
+theorem inv_pow2 {p : Int} {K P : Nat} {uP : Int} {b : Nat → Nat} {y0 c : Int}
+    (S : Setup p K P uP b y0 c) : ∀ e : Nat, ∃ ti : Int, p ∣ (2 : Int) ^ e * ti - 1
+  | 0 => ⟨1, by rw [Int.pow_zero]; simp⟩
+  | e + 1 => by
+    obtain ⟨ti, h1⟩ := inv_pow2 S e
+    obtain ⟨t, ht⟩ := S.inv2
+    refine ⟨t * ti, ?_⟩
+    have e1 : (2 : Int) ^ (e + 1) * (t * ti) = (2 * 2 ^ e) * (t * ti) := by
+      rw [Int.pow_succ, Int.mul_comm ((2 : Int) ^ e) 2]
+    rw [e1]
+    exact inv_mul p 2 t (2 ^ e) ti ht h1
+
+theorem inv_a1 {p : Int} {K P : Nat} {uP : Int} {b : Nat → Nat} {y0 c : Int}
+    (S : Setup p K P uP b y0 c) (e : Nat) : ∃ ai : Int, p ∣ ((2 : Int) ^ e * uP) * ai - 1 := by
+  obtain ⟨ti, h1⟩ := inv_pow2 S e
+  obtain ⟨w, hw⟩ := S.invu
+  exact ⟨ti * w, inv_mul p _ ti uP w h1 hw⟩
+
+theorem lin_solve (q : Nat) (hq : 0 < q) (a w c : Int) (hw : (q : Int) ∣ a * w - 1) :
+    ∃ j : Nat, j < q ∧ (q : Int) ∣ a * (j : Int) - c := by
+  have hq' : (0 : Int) < (q : Int) := by omega
+  have h1 : 0 ≤ (w * c) % (q : Int) := Int.emod_nonneg _ (by omega)
+  have h2 : (w * c) % (q : Int) < (q : Int) := Int.emod_lt_of_pos _ hq'
+  refine ⟨((w * c) % (q : Int)).toNat, by omega, ?_⟩
+  have e : ((((w * c) % (q : Int)).toNat : Nat) : Int) = (w * c) % (q : Int) := Int.toNat_of_nonneg h1
+  rw [e, Int.emod_def]
+  obtain ⟨g, hg⟩ := hw
+  generalize w * c / (q : Int) = t
+  have e1 : a * (w * c - (q : Int) * t) - c = (a * w - 1) * c - (q : Int) * (a * t) := by int_ring
+  rw [e1, hg]
+  exact ⟨c * g - a * t, by int_ring⟩
+
+theorem primer_step {p : Int} {K P : Nat} {uP : Int} {b : Nat → Nat} {y0 c : Int}
+    (S : Setup p K P uP b y0 c) (J : Nat → Nat) (i : Nat) (hi : i ≤ K)
+    (hd : p ^ (K + 1 - i) ∣ chain p P y0 b J i - c) :
+    p ∣ (2 : Int) ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * chain p P y0 b J i - 1 ∧
+    p ^ (K - i) ∣ chain p P y0 b J (i + 1) - c := by
+  have hb : b (i + 1) = 1 := S.hb1 (i + 1) (by omega) (by omega)
+  obtain ⟨g, hg⟩ := hd
+  have hGK : p ^ (K + 1) ∣ (2 : Int) ^ (J (i + 1) * P) - 1 :=
+    pow_mod_one_int (p ^ (K + 1)) P (J (i + 1)) ⟨uP, by rw [S.h2P]; omega⟩
+  obtain ⟨w, hw⟩ := Int.dvd_trans (ipow_dvd p (by omega : K + 1 - i ≤ K + 1)) hGK
+  have hYc : p ^ (K + 1 - i) ∣ (2 : Int) ^ (J (i + 1) * P) * chain p P y0 b J i - c := by
+    have hid : (2 : Int) ^ (J (i + 1) * P) * chain p P y0 b J i - c
+        = (2 : Int) ^ (J (i + 1) * P) * (chain p P y0 b J i - c)
+          + ((2 : Int) ^ (J (i + 1) * P) - 1) * c := by int_ring
+    rw [hid]
+    exact ⟨(2 : Int) ^ (J (i + 1) * P) * g + w * c, by rw [hg, hw]; int_ring⟩
+  obtain ⟨z, hz1, hz2⟩ := fp_step p K (K + 1 - i) (by omega)
+    (by omega) c _ S.hc hYc
+  have hnum : (2 : Int) ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * chain p P y0 b J i - 1 = p * z := by
+    rw [hb, Int.pow_one]; rw [← hz1]; int_ring
+  refine ⟨⟨z, hnum⟩, ?_⟩
+  have hch : chain p P y0 b J (i + 1) = z := by
+    show ((2 : Int) ^ (b (i + 1)) * 2 ^ (J (i + 1) * P) * chain p P y0 b J i - 1) / p = z
+    rw [hnum]; exact Int.mul_ediv_cancel_left _ S.hp
+  rw [hch]
+  have hj2 : K + 1 - i - 1 = K - i := by omega
+  rw [hj2] at hz2
+  exact hz2
+
+theorem primer_chain {p : Int} {K P : Nat} {uP : Int} {b : Nat → Nat} {y0 c : Int}
+    (S : Setup p K P uP b y0 c) (J : Nat → Nat) :
+    (∀ i, i ≤ K → p ^ (K + 1 - i) ∣ chain p P y0 b J i - c) ∧ Integral p P y0 b J (K + 1) := by
+  have h1 : ∀ i, i ≤ K → p ^ (K + 1 - i) ∣ chain p P y0 b J i - c := by
+    intro i
+    induction i with
+    | zero => intro _; exact S.hy0
+    | succ i ih =>
+      intro hi
+      have hs := (primer_step S J i (by omega) (ih (by omega))).2
+      have hj : K + 1 - (i + 1) = K - i := by omega
+      rw [hj]; exact hs
+  exact ⟨h1, fun i hi => (primer_step S J i (by omega) (h1 i (by omega))).1⟩
+
+theorem lift_digit_identity (Z p A j Y0 Y1 ρ θ g h1 : Int)
+    (hg : Y1 - Y0 - Z * (A * j) = Z * p * g) (hθ : Y0 - ρ = Z * θ)
+    (hh : A * j + θ = p * h1) : Y1 - ρ = Z * p * (g + h1) := by
+  have h2 : Z * (A * j + θ) = Z * (p * h1) := by rw [hh]
+  have e1 : Z * (A * j + θ) = Z * (A * j) + Z * θ := by int_ring
+  have e2 : Z * p * (g + h1) = Z * p * g + Z * (p * h1) := by int_ring
+  rw [e2]; omega
+
+theorem choose_shifts {p : Int} {K P : Nat} {uP : Int} {b : Nat → Nat} {y0 c : Int}
+    (q : Nat) (hq : 0 < q) (hpq : p = (q : Int)) (S : Setup p K P uP b y0 c) (τ : Nat) (ρ : Int) :
+    ∃ f : Nat → Nat, (∀ l, 1 ≤ l → l ≤ K + τ → f l < q) ∧
+      ∀ J : Nat → Nat, (∀ l, 1 ≤ l → l ≤ K + τ → J l = f l) →
+        Integral p P y0 b J (K + 1 + τ) ∧ p ^ K ∣ chain p P y0 b J (K + 1 + τ) - ρ := by
+  have lin' : ∀ a ai c' : Int, p ∣ a * ai - 1 → ∃ j : Nat, j < q ∧ p ∣ a * (j : Int) - c' := by
+    intro a ai c' h
+    subst hpq
+    exact lin_solve q hq a ai c' h
+  have hEf : ∀ j : Nat, (2 : Int) ^ (j * P) = 1 + p ^ (K + 1) * Efun p K P j :=
+    fun j => (Efun_spec p S.hp K P uP S.h2P j).1
+  have key : ∀ k, k ≤ K + τ → ∃ f : Nat → Nat, (∀ l, 1 ≤ l → l ≤ k → f l < q) ∧
+      ∀ J : Nat → Nat, (∀ l, 1 ≤ l → l ≤ k → J l = f l) →
+        Integral p P y0 b J (min (k + K + 1) (K + 1 + τ)) ∧
+        p ^ (k - τ) ∣ chain p P y0 b J (K + 1 + τ) - ρ := by
+    intro k
+    induction k with
+    | zero =>
+      intro _
+      refine ⟨fun _ => 0, fun l _ h2 => absurd h2 (by omega), ?_⟩
+      intro J _
+      refine ⟨?_, ?_⟩
+      · have hi : min (0 + K + 1) (K + 1 + τ) = K + 1 := by omega
+        rw [hi]; exact (primer_chain S J).2
+      · have h0 : 0 - τ = 0 := by omega
+        rw [h0, Int.pow_zero]; exact Int.one_dvd _
+    | succ k0 ih =>
+      intro hk
+      obtain ⟨f, hfb, hf⟩ := ih (by omega)
+      obtain ⟨J0, hJ0⟩ : ∃ J0 : Nat → Nat, J0 = fun l => if l ≤ k0 then f l else 0 := ⟨_, rfl⟩
+      have hJ0a : ∀ l, l ≤ k0 → J0 l = f l := by intro l h; rw [hJ0]; simp [h]
+      have hJ0b : ∀ l, k0 < l → J0 l = 0 := by intro l h; rw [hJ0]; simp [Nat.not_le.2 h]
+      obtain ⟨hI0, hC0⟩ := hf J0 (fun l _ h => hJ0a l h)
+      have hJ0k : J0 (k0 + 1) = 0 := hJ0b _ (by omega)
+      obtain ⟨J1, hJ1⟩ : ∃ J1 : Nat → Nat → Nat,
+          J1 = fun j l => if l = k0 + 1 then j else J0 l := ⟨_, rfl⟩
+      have hJ1a : ∀ j, J1 j (k0 + 1) = j := by intro j; rw [hJ1]; simp
+      have hJ1b : ∀ j l, l ≠ k0 + 1 → J1 j l = J0 l := by intro j l h; rw [hJ1]; simp [h]
+      have hJ1c : ∀ j l, l ≤ k0 → J1 j l = f l := by
+        intro j l h; rw [hJ1b j l (by omega), hJ0a l h]
+      obtain ⟨F, hF⟩ : ∃ F : Nat → Nat → Nat, F = fun j l => if l = k0 + 1 then j else f l := ⟨_, rfl⟩
+      have hFa : ∀ j, F j (k0 + 1) = j := by intro j; rw [hF]; simp
+      have hFb : ∀ j l, l ≠ k0 + 1 → F j l = f l := by intro j l h; rw [hF]; simp [h]
+      have hFq : ∀ j, j < q → ∀ l, 1 ≤ l → l ≤ k0 + 1 → F j l < q := by
+        intro j hj l h1 h2
+        by_cases hl : l = k0 + 1
+        · subst hl; rw [hFa]; exact hj
+        · rw [hFb j l hl]; exact hfb l h1 (by omega)
+      have hag : ∀ j (J : Nat → Nat), (∀ l, 1 ≤ l → l ≤ k0 + 1 → J l = F j l) →
+          ∀ l, 1 ≤ l → l ≤ k0 + 1 → J1 j l = J l := by
+        intro j J hJ l h1 h2
+        rw [hJ l h1 h2]
+        by_cases hl : l = k0 + 1
+        · subst hl; rw [hJ1a, hFa]
+        · rw [hJ1c j l (by omega), hFb j l hl]
+      have hIJ1 : ∀ j, Integral p P y0 b (J1 j) (min (k0 + K + 1) (K + 1 + τ)) := fun j =>
+        integral_transfer S J0 (J1 j) k0 (fun l _ h => (hJ1b j l (by omega)).symm) _
+          (by omega) hI0
+      have hx : p ∣ (2 : Int) ^ (b (k0 + 1)) * chain p P y0 b J0 k0 - 1 := by
+        have h := hI0 k0 (by omega)
+        rw [hJ0k, Nat.zero_mul, Int.pow_zero, Int.mul_one] at h
+        exact h
+      have hrel0 := chain_rel hI0
+      have hy1 : ∀ j, chain p P y0 b (J1 j) k0 = chain p P y0 b J0 k0 :=
+        fun j => chain_congr p P y0 b (J1 j) J0 k0 (fun l _ h => by rw [hJ1b j l (by omega)])
+      have shift : ∀ j i, i ≤ K → k0 + 1 + i ≤ min (k0 + K + 1) (K + 1 + τ) →
+          p ^ (K - i + 1) ∣ (chain p P y0 b (J1 j) (k0 + 1 + i) - chain p P y0 b J0 (k0 + 1 + i))
+            - p ^ (K - i) * (2 ^ (bsum b (k0 + 1) i) * (j : Int) * uP) := by
+        intro j i hi hin
+        have h := chain_diff_congr p S.hp K P uP S.h2P b J0 (J1 j) (chain p P y0 b J0)
+          (chain p P y0 b (J1 j)) k0 (min (k0 + K + 1) (K + 1 + τ)) hrel0
+          (chain_rel (hIJ1 j)) (hy1 j) hJ0k (fun l hl => hJ1b j l (by omega)) hx i hi hin
+        rw [hJ1a j] at h
+        exact h
+      rcases Nat.lt_or_ge τ (k0 + 1) with hB | hA
+      ·
+        have hn : min (k0 + K + 1) (K + 1 + τ) = K + 1 + τ := by omega
+        have hIs : Integral p P y0 b J0 (K + 1 + τ) := by rw [hn] at hI0; exact hI0
+        have hIJ1s : ∀ j, Integral p P y0 b (J1 j) (K + 1 + τ) := fun j => by
+          have := hIJ1 j; rw [hn] at this; exact this
+        have hsh : ∀ j, p ^ (k0 - τ + 1) ∣
+            (chain p P y0 b (J1 j) (K + 1 + τ) - chain p P y0 b J0 (K + 1 + τ))
+              - p ^ (k0 - τ) * (2 ^ (bsum b (k0 + 1) (K + 1 + τ - (k0 + 1))) * (j : Int) * uP) := by
+          intro j
+          have h := shift j (K + 1 + τ - (k0 + 1)) (by omega) (by omega)
+          have e1 : K - (K + 1 + τ - (k0 + 1)) = k0 - τ := by omega
+          have e3 : k0 + 1 + (K + 1 + τ - (k0 + 1)) = K + 1 + τ := by omega
+          rw [e1, e3] at h
+          exact h
+        obtain ⟨θ, hθ⟩ := hC0
+        obtain ⟨ai, hai⟩ := inv_a1 S (bsum b (k0 + 1) (K + 1 + τ - (k0 + 1)))
+        obtain ⟨j, hjq, hj⟩ := lin' _ ai (-θ) hai
+        obtain ⟨h1, hh1⟩ := hj
+        obtain ⟨g, hg⟩ := hsh j
+        have eA : (2 : Int) ^ (bsum b (k0 + 1) (K + 1 + τ - (k0 + 1))) * (j : Int) * uP
+            = ((2 : Int) ^ (bsum b (k0 + 1) (K + 1 + τ - (k0 + 1))) * uP) * (j : Int) := by int_ring
+        rw [eA, Int.pow_succ] at hg
+        have hC := lift_digit_identity (p ^ (k0 - τ)) p
+          ((2 : Int) ^ (bsum b (k0 + 1) (K + 1 + τ - (k0 + 1))) * uP) (j : Int)
+          (chain p P y0 b J0 (K + 1 + τ)) (chain p P y0 b (J1 j) (K + 1 + τ)) ρ θ g h1
+          hg hθ (by omega)
+        refine ⟨F j, hFq j hjq, ?_⟩
+        intro J hJ
+        have hagJ := hag j J hJ
+        have hIJ : Integral p P y0 b J (K + 1 + τ) :=
+          integral_transfer S (J1 j) J (k0 + 1) hagJ (K + 1 + τ) (by omega) (hIJ1s j)
+        have hmin : min (k0 + 1 + K + 1) (K + 1 + τ) = K + 1 + τ := by omega
+        refine ⟨by rw [hmin]; exact hIJ, ?_⟩
+        have hloc := locality p S.hp K P (Efun p K P) hEf b (J1 j) J
+          (chain p P y0 b (J1 j)) (chain p P y0 b J) (K + 1 + τ) rfl
+          (chain_rel (hIJ1s j)) (chain_rel hIJ) (K + 1 + τ) (Nat.le_refl _) (k0 - τ + 1)
+          (fun l hl hl2 => hagJ l hl (by omega))
+        obtain ⟨g', hg'⟩ := hloc
+        have e : k0 + 1 - τ = k0 - τ + 1 := by omega
+        rw [e]
+        have e2 : p ^ (k0 - τ + 1) = p ^ (k0 - τ) * p := Int.pow_succ _ _
+        rw [e2] at hg' ⊢
+        refine ⟨g' + (g + h1), ?_⟩
+        rw [Int.mul_add]
+        omega
+      ·
+        have hn : min (k0 + K + 1) (K + 1 + τ) = k0 + K + 1 := by omega
+        obtain ⟨ai, hai⟩ := inv_a1 S (bsum b (k0 + 1) K)
+        obtain ⟨at', hat'⟩ := inv_pow2 S (b (k0 + 1 + K + 1))
+        have hinv : p ∣ ((2 : Int) ^ (b (k0 + 1 + K + 1))
+            * ((2 : Int) ^ (bsum b (k0 + 1) K) * uP)) * (at' * ai) - 1 :=
+          inv_mul p _ at' _ ai hat' hai
+        obtain ⟨j, hjq, hj⟩ := lin' _ _ (1 - (2 : Int) ^ (b (k0 + 1 + K + 1))
+          * chain p P y0 b J0 (k0 + 1 + K)) hinv
+        obtain ⟨h1, hh1⟩ := hj
+        have hsh := shift j K (Nat.le_refl K) (by omega)
+        rw [Nat.sub_self, Nat.zero_add, Int.pow_one, Int.pow_zero, Int.one_mul] at hsh
+        obtain ⟨g, hg⟩ := hsh
+        have hy1eq : chain p P y0 b (J1 j) (k0 + 1 + K)
+            = chain p P y0 b J0 (k0 + 1 + K)
+              + (2 : Int) ^ (bsum b (k0 + 1) K) * (j : Int) * uP + p * g := by omega
+        have hstep : p ∣ (2 : Int) ^ (b (k0 + 1 + K + 1)) * chain p P y0 b (J1 j) (k0 + 1 + K) - 1 := by
+          refine ⟨h1 + (2 : Int) ^ (b (k0 + 1 + K + 1)) * g, ?_⟩
+          rw [Int.mul_add, ← hh1, hy1eq]
+          int_ring
+        have hIn : Integral p P y0 b (J1 j) (k0 + K + 2) := by
+          intro i hi
+          rcases Nat.lt_or_ge i (k0 + K + 1) with h | h
+          · have := hIJ1 j i (by omega); exact this
+          · have hi' : i = k0 + 1 + K := by omega
+            subst hi'
+            exact (step_int_iff p P _ _ _ (Gdiv S (J1 j (k0 + 1 + K + 1)))).2 hstep
+        refine ⟨F j, hFq j hjq, ?_⟩
+        intro J hJ
+        have hagJ := hag j J hJ
+        refine ⟨?_, ?_⟩
+        · have hmin : min (k0 + 1 + K + 1) (K + 1 + τ) = k0 + K + 2 := by omega
+          rw [hmin]
+          exact integral_transfer S (J1 j) J (k0 + 1) hagJ (k0 + K + 2) (by omega) hIn
+        · have h0 : k0 + 1 - τ = 0 := by omega
+          rw [h0, Int.pow_zero]; exact Int.one_dvd _
+  obtain ⟨f, hfb, hf⟩ := key (K + τ) (Nat.le_refl _)
+  refine ⟨f, hfb, fun J hJ => ?_⟩
+  obtain ⟨h1, h2⟩ := hf J hJ
+  have e1 : min (K + τ + K + 1) (K + 1 + τ) = K + 1 + τ := by omega
+  have e2 : K + τ - τ = K := by omega
+  rw [e1] at h1; rw [e2] at h2
+  exact ⟨h1, h2⟩
+
+theorem unit_inv_pow (p g0 : Int) : ∀ M : Nat, ∃ z : Int, p ^ (M + 1) ∣ (1 + p * g0) * z - 1
+  | 0 => ⟨1, g0, by rw [Int.pow_succ, Int.pow_zero]; int_ring⟩
+  | M + 1 => by
+    obtain ⟨z, h, hh⟩ := unit_inv_pow p g0 M
+    have e1 : p ^ (M + 1) = p ^ M * p := Int.pow_succ _ _
+    have e2 : p ^ (M + 1 + 1) = p ^ M * p * p := by rw [Int.pow_succ, e1]
+    rw [e1] at hh
+    refine ⟨z * (1 - p ^ M * p * h), -(p ^ M * h * h), ?_⟩
+    rw [e2]
+    have hz : (1 + p * g0) * z = 1 + p ^ M * p * h := by omega
+    have e3 : (1 + p * g0) * (z * (1 - p ^ M * p * h))
+        = ((1 + p * g0) * z) * (1 - p ^ M * p * h) := by int_ring
+    rw [e3, hz]; int_ring
+
+theorem wide_step_identity (p Yg ρ y0s Δ z xx G X Pw a1 a2 : Int) (hp : p ≠ 0)
+    (hxx : xx = 1 + p * y0s) (hΔ : Δ = ρ - y0s) (hX : X = 1 + p * Δ * z)
+    (hU : xx * z - 1 = Pw * p * a2) (hA : G - X = Pw * p * a1)
+    (hrel : p * Yg + 1 = xx * G) : Yg - ρ = Pw * (p * Δ * a2 + xx * a1) := by
+  have hU' : xx * z = 1 + Pw * p * a2 := by omega
+  have hG : G = X + Pw * p * a1 := by omega
+  apply Int.eq_of_mul_eq_mul_left hp
+  have h1 : p * (Yg - ρ) = xx * G - 1 - p * ρ := by rw [Int.mul_sub]; omega
+  have e : xx * (X + Pw * p * a1) = xx * X + xx * Pw * p * a1 := by int_ring
+  have e' : xx * X = xx + p * Δ * (xx * z) := by rw [hX]; int_ring
+  rw [h1, hG, e, e', hU']
+  subst hxx hΔ
+  int_ring
+
+theorem wide_step {p : Int} {K P : Nat} {uPn : Nat} {b : Nat → Nat} {y0 c : Int}
+    (q : Nat) (hq3 : 3 ≤ q) (hodd : q % 2 = 1) (hcop : Nat.Coprime q uPn) (hpq : p = (q : Int))
+    (S : Setup p K P (uPn : Int) b y0 c) (τ : Nat) (ρ : Int) (N : Nat) (hN : K ≤ N)
+    (f : Nat → Nat)
+    (hf : ∀ J : Nat → Nat, (∀ l, 1 ≤ l → l ≤ K + τ → J l = f l) →
+      Integral p P y0 b J (K + 1 + τ) ∧ p ^ K ∣ chain p P y0 b J (K + 1 + τ) - ρ) :
+    ∃ j0 : Nat, j0 < q ^ (N - K) ∧ ∀ J : Nat → Nat, (∀ l, 1 ≤ l → l ≤ K + τ → J l = f l) →
+      J (K + 1 + τ) % q ^ (N - K) = j0 → p ^ N ∣ chain p P y0 b J (K + 1 + τ) - ρ := by
+  have hpne : p ≠ 0 := S.hp
+  obtain ⟨Jr, hJr⟩ : ∃ Jr : Nat → Nat, Jr = fun l => if l ≤ K + τ then f l else 0 := ⟨_, rfl⟩
+  have hJra : ∀ l, l ≤ K + τ → Jr l = f l := by intro l h; rw [hJr]; simp [h]
+  have hJrb : Jr (K + 1 + τ) = 0 := by
+    have hn : ¬ (K + 1 + τ ≤ K + τ) := by omega
+    rw [hJr]; simp [hn]
+  obtain ⟨hIr, hCr⟩ := hf Jr (fun l _ h => hJra l h)
+  obtain ⟨xx, hxxd⟩ : ∃ xx : Int, xx = (2 : Int) ^ (b (K + 1 + τ)) * chain p P y0 b Jr (K + τ) := ⟨_, rfl⟩
+  obtain ⟨y0s, hy0s⟩ : ∃ v : Int, v = chain p P y0 b Jr (K + 1 + τ) := ⟨_, rfl⟩
+  have hrelJ : ∀ J : Nat → Nat, (∀ l, 1 ≤ l → l ≤ K + τ → J l = f l) →
+      p * chain p P y0 b J (K + 1 + τ) + 1 = xx * 2 ^ (J (K + 1 + τ) * P) := by
+    intro J hJ
+    obtain ⟨hI, _⟩ := hf J hJ
+    have h := chain_rel hI (K + τ) (by omega)
+    have e : K + τ + 1 = K + 1 + τ := by omega
+    rw [e] at h
+    have hc : chain p P y0 b J (K + τ) = chain p P y0 b Jr (K + τ) :=
+      chain_congr p P y0 b J Jr (K + τ) (fun l h1 h2 => by rw [hJ l h1 h2, hJra l h2])
+    rw [h, hc, hxxd]; int_ring
+  have hxx : xx = 1 + p * y0s := by
+    have h := hrelJ Jr (fun l _ h => hJra l h)
+    rw [hJrb, Nat.zero_mul, Int.pow_zero, Int.mul_one] at h
+    rw [hy0s]; omega
+  obtain ⟨δ, hδ⟩ := hCr
+  obtain ⟨Δ, hΔ⟩ : ∃ Δ : Int, Δ = ρ - y0s := ⟨_, rfl⟩
+  have hΔd : Δ = p ^ K * (-δ) := by rw [Int.mul_neg]; omega
+  obtain ⟨z, hz⟩ := unit_inv_pow p y0s N
+  rw [← hxx] at hz
+  obtain ⟨a2, ha2⟩ := hz
+  obtain ⟨X, hX⟩ : ∃ X : Int, X = 1 + p * Δ * z := ⟨_, rfl⟩
+  have hX1 : p ^ (K + 1) ∣ X - 1 := by
+    refine ⟨-(δ * z), ?_⟩
+    rw [hX, hΔd, Int.pow_succ]; int_ring
+  subst hpq
+  obtain ⟨t, ht, hcov⟩ := cover_int q uPn K (N - K) hodd hq3 hcop X hX1
+  refine ⟨t, ht, fun J hJ hJt => ?_⟩
+  have hg : ((1 + q ^ (K + 1) * uPn : Nat) : Int) = (2 : Int) ^ P := by
+    rw [Int.natCast_add, Int.natCast_mul, Int.natCast_pow, Int.natCast_one]
+    exact S.h2P.symm
+  have hpow : (2 : Int) ^ (J (K + 1 + τ) * P) = ((2 : Int) ^ P) ^ (J (K + 1 + τ)) := by
+    rw [Nat.mul_comm, Int.pow_mul]
+  have hc := hcov (J (K + 1 + τ)) hJt
+  rw [hg, ← hpow, show K + 1 + (N - K) = N + 1 by omega] at hc
+  obtain ⟨a1, ha1⟩ := hc
+  have e1 : (q : Int) ^ (N + 1) = (q : Int) ^ N * (q : Int) := Int.pow_succ _ _
+  rw [e1] at ha1 ha2
+  have hres := wide_step_identity (q : Int) (chain (q : Int) P y0 b J (K + 1 + τ)) ρ y0s Δ z xx
+    ((2 : Int) ^ (J (K + 1 + τ) * P)) X ((q : Int) ^ N) a1 a2 hpne hxx hΔ hX ha2 ha1
+    (hrelJ J hJ)
+  exact ⟨_, hres⟩
+
+theorem tail_lemma (q : Nat) [NonWieferich q] (u : List Nat) (hu : ∀ e ∈ u, e ≤ 1) (α : Nat)
+    (hlen : u.length = α) (rb ρ : Nat)
+    (hρ : 2 ^ α * ρ = q ^ ones u * rb + kappa q u)
+    (mq m' β B y : Nat) (hA : mq ∣ q ^ β)
+    (hρy : ρ + q ^ ones u * (B + 1) ≤ y)
+    (hyc : q ^ (ones u + β) * m' ∣ y - ρ) :
+    ∃ w : Nat, B < w ∧ Reaches q w y ∧ w % (2 ^ α * mq * m') = rb % (2 ^ α * mq * m') ∧
+      w ≤ 2 ^ α * y := by
+  obtain ⟨n, hn⟩ : ∃ n, n = ones u := ⟨_, rfl⟩
+  obtain ⟨κ, hκ⟩ : ∃ κ, κ = kappa q u := ⟨_, rfl⟩
+  rw [← hn, ← hκ] at hρ
+  rw [← hn] at hρy hyc
+  have hqn : 0 < q ^ n := powp_pos q n
+  have h2a : 0 < 2 ^ α := Nat.pow_pos (by omega)
+  obtain ⟨c, hc⟩ := hyc
+  obtain ⟨a', ha'⟩ := hA
+  have hz : y - ρ = q ^ n * (q ^ β * m' * c) := by
+    rw [hc, Nat.pow_add]; (first | nat_ring | int_ring)
+  have hy : y = ρ + q ^ n * (q ^ β * m' * c) := by
+    have : ρ ≤ y := by
+      have := Nat.mul_pos hqn (Nat.succ_pos B)
+      omega
+    omega
+  obtain ⟨z, hzdef⟩ : ∃ z, z = q ^ β * m' * c := ⟨_, rfl⟩
+  rw [← hzdef] at hz hy
+  have hzB : B + 1 ≤ z := by
+    have h1 : q ^ n * (B + 1) ≤ q ^ n * z := by omega
+    exact Nat.le_of_mul_le_mul_left h1 hqn
+  have hw1 : q ^ n * (rb + 2 ^ α * z) + κ = 2 ^ α * y := by
+    have e : q ^ n * (rb + 2 ^ α * z) + κ = (q ^ n * rb + κ) + 2 ^ α * (q ^ n * z) := by
+      (first | nat_ring | int_ring)
+    rw [e, ← hρ, hy]; (first | nat_ring | int_ring)
+  refine ⟨rb + 2 ^ α * z, ?_, ?_, ?_, ?_⟩
+  · have := Nat.le_mul_of_pos_left z h2a
+    omega
+  · have hd : 2 ^ u.length ∣ q ^ ones u * (rb + 2 ^ α * z) + kappa q u := by
+      rw [hlen, ← hn, ← hκ, hw1]; exact Nat.dvd_mul_right _ _
+    have := word_trajectory q u hu (rb + 2 ^ α * z) hd
+    rw [← hn, ← hκ, hw1, hlen, Nat.mul_div_cancel_left _ h2a] at this
+    exact this
   ·
-    have hM' : (q ^ oneCount (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0) * x
-        + offset q (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0)) % m'
-        = (2 ^ (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0).length * w) % m' := by
-      apply (residue_eq_iff _ _ _).1
-      have h := (backWord_iff q _ (residue m' x) (residue m' w)).2 hwM
-      simp only [residue_add, residue_mul]
-      exact h
+    have e : 2 ^ α * z = (2 ^ α * mq * m') * (a' * c) := by
+      rw [hzdef, ha']; (first | nat_ring | int_ring)
+    rw [e, Nat.add_mul_mod_self_left]
+  · have hrb : rb ≤ 2 ^ α * ρ := by
+      have := Nat.le_mul_of_pos_left rb hqn
+      omega
+    have hz2 : z ≤ q ^ n * z := Nat.le_mul_of_pos_left z hqn
+    have : 2 ^ α * z ≤ 2 ^ α * (q ^ n * z) := Nat.mul_le_mul_left _ hz2
+    have e2 : 2 ^ α * y = 2 ^ α * ρ + 2 ^ α * (q ^ n * z) := by
+      rw [hy]; (first | nat_ring | int_ring)
+    omega
 
-    have hcu : oneCount (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0)
-        = oneCount ω + (K + 1) := by
-      rw [oneCount_append, oneCount_append, oneCount_replicate_one, oneCount_replicate_zero,
-        Nat.add_zero]
-    have hou : offset q (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0)
-        = q ^ (K + 1) * offset q ω + 2 ^ ω.length * offset q (List.replicate (K + 1) 1) := by
-      rw [offset_append, offset_replicate_zero, oneCount_replicate_zero, Nat.pow_zero, Nat.one_mul,
-        Nat.mul_zero, Nat.add_zero, offset_append, oneCount_replicate_one]
-    have hlen : (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0).length
-        = ω.length + (K + 1) + nz := by
-      simp only [List.length_append, List.length_replicate]
-    haveI : NeZero (q ^ (K + 1)) := ⟨Nat.pos_iff_ne_zero.1 (Nat.pow_pos (by omega))⟩
-    have hP' : (q ^ oneCount (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0) * x
-        + offset q (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0)) % q ^ (K + 1)
-        = (2 ^ (ω ++ List.replicate (K + 1) 1 ++ List.replicate nz 0).length * w) % q ^ (K + 1) := by
-      rw [hcu, hou, hlen]
-      apply (residue_eq_iff _ _ _).1
-      have hA1 : residue (q ^ (K + 1)) (q ^ (oneCount ω + (K + 1))) = 0 := by
-        rw [residue_p_pow_add, residue_self]; grind
-      have hpow : 2 ^ (ω.length + (K + 1) + nz) * w
-          = 2 ^ ω.length * (2 ^ (K + 1 + nz) * w) := by
-        rw [← Nat.mul_assoc, ← Nat.pow_add]; congr 2; omega
-      have hO' : residue (q ^ (K + 1)) (2 ^ (K + 1 + nz) * w)
-          = residue (q ^ (K + 1)) (offset q (List.replicate (K + 1) 1)) :=
-        (residue_eq_iff _ _ _).2 hmP
-      rw [hpow, residue_mul, hO']
-      simp only [residue_add, residue_mul, hA1, residue_self]
-      grind
-    have hcop : Nat.Coprime (q ^ (K + 1)) m' :=
-      Nat.Coprime.pow_left (K + 1) (coprime_p_of_coprime_two_mul hM).symm
-    exact mod_combine hcop hP' hM'
+theorem int_cancel (m c : Nat) (hm0 : 0 < m) (hcop : Nat.Coprime m c) (a : Int)
+    (h : (m : Int) ∣ (c : Int) * a) : (m : Int) ∣ a := by
+  rcases Nat.lt_or_ge 1 m with hm | hm
+  · obtain ⟨k, w, hkw⟩ := nat_bez c m hm (Nat.Coprime.symm hcop)
+    have hI : (c : Int) * (k : Int) = (m : Int) * (w : Int) + 1 := by
+      have := congrArg (fun n : Nat => (n : Int)) hkw
+      simp only [Int.natCast_mul, Int.natCast_add, Int.natCast_one] at this
+      exact this
+    obtain ⟨g, hg⟩ := h
+    have e : a = ((c : Int) * (k : Int)) * a - (m : Int) * ((w : Int) * a) := by
+      rw [hI]; int_ring
+    have e2 : ((c : Int) * (k : Int)) * a = (m : Int) * ((k : Int) * g) := by
+      have : ((c : Int) * (k : Int)) * a = (k : Int) * ((c : Int) * a) := by int_ring
+      rw [this, hg]; int_ring
+    refine ⟨(k : Int) * g - (w : Int) * a, ?_⟩
+    rw [Int.mul_sub]; omega
+  · have : m = 1 := by omega
+    subst this
+    exact Int.one_dvd _
 
-theorem predecessor_bound_core (q : Nat) [NonWieferich q] (L : Nat) (hpL : q ≤ 2 ^ L)
-    (m : Nat) (hN : 2 ≤ m) (α A m' k s : Nat) (hNe : m = 2 ^ α * A * m') (hAb : A ∣ q ^ k)
-    (hbA : 2 ^ k ≤ A) (hM : Nat.Coprime m' (2 * q)) (hcov : Covers q m' s)
-    (w : Nat) (hw0 : 1 ≤ w) (hw : ∃ i, w % q = 2 ^ i % q) (r B : Nat) :
-    ∃ n : Nat, B < n ∧ Reaches q n w ∧ n % m = r % m ∧
-      n ≤ (B + 1) * w * 2 ^ (2 * m ^ (L + 1) * q ^ (s + 1)) := by
-  have hp3 := NonWieferich.three_le (q := q)
+theorem nat_mod_to_int_dvd (a b m : Nat) (h : a % m = b % m) : (m : Int) ∣ (a : Int) - (b : Int) := by
+  have h' : ((a % m : Nat) : Int) = ((b % m : Nat) : Int) := by rw [h]
+  rw [Int.natCast_emod, Int.natCast_emod] at h'
+  exact Int.dvd_of_emod_eq_zero (Int.emod_eq_emod_iff_emod_sub_eq_zero.1 h')
+
+theorem mul_mod_cong (a a' b m : Nat) (h : a % m = a' % m) : (a * b) % m = (a' * b) % m := by
+  rw [Nat.mul_mod, h, ← Nat.mul_mod]
+
+theorem add_mod_cong (x x' y m : Nat) (h : x % m = x' % m) : (x + y) % m = (x' + y) % m := by
+  rw [Nat.add_mod, h, ← Nat.add_mod]
+
+def wsumFun (q : Nat) (c : Nat → Nat) : Nat → Nat
+  | 0 => 0
+  | n + 1 => wsumFun q c n + q ^ n * 2 ^ (c (n + 1))
+
+theorem wsumFun_congr (q : Nat) (c c' : Nat → Nat) :
+    ∀ n, (∀ k, 1 ≤ k → k ≤ n → c k = c' k) → wsumFun q c n = wsumFun q c' n
+  | 0, _ => rfl
+  | n + 1, H => by
+    have ih := wsumFun_congr q c c' n (fun k h1 h2 => H k h1 (by omega))
+    show wsumFun q c n + q ^ n * 2 ^ (c (n + 1)) = wsumFun q c' n + q ^ n * 2 ^ (c' (n + 1))
+    rw [ih, H (n + 1) (by omega) (Nat.le_refl _)]
+
+theorem cover_c (q : Nat) : ∀ I : List Nat, ∃ c : Nat → Nat,
+    (∀ k, 1 ≤ k → k ≤ I.length → c k ∈ I) ∧ wsumFun q c I.length = wsum q I
+  | [] => ⟨fun _ => 0, fun k h1 h2 => absurd h2 (by simp; omega), by simp [wsumFun, wsum]⟩
+  | i :: is => by
+    obtain ⟨c', hmem, hW⟩ := cover_c q is
+    obtain ⟨cc, hcc⟩ : ∃ cc : Nat → Nat, cc = fun k => if k = is.length + 1 then i else c' k := ⟨_, rfl⟩
+    have hcc1 : cc (is.length + 1) = i := by rw [hcc]; simp
+    have hcc2 : ∀ k, k ≠ is.length + 1 → cc k = c' k := by intro k hk; rw [hcc]; simp [hk]
+    refine ⟨cc, ?_, ?_⟩
+    · intro k h1 h2
+      by_cases hk : k = is.length + 1
+      · rw [hk, hcc1]; simp
+      · have hk2 : k ≤ is.length := by simp at h2; omega
+        rw [hcc2 k hk]
+        exact List.mem_cons_of_mem _ (hmem k h1 hk2)
+    · have hcong : wsumFun q cc is.length = wsumFun q c' is.length :=
+        wsumFun_congr q _ _ _ (fun k h1 h2 => hcc2 k (by omega))
+      show wsumFun q cc is.length + q ^ is.length * 2 ^ (cc (is.length + 1)) = wsum q (i :: is)
+      rw [hcong, hW, hcc1]
+      show _ = q ^ is.length * 2 ^ i + wsum q is
+      omega
+
+def asum (f : Nat → Nat) : Nat → Nat
+  | 0 => 0
+  | i + 1 => asum f i + f (i + 1)
+
+def fwdSum (q : Nat) (β : Nat → Nat) : Nat → Nat
+  | 0 => 0
+  | n + 1 => 2 ^ (β (n + 1)) * fwdSum q β n + q ^ n
+
+theorem steer (q m' e γ : Nat) (hm0 : 0 < m') (he0 : 0 < e) (he : 2 ^ e % m' = 1 % m')
+    (hcov : Covers q m' γ) (hqm : Nat.Coprime m' q) (z0 ρb : Int) :
+    ∃ β : Nat → Nat, (∀ l, 1 ≤ l → l ≤ γ + 1 → 1 ≤ β l ∧ β l ≤ e) ∧
+      ∀ x : Nat → Int, (m' : Int) ∣ x 0 - z0 →
+        (∀ l, 1 ≤ l → l ≤ γ + 1 → (m' : Int) ∣ (q : Int) * x l + 1 - 2 ^ (β l) * x (l - 1)) →
+        (m' : Int) ∣ x (γ + 1) - ρb := by
+  have hmI : (0 : Int) < (m' : Int) := by omega
+
+  obtain ⟨T, hT⟩ : ∃ T : Int, T = z0 - (q : Int) ^ γ - (q : Int) ^ (γ + 1) * ρb := ⟨_, rfl⟩
+  obtain ⟨T', hT'⟩ : ∃ T' : Nat, (T' : Int) = T % (m' : Int) :=
+    ⟨(T % (m' : Int)).toNat, Int.toNat_of_nonneg (Int.emod_nonneg _ (by omega))⟩
+  have hT'lt : T' < m' := Int.ofNat_lt.1 (by rw [hT']; exact Int.emod_lt_of_pos _ hmI)
+  obtain ⟨is, hl, hlt, hws⟩ := (covers_iff_bounded q m' e he0 he γ).1 hcov T' hT'lt
+  have hwT : (m' : Int) ∣ (wsum q is : Int) - T := by
+    have h1 := nat_mod_to_int_dvd _ _ _ hws
+    have h2 : (m' : Int) ∣ (T' : Int) - T := by
+      rw [hT', Int.emod_def]; exact ⟨-(T / (m' : Int)), by int_ring⟩
+    have e3 : (wsum q is : Int) - T = ((wsum q is : Int) - (T' : Int)) + ((T' : Int) - T) := by int_ring
+    rw [e3]; exact Int.dvd_add h1 h2
+
+  obtain ⟨c0, hmem0, hW0⟩ := cover_c q is
+  obtain ⟨c, hc⟩ : ∃ c : Nat → Nat, c = fun k => if k = 0 then 0 else if k ≤ γ then c0 k else 0 := ⟨_, rfl⟩
+  have hc0 : c 0 = 0 := by rw [hc]; simp
+  have hcg : c (γ + 1) = 0 := by
+    have hn : ¬ (γ + 1 ≤ γ) := by omega
+    rw [hc]; simp [hn]
+  have hcmid : ∀ k, 1 ≤ k → k ≤ γ → c k = c0 k := by
+    intro k h1 h2; rw [hc]; simp [show k ≠ 0 by omega, h2]
+  have hclt : ∀ k, k ≤ γ + 1 → c k < e := by
+    intro k hk
+    rcases Nat.eq_zero_or_pos k with h | h
+    · rw [h, hc0]; exact he0
+    · rcases Nat.lt_or_ge γ k with h2 | h2
+      · have : k = γ + 1 := by omega
+        rw [this, hcg]; exact he0
+      · rw [hcmid k h h2]
+        have := hmem0 k h (by rw [hl]; exact h2)
+        exact hlt _ this
+  have hcW : wsumFun q c γ = wsum q is := by
+    rw [← hW0, hl] at *
+    exact wsumFun_congr q c c0 γ (fun k h1 h2 => hcmid k h1 h2)
+  obtain ⟨β, hβ⟩ : ∃ β : Nat → Nat, β = fun l => (c (l - 1) + e - c l - 1) % e + 1 := ⟨_, rfl⟩
+  have hβb : ∀ l, 1 ≤ l → l ≤ γ + 1 → 1 ≤ β l ∧ β l ≤ e := by
+    intro l h1 h2
+    have hbl : β l = (c (l - 1) + e - c l - 1) % e + 1 := by rw [hβ]
+    have := Nat.mod_lt (c (l - 1) + e - c l - 1) he0
+    rw [hbl]
+    exact ⟨by omega, by omega⟩
+  have hβc : ∀ l, 1 ≤ l → l ≤ γ + 1 → (c l + β l) % e = c (l - 1) % e := by
+    intro l h1 h2
+    have hcl := hclt l h2
+    have hdm := Nat.div_add_mod (c (l - 1) + e - c l - 1) e
+    have hbl : β l = (c (l - 1) + e - c l - 1) % e + 1 := by rw [hβ]
+    have hs : c l + β l + e * ((c (l - 1) + e - c l - 1) / e) = c (l - 1) + e := by omega
+    have := Nat.add_mul_mod_self_left (c l + β l) e ((c (l - 1) + e - c l - 1) / e)
+    rw [hs, Nat.add_mod_right] at this
+    exact this.symm
+
+  have claim1 : ∀ n, n ≤ γ + 1 → (2 ^ (c n) * fwdSum q β n) % m' = wsumFun q c n % m' := by
+    intro n
+    induction n with
+    | zero => intro _; simp [fwdSum, wsumFun, hc0]
+    | succ n ih =>
+      intro hn
+      have ih' := ih (by omega)
+      have hU : 2 ^ (c (n + 1) + β (n + 1)) % m' = 2 ^ (c n) % m' := by
+        apply pow_two_mod_period m' e he
+        have := hβc (n + 1) (by omega) hn
+        simpa using this
+      have e1 : 2 ^ (c (n + 1)) * fwdSum q β (n + 1)
+          = 2 ^ (c (n + 1) + β (n + 1)) * fwdSum q β n + q ^ n * 2 ^ (c (n + 1)) := by
+        show 2 ^ (c (n + 1)) * (2 ^ (β (n + 1)) * fwdSum q β n + q ^ n) = _
+        rw [Nat.pow_add]; (first | nat_ring | int_ring)
+      rw [e1]
+      show _ = (wsumFun q c n + q ^ n * 2 ^ (c (n + 1))) % m'
+      rw [add_mod_cong _ (2 ^ (c n) * fwdSum q β n) _ _ (mul_mod_cong _ _ _ _ hU)]
+      exact add_mod_cong _ _ _ _ ih'
+
+  have claim2 : ∀ n, n ≤ γ + 1 → (asum β n + c n) % e = 0 := by
+    intro n
+    induction n with
+    | zero => intro _; simp [asum, hc0]
+    | succ n ih =>
+      intro hn
+      have ih' := ih (by omega)
+      have h1 := hβc (n + 1) (by omega) hn
+      simp only [Nat.add_sub_cancel] at h1
+      have e1 : asum β (n + 1) + c (n + 1) = asum β n + (c (n + 1) + β (n + 1)) := by
+        show asum β n + β (n + 1) + c (n + 1) = _; omega
+      rw [e1, Nat.add_mod, h1, ← Nat.add_mod]
+      exact ih'
+  have hB : 2 ^ (asum β (γ + 1)) % m' = 1 % m' := by
+    have h := claim2 (γ + 1) (Nat.le_refl _)
+    rw [hcg, Nat.add_zero] at h
+    have := pow_two_mod_period m' e he (asum β (γ + 1)) 0 (by rw [h]; simp)
+    simpa using this
+  refine ⟨β, hβb, fun x hx0 hrel => ?_⟩
+
+  have unroll : ∀ n, n ≤ γ + 1 → (m' : Int) ∣
+      (2 : Int) ^ (asum β n) * x 0 - (q : Int) ^ n * x n - (fwdSum q β n : Int) := by
+    intro n
+    induction n with
+    | zero => intro _; simp [asum, fwdSum]
+    | succ n ih =>
+      intro hn
+      have h1 := ih (by omega)
+      have h2 := hrel (n + 1) (by omega) hn
+      simp only [Nat.add_sub_cancel] at h2
+      obtain ⟨g1, hg1⟩ := h1
+      obtain ⟨g2, hg2⟩ := h2
+      have hF : ((fwdSum q β (n + 1) : Nat) : Int) = (2 : Int) ^ (β (n + 1)) * (fwdSum q β n : Int) + (q : Int) ^ n := by
+        show (((2 ^ (β (n + 1)) * fwdSum q β n + q ^ n : Nat)) : Int) = _
+        simp only [Int.natCast_add, Int.natCast_mul, Int.natCast_pow]
+        rfl
+      have hBs : (2 : Int) ^ (asum β (n + 1)) = (2 : Int) ^ (asum β n) * (2 : Int) ^ (β (n + 1)) := by
+        show (2 : Int) ^ (asum β n + β (n + 1)) = _
+        rw [Int.pow_add]
+      have hq1 : (q : Int) ^ (n + 1) = (q : Int) ^ n * (q : Int) := Int.pow_succ _ _
+      rw [hF, hBs, hq1]
+      have e : (2 : Int) ^ (asum β n) * (2 : Int) ^ (β (n + 1)) * x 0
+          - (q : Int) ^ n * (q : Int) * x (n + 1)
+          - ((2 : Int) ^ (β (n + 1)) * (fwdSum q β n : Int) + (q : Int) ^ n)
+          = (2 : Int) ^ (β (n + 1)) * ((2 : Int) ^ (asum β n) * x 0 - (q : Int) ^ n * x n - (fwdSum q β n : Int))
+            - (q : Int) ^ n * ((q : Int) * x (n + 1) + 1 - (2 : Int) ^ (β (n + 1)) * x n) := by int_ring
+      rw [e, hg1, hg2]
+      exact ⟨(2 : Int) ^ (β (n + 1)) * g1 - (q : Int) ^ n * g2, by int_ring⟩
+  have hU := unroll (γ + 1) (Nat.le_refl _)
+
+  have hB' : (m' : Int) ∣ (2 : Int) ^ (asum β (γ + 1)) - 1 := by
+    have := nat_mod_to_int_dvd _ _ _ hB
+    simpa using this
+  have hF1 : (m' : Int) ∣ (fwdSum q β (γ + 1) : Int) - ((wsum q is : Int) + (q : Int) ^ γ) := by
+    have h := claim1 (γ + 1) (Nat.le_refl _)
+    have hWs : wsumFun q c (γ + 1) = wsum q is + q ^ γ * 2 ^ (c (γ + 1)) := by
+      show wsumFun q c γ + q ^ γ * 2 ^ (c (γ + 1)) = _
+      rw [hcW]
+    rw [hcg, Nat.pow_zero, Nat.one_mul, hWs, hcg, Nat.pow_zero, Nat.mul_one] at h
+    have := nat_mod_to_int_dvd _ _ _ h
+    simpa [Int.natCast_add, Int.natCast_pow] using this
+  have hE : (m' : Int) ∣ (q : Int) ^ (γ + 1) * (ρb - x (γ + 1)) := by
+    have e : (q : Int) ^ (γ + 1) * (ρb - x (γ + 1))
+        = ((2 : Int) ^ (asum β (γ + 1)) * x 0 - (q : Int) ^ (γ + 1) * x (γ + 1) - (fwdSum q β (γ + 1) : Int))
+          - ((2 : Int) ^ (asum β (γ + 1)) - 1) * x 0 - (x 0 - z0)
+          + ((fwdSum q β (γ + 1) : Int) - ((wsum q is : Int) + (q : Int) ^ γ))
+          + ((wsum q is : Int) - T) := by
+      rw [hT]; int_ring
+    rw [e]
+    refine Int.dvd_add (Int.dvd_add (Int.dvd_sub (Int.dvd_sub hU ?_) hx0) hF1) hwT
+    exact Int.dvd_mul_of_dvd_left hB'
+  have hcoprime : Nat.Coprime m' (q ^ (γ + 1)) := Nat.Coprime.pow_right (γ + 1) hqm
+  have hE' : (m' : Int) ∣ ((q ^ (γ + 1) : Nat) : Int) * (ρb - x (γ + 1)) := by
+    rw [Int.natCast_pow]; exact hE
+  obtain ⟨g, hg⟩ := int_cancel m' (q ^ (γ + 1)) hm0 hcoprime _ hE'
+  exact ⟨-g, by rw [Int.mul_neg]; omega⟩
+
+theorem fixed_point_int (q K : Nat) (hq3 : 3 ≤ q) (hp : Nat.Coprime q 2) :
+    ∃ c : Nat, (q : Int) ^ (K + 1) ∣ (2 - (q : Int)) * (c : Int) - 1 := by
+  have hpP : q ≤ q ^ (K + 1) := by
+    have := Nat.pow_le_pow_right (show 0 < q by omega) (show 1 ≤ K + 1 by omega)
+    simpa using this
+  obtain ⟨n, hn⟩ : ∃ n, n = q ^ (K + 1) + 2 - q := ⟨_, rfl⟩
+  have hnp : n + q = q ^ (K + 1) + 2 := by omega
+  have hgp : Nat.Coprime q n := by
+    have h1 : Nat.gcd q n ∣ 2 := by
+      have d1 : Nat.gcd q n ∣ q := Nat.gcd_dvd_left q n
+      have d2 : Nat.gcd q n ∣ n := Nat.gcd_dvd_right q n
+      have d3 : Nat.gcd q n ∣ q ^ (K + 1) :=
+        Nat.dvd_trans d1 (by simpa using Nat.pow_dvd_pow q (show 1 ≤ K + 1 by omega))
+      have d4 : Nat.gcd q n ∣ q ^ (K + 1) + 2 := by
+        rw [← hnp]; exact Nat.dvd_add d2 d1
+      exact (Nat.dvd_add_right d3).1 d4
+    have h2 : Nat.gcd (Nat.gcd q n) 2 = 1 := Nat.Coprime.coprime_dvd_left (Nat.gcd_dvd_left q n) hp
+    rw [Nat.gcd_eq_left h1] at h2
+    exact h2
+  have hm1 : 1 < q ^ (K + 1) := Nat.lt_of_lt_of_le (by omega) hpP
+  obtain ⟨k, w, hkw⟩ := nat_bez n (q ^ (K + 1)) hm1 (Nat.Coprime.symm (Nat.Coprime.pow_left (K + 1) hgp))
+  refine ⟨k, w - k, ?_⟩
+  have hn' : (n : Int) + (q : Int) = (q : Int) ^ (K + 1) + 2 := by exact_mod_cast hnp
+  have hkw' : (n : Int) * (k : Int) = (q : Int) ^ (K + 1) * (w : Int) + 1 := by exact_mod_cast hkw
+  have h2q : (2 : Int) - (q : Int) = (n : Int) - (q : Int) ^ (K + 1) := by omega
+  rw [h2q, Int.sub_mul, Int.mul_sub]
+  omega
+
+theorem exists_nu (q : Nat) [NonWieferich q] (K d u : Nat) (hd : 2 ^ d = 1 + q * u)
+    (hu : Nat.Coprime q u) (t i : Nat) (hi : t % q = 2 ^ i % q) (c : Nat)
+    (hc : (q : Int) ^ (K + 1) ∣ (2 - (q : Int)) * (c : Int) - 1) :
+    ∃ ν : Nat, ν < d * q ^ K ∧ (q : Int) ^ (K + 1) ∣ (2 : Int) ^ ν * (t : Int) - (c : Int) := by
+  have hodd := NonWieferich.odd (q := q)
+  have hq3 := NonWieferich.three_le (q := q)
+  have hP1 : 1 % q ^ (K + 1) = 1 := one_mod_P q K
+  have hqpos : 0 < q := by omega
+  have hd0 : 0 < d := by
+    rcases Nat.eq_zero_or_pos d with h | h
+    · subst h; rw [Nat.pow_zero] at hd
+      have : q * u = 0 := by omega
+      rcases Nat.mul_eq_zero.1 this with h1 | h1
+      · omega
+      · subst h1; simp [Nat.Coprime] at hu; omega
+    · exact h
+  have hcq : (2 * c) % q = 1 := by
+    have hdvd : (q : Int) ∣ (2 - (q : Int)) * (c : Int) - 1 :=
+      Int.dvd_trans ⟨(q : Int) ^ K, by rw [Int.pow_succ, Int.mul_comm]⟩ hc
+    obtain ⟨g, hg⟩ := hdvd
+    have e0 : (2 - (q : Int)) * (c : Int) - 1 = 2 * (c : Int) - 1 - (q : Int) * (c : Int) := by int_ring
+    rw [e0] at hg
+    have h1 : (((2 * c : Nat)) : Int) = 1 + (q : Int) * ((c : Int) + g) := by
+      simp only [Int.natCast_mul]
+      show (2 : Int) * (c : Int) = _
+      rw [Int.mul_add]; omega
+    have h2 := Int.natCast_emod (2 * c) q
+    have h3 : (((2 * c : Nat)) : Int) % (q : Int) = 1 := by
+      rw [h1, Int.add_mul_emod_self_left]; exact Int.emod_eq_of_lt (by omega) (by omega)
+    omega
+  have hcpow : c % q = 2 ^ (d - 1) % q := by
+    have e2 : 2 ^ d % q = 1 := by
+      rw [hd, Nat.add_mul_mod_self_left]; exact Nat.mod_eq_of_lt (by omega)
+    have e3 : c * 2 ^ d = (2 * c) * 2 ^ (d - 1) := by
+      rw [show d = (d - 1) + 1 by omega, Nat.pow_succ]
+      simp only [Nat.add_sub_cancel]; nat_ring
+    have := congrArg (· % q) e3
+    rw [Nat.mul_mod, e2, Nat.mul_one, Nat.mod_mod, Nat.mul_mod (2 * c), hcq, Nat.one_mul,
+      Nat.mod_mod] at this
+    exact this
+  have hMt := target_inPowTwo q hi K
+  have hMc := target_inPowTwo q hcpow K
+  obtain ⟨j, hj⟩ := inPowTwo_ratio q hMt hMc
+  have hT : 2 ^ (d * q ^ K) % q ^ (K + 1) = 1 % q ^ (K + 1) := by
+    rw [Nat.pow_mul, hd, hP1]
+    simpa [Nat.pow_one, Nat.add_comm] using (order_iff hodd hq3 (Nat.le_refl 1) hu K (q ^ K)).2 (Nat.dvd_refl _)
+  have hTpos : 0 < d * q ^ K := Nat.mul_pos hd0 (powp_pos q K)
+  refine ⟨j % (d * q ^ K), Nat.mod_lt _ hTpos, ?_⟩
+  have hν : 2 ^ (j % (d * q ^ K)) % q ^ (K + 1) = 2 ^ j % q ^ (K + 1) :=
+    pow_two_mod_period (q ^ (K + 1)) (d * q ^ K) hT _ _ (by rw [Nat.mod_mod])
+  have hfin : (2 ^ (j % (d * q ^ K)) * t) % q ^ (K + 1) = c % q ^ (K + 1) := by
+    rw [mul_mod_cong _ _ _ _ hν]; exact hj
+  have h := nat_mod_to_int_dvd _ _ _ hfin
+  simp only [Int.natCast_pow, Int.natCast_mul] at h
+  exact h
+
+theorem P_struct (q : Nat) [NonWieferich q] (K d u e eQ e' : Nat) (hd : 2 ^ d = 1 + q * u)
+    (hu : Nat.Coprime q u) (he0 : 0 < e) (hee : e = eQ * e') (hKe : eQ ∣ q ^ K)
+    (he'q : Nat.Coprime e' q) :
+    ∃ uP : Nat, 2 ^ (Nat.lcm (d * q ^ K) e) = 1 + q ^ (K + 1) * uP ∧ Nat.Coprime q uP := by
+  have hodd := NonWieferich.odd (q := q)
+  obtain ⟨uK, huK, hexp⟩ := lift_exponent hodd (Nat.le_refl 1) hu K
+  have h2a : 2 ^ (d * q ^ K) = 1 + q ^ (K + 1) * uK := by
+    rw [Nat.pow_mul, hd]; simpa [Nat.pow_one, Nat.add_comm] using hexp
+  obtain ⟨g, hg⟩ : ∃ g, g = Nat.gcd (d * q ^ K) e := ⟨_, rfl⟩
+  have hge : g ∣ e := by rw [hg]; exact Nat.gcd_dvd_right _ _
+  obtain ⟨f, hf⟩ : ∃ f, f = e / g := ⟨_, rfl⟩
+  have hlcm : Nat.lcm (d * q ^ K) e = d * q ^ K * f := by
+    show d * q ^ K * e / Nat.gcd (d * q ^ K) e = _
+    rw [← hg, hf]; exact Nat.mul_div_assoc _ hge
+  have hegf : e = g * f := by rw [hf]; exact (Nat.mul_div_cancel' hge).symm
+  have heQa : eQ ∣ d * q ^ K := Nat.dvd_trans hKe (Nat.dvd_mul_left _ _)
+  have heQe : eQ ∣ e := ⟨e', hee⟩
+  have heQg : eQ ∣ g := by rw [hg]; exact Nat.dvd_gcd heQa heQe
+  obtain ⟨g', hg'⟩ := heQg
+  have heQ0 : 0 < eQ := by
+    rcases Nat.eq_zero_or_pos eQ with h | h
+    · rw [h, Nat.zero_mul] at hee; omega
+    · exact h
+  have he' : e' = f * g' := by
+    have h1 : eQ * e' = eQ * (g' * f) := by
+      rw [← hee, hegf, hg']; (first | nat_ring | int_ring)
+    rw [Nat.eq_of_mul_eq_mul_left heQ0 h1, Nat.mul_comm]
+  have hfq : Nat.Coprime f q := Nat.Coprime.coprime_dvd_left ⟨g', he'⟩ he'q
+  obtain ⟨z, hz⟩ := binom_quadratic (q ^ (K + 1) * uK) f
+  refine ⟨f * uK + q * (q ^ K * (uK ^ 2 * z)), ?_, ?_⟩
+  · rw [hlcm, Nat.pow_mul, h2a, hz]
+    have e1 : q ^ (K + 1) = q * q ^ K := by rw [Nat.pow_succ, Nat.mul_comm]
+    simp only [Nat.pow_two]
+    generalize q ^ K = A at e1 ⊢
+    rw [e1]; (first | nat_ring | int_ring)
+  · rw [Nat.Coprime, Nat.gcd_add_mul_left_right]
+    exact Nat.Coprime.mul_right hfq.symm huK
+
+theorem ipow2_ge_one (k : Nat) : (1 : Int) ≤ (2 : Int) ^ k := by
+  induction k with
+  | zero => rw [Int.pow_zero]; exact Int.le_refl _
+  | succ k ih => rw [Int.pow_succ]; omega
+
+theorem chain_pos (q : Nat) (hq : 1 ≤ q) (P : Nat) (y0 : Int) (b J : Nat → Nat) (n : Nat)
+    (hI : Integral (q : Int) P y0 b J n) (hy0 : 1 ≤ y0) (hb : ∀ l, 1 ≤ l → l ≤ n → 1 ≤ b l) :
+    ∀ i, i ≤ n → 1 ≤ chain (q : Int) P y0 b J i := by
+  intro i
+  induction i with
+  | zero => intro _; exact hy0
+  | succ i ih =>
+    intro hi
+    have ih' := ih (by omega)
+    have rel := chain_rel hI i (by omega)
+    have hb1 := hb (i + 1) (by omega) hi
+    obtain ⟨b', hb'⟩ : ∃ b', b (i + 1) = b' + 1 := ⟨b (i + 1) - 1, by omega⟩
+    have h2b : (2 : Int) ≤ (2 : Int) ^ (b (i + 1)) := by
+      rw [hb', Int.pow_succ]; have := ipow2_ge_one b'; omega
+    have hJP := ipow2_ge_one (J (i + 1) * P)
+    generalize (2 : Int) ^ (b (i + 1)) = A at *
+    generalize (2 : Int) ^ (J (i + 1) * P) = B at *
+    generalize chain (q : Int) P y0 b J i = y at *
+    generalize chain (q : Int) P y0 b J (i + 1) = c1 at *
+    have hAB : A ≤ A * B := by
+      have := Int.mul_le_mul_of_nonneg_left hJP (show 0 ≤ A by omega)
+      rw [Int.mul_one] at this; exact this
+    have hABy : A * B ≤ A * B * y := by
+      have := Int.mul_le_mul_of_nonneg_left ih' (show 0 ≤ A * B by omega)
+      rw [Int.mul_one] at this; exact this
+    have hq' : (0 : Int) ≤ (q : Int) := by omega
+    match Int.lt_or_le c1 1 with
+    | Or.inr hle => exact (by omega : 1 ≤ c1)
+    | Or.inl hc =>
+    have hc' : c1 ≤ 0 := by omega
+    have := Int.mul_le_mul_of_nonneg_left hc' hq'
+    rw [Int.mul_zero] at this
+    omega
+
+theorem chain_size (q : Nat) (hq : 1 ≤ q) (P : Nat) (y0 : Int) (b J : Nat → Nat) (n : Nat)
+    (hI : Integral (q : Int) P y0 b J n) (hy0 : 1 ≤ y0) (hb : ∀ l, 1 ≤ l → l ≤ n → 1 ≤ b l) :
+    ∀ i, i ≤ n → chain (q : Int) P y0 b J i ≤ (2 : Int) ^ (asum (fun l => b l + J l * P) i) * y0 := by
+  intro i
+  induction i with
+  | zero => intro _; show y0 ≤ (2 : Int) ^ 0 * y0; rw [Int.pow_zero, Int.one_mul]; exact Int.le_refl _
+  | succ i ih =>
+    intro hi
+    have ih' := ih (by omega)
+    have rel := chain_rel hI i (by omega)
+    have hAs : (2 : Int) ^ (asum (fun l => b l + J l * P) (i + 1))
+        = (2 : Int) ^ (asum (fun l => b l + J l * P) i) * ((2 : Int) ^ (b (i + 1)) * (2 : Int) ^ (J (i + 1) * P)) := by
+      show (2 : Int) ^ (asum (fun l => b l + J l * P) i + (b (i + 1) + J (i + 1) * P)) = _
+      rw [Int.pow_add, Int.pow_add]
+    rw [hAs]
+    have hA1 := ipow2_ge_one (b (i + 1))
+    have hB1 := ipow2_ge_one (J (i + 1) * P)
+    have hC1 := ipow2_ge_one (asum (fun l => b l + J l * P) i)
+    have hc1pos := chain_pos q hq P y0 b J n hI hy0 hb (i + 1) hi
+    generalize (2 : Int) ^ (b (i + 1)) = A at *
+    generalize (2 : Int) ^ (J (i + 1) * P) = B at *
+    generalize (2 : Int) ^ (asum (fun l => b l + J l * P) i) = C at *
+    generalize chain (q : Int) P y0 b J i = y at *
+    generalize chain (q : Int) P y0 b J (i + 1) = c1 at *
+    have hq' : (0 : Int) ≤ (q : Int) := by omega
+    have h1 : c1 ≤ (q : Int) * c1 := by
+      have := Int.mul_le_mul_of_nonneg_right (show (1 : Int) ≤ (q : Int) by omega)
+        (show 0 ≤ c1 by omega)
+      rw [Int.one_mul] at this; exact this
+    have hAB : 0 ≤ A * B := Int.mul_nonneg (by omega) (by omega)
+    have h2 : A * B * y ≤ A * B * (C * y0) := Int.mul_le_mul_of_nonneg_left ih' hAB
+    have e : A * B * (C * y0) = C * (A * B) * y0 := by int_ring
+    rw [← e]
+    omega
+
+theorem chain_reaches (q : Nat) [NonWieferich q] (P : Nat) (y0 : Int) (b J : Nat → Nat) (n : Nat)
+    (hI : Integral (q : Int) P y0 b J n) (hy0 : 1 ≤ y0) (hb : ∀ l, 1 ≤ l → l ≤ n → 1 ≤ b l)
+    (Y0 : Nat) (hY0 : (Y0 : Int) = y0) :
+    ∀ i, i ≤ n → ∃ yi : Nat, (yi : Int) = chain (q : Int) P y0 b J i ∧ Reaches q yi Y0 := by
+  have hq1 : 1 ≤ q := by have := NonWieferich.three_le (q := q); omega
+  intro i
+  induction i with
+  | zero => intro _; exact ⟨Y0, hY0, ⟨0, rfl⟩⟩
+  | succ i ih =>
+    intro hi
+    obtain ⟨yi, hyi, hr⟩ := ih (by omega)
+    have rel := chain_rel hI i (by omega)
+    have hpos := chain_pos q hq1 P y0 b J n hI hy0 hb (i + 1) hi
+    obtain ⟨yN, hyN⟩ : ∃ y : Nat, (y : Int) = chain (q : Int) P y0 b J (i + 1) :=
+      ⟨(chain (q : Int) P y0 b J (i + 1)).toNat, Int.toNat_of_nonneg (by omega)⟩
+    refine ⟨yN, hyN, ?_⟩
+    have hb1 := hb (i + 1) (by omega) hi
+    have hnat : q * yN + 1 = 2 ^ (b (i + 1) + J (i + 1) * P) * yi := by
+      apply Int.ofNat_inj.1
+      simp only [Int.natCast_add, Int.natCast_mul, Int.natCast_pow, Int.natCast_one]
+      rw [hyN, hyi, Int.pow_add]
+      show (q : Int) * chain (q : Int) P y0 b J (i + 1) + 1 = _
+      exact rel
+    exact reaches_trans q (backstep_reaches (q := q) yN yi _ (by omega) hnat) hr
+
+theorem asum_bound (f : Nat → Nat) (X : Nat) :
+    ∀ n, (∀ l, 1 ≤ l → l ≤ n → f l ≤ X) → asum f (n + 1) ≤ n * X + f (n + 1)
+  | 0, _ => by show asum f 0 + f (0 + 1) ≤ 0 * X + f (0 + 1); simp [asum]
+  | n + 1, H => by
+    have ih := asum_bound f X n (fun l h1 h2 => H l h1 (by omega))
+    have hn := H (n + 1) (by omega) (Nat.le_refl _)
+    show asum f (n + 1) + f (n + 1 + 1) ≤ (n + 1) * X + f (n + 1 + 1)
+    rw [Nat.succ_mul]; omega
+
+theorem setup_of (q K P uPn : Nat) [NonWieferich q] (c y0 : Int) (b : Nat → Nat)
+    (hP : (2 : Int) ^ P = 1 + (q : Int) ^ (K + 1) * (uPn : Int))
+    (huP : Nat.Coprime q uPn)
+    (hc : (q : Int) ^ (K + 1) ∣ (2 - (q : Int)) * c - 1)
+    (hy0 : (q : Int) ^ (K + 1) ∣ y0 - c)
+    (hb1 : ∀ i, 1 ≤ i → i ≤ K + 1 → b i = 1) :
+    Setup (q : Int) K P (uPn : Int) b y0 c := by
+  have hq3 := NonWieferich.three_le (q := q)
+  have hodd := NonWieferich.odd (q := q)
+  have hp0 : (q : Int) ≠ 0 := by omega
+  refine ⟨hp0, hP, ?_, ?_, hc, hy0, hb1⟩
+  · refine ⟨((q + 1) / 2 : Nat), ⟨1, ?_⟩⟩
+    have h2 : 2 * ((q + 1) / 2) = q + 1 := by omega
+    have h3 : (2 : Int) * (((q + 1) / 2 : Nat) : Int) = (q : Int) + 1 := by
+      have := congrArg (fun n : Nat => (n : Int)) h2
+      simp only [Int.natCast_mul, Int.natCast_add, Int.natCast_one] at this
+      exact this
+    omega
+  · obtain ⟨k, w, hkw⟩ := nat_bez uPn q (by omega) (Nat.Coprime.symm huP)
+    refine ⟨(k : Int), ⟨(w : Int), ?_⟩⟩
+    have h4 : (uPn : Int) * (k : Int) = (q : Int) * (w : Int) + 1 := by
+      have := congrArg (fun n : Nat => (n : Int)) hkw
+      simp only [Int.natCast_mul, Int.natCast_add, Int.natCast_one] at this
+      exact this
+    omega
+
+theorem step_lower (q : Nat) [NonWieferich q] (P : Nat) (y0 : Int) (b J : Nat → Nat) (n : Nat)
+    (hI : Integral (q : Int) P y0 b J n) (hy0 : 1 ≤ y0) (hb : ∀ l, 1 ≤ l → l ≤ n → 1 ≤ b l)
+    (i : Nat) (hi : i < n) :
+    (2 : Int) ^ (b (i + 1) + J (i + 1) * P) ≤ (q : Int) * chain (q : Int) P y0 b J (i + 1) + 1 := by
+  have rel := chain_rel hI i hi
+  have hprev := chain_pos q (by have := NonWieferich.three_le (q := q); omega) P y0 b J n hI hy0 hb i (by omega)
+  have e : (2 : Int) ^ (b (i + 1) + J (i + 1) * P)
+      = (2 : Int) ^ (b (i + 1)) * (2 : Int) ^ (J (i + 1) * P) := Int.pow_add _ _ _
+  rw [e]
+  have hA : (0 : Int) ≤ (2 : Int) ^ (b (i + 1)) * (2 : Int) ^ (J (i + 1) * P) := by
+    have := ipow2_ge_one (b (i + 1)); have := ipow2_ge_one (J (i + 1) * P)
+    exact Int.mul_nonneg (by omega) (by omega)
+  have hmul : (2 : Int) ^ (b (i + 1)) * (2 : Int) ^ (J (i + 1) * P) ≤
+      (2 : Int) ^ (b (i + 1)) * (2 : Int) ^ (J (i + 1) * P) * chain (q : Int) P y0 b J i := by
+    have := Int.mul_le_mul_of_nonneg_left hprev hA
+    rw [Int.mul_one] at this; exact this
+  have hq : (0 : Int) ≤ (q : Int) := by omega
+  omega
+
+theorem ipow2_mono (a c : Nat) (h : a ≤ c) : (2 : Int) ^ a ≤ (2 : Int) ^ c := by
+  obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le h
+  rw [Int.pow_add]
+  have h1 := ipow2_ge_one d
+  have hA : (0 : Int) ≤ (2 : Int) ^ a := by have := ipow2_ge_one a; omega
+  have := Int.mul_le_mul_of_nonneg_left h1 hA
+  rw [Int.mul_one] at this
+  exact this
+
+theorem amin_exists (X : Nat) (hX : 1 ≤ X) : ∃ a : Nat, X < 2 ^ a ∧ 2 ^ a ≤ 2 * X := by
+  refine ⟨Nat.log2 X + 1, Nat.lt_log2_self, ?_⟩
+  have hX0 : X ≠ 0 := by omega
+  have hlt : ¬ (X < 2 ^ Nat.log2 X) := by
+    intro h
+    have := (Nat.log2_lt hX0).2 h
+    omega
+  have hle : 2 ^ Nat.log2 X ≤ X := Nat.le_of_not_lt hlt
+  rw [Nat.pow_succ]
+  omega
+
+theorem size_bound (q : Nat) [NonWieferich q] (P ν t s qP M D : Nat) (b J : Nat → Nat)
+    (hs : 1 ≤ s) (ht : 1 ≤ t) (hν : ν ≤ D)
+    (hI : Integral (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J s)
+    (hb : ∀ l, 1 ≤ l → l ≤ s → 1 ≤ b l)
+    (hsmall : ∀ l, 1 ≤ l → l + 1 ≤ s → b l + J l * P ≤ qP)
+    (hlast : b s + J s * P ≤ M) :
+    chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J s
+      ≤ (2 : Int) ^ (D + (s - 1) * qP + M) * (t : Int) := by
+  have hq1 : 1 ≤ q := by have := NonWieferich.three_le (q := q); omega
+  have hy0 : 1 ≤ (2 : Int) ^ ν * (t : Int) := by
+    have h1 := ipow2_ge_one ν
+    have := Int.mul_le_mul_of_nonneg_left (show (1 : Int) ≤ (t : Int) by omega)
+      (show (0 : Int) ≤ (2 : Int) ^ ν by omega)
+    rw [Int.mul_one] at this; omega
+  have hc := chain_size q hq1 P ((2 : Int) ^ ν * (t : Int)) b J s hI hy0 hb s (Nat.le_refl s)
+  obtain ⟨s', rfl⟩ : ∃ s', s = s' + 1 := ⟨s - 1, by omega⟩
+  have hab := asum_bound (fun l => b l + J l * P) qP s' (fun l h1 h2 => hsmall l h1 (by omega))
+  have hs' : s' + 1 - 1 = s' := by omega
+  have hA : (2 : Int) ^ (asum (fun l => b l + J l * P) (s' + 1))
+      ≤ (2 : Int) ^ (s' * qP + M) := ipow2_mono _ _ (by omega)
+  have hB : (2 : Int) ^ ν ≤ (2 : Int) ^ D := ipow2_mono _ _ hν
+  have hfin : chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J (s' + 1)
+      ≤ (2 : Int) ^ (s' * qP + M) * ((2 : Int) ^ ν * (t : Int)) := by
+    have hnn : (0 : Int) ≤ (2 : Int) ^ ν * (t : Int) :=
+      Int.mul_nonneg (by have := ipow2_ge_one ν; omega) (by omega)
+    have h := Int.mul_le_mul_of_nonneg_right hA hnn
+    exact Int.le_trans hc h
+  have hfin2 : (2 : Int) ^ (s' * qP + M) * ((2 : Int) ^ ν * (t : Int))
+      ≤ (2 : Int) ^ (D + (s' + 1 - 1) * qP + M) * (t : Int) := by
+    rw [hs']
+    have eD : (2 : Int) ^ (D + s' * qP + M) = (2 : Int) ^ (s' * qP + M) * (2 : Int) ^ D := by
+      rw [show D + s' * qP + M = (s' * qP + M) + D by omega, Int.pow_add]
+    rw [eD]
+    have e1 : (2 : Int) ^ (s' * qP + M) * (2 : Int) ^ ν * (t : Int)
+        ≤ (2 : Int) ^ (s' * qP + M) * (2 : Int) ^ D * (t : Int) := by
+      have hpos : (0 : Int) ≤ (2 : Int) ^ (s' * qP + M) := by
+        have := ipow2_ge_one (s' * qP + M); omega
+      have := Int.mul_le_mul_of_nonneg_left hB hpos
+      have htn : (0 : Int) ≤ (t : Int) := by omega
+      have h3 := Int.mul_le_mul_of_nonneg_right this htn
+      exact h3
+    have e2 : (2 : Int) ^ (s' * qP + M) * ((2 : Int) ^ ν * (t : Int))
+        = (2 : Int) ^ (s' * qP + M) * (2 : Int) ^ ν * (t : Int) := by int_ring
+    rw [e2]; exact e1
+  exact Int.le_trans hfin hfin2
+
+theorem chain_rel_mod (m : Int) (q : Nat) (P : Nat) (y0 : Int) (b J : Nat → Nat) (n : Nat)
+    (hI : Integral (q : Int) P y0 b J n) (hP : m ∣ (2 : Int) ^ P - 1) :
+    ∀ i, i < n → m ∣ (q : Int) * chain (q : Int) P y0 b J (i + 1) + 1
+      - (2 : Int) ^ (b (i + 1)) * chain (q : Int) P y0 b J i := by
+  intro i hi
+  have rel := chain_rel hI i hi
+  have hJ := pow_mod_one_int m P (J (i + 1)) hP
+  obtain ⟨g, hg⟩ := hJ
+  refine ⟨(2 : Int) ^ (b (i + 1)) * chain (q : Int) P y0 b J i * g, ?_⟩
+  have hJ' : (2 : Int) ^ (J (i + 1) * P) = 1 + m * g := by omega
+  have key : (q : Int) * chain (q : Int) P y0 b J (i + 1) + 1
+      - (2 : Int) ^ (b (i + 1)) * chain (q : Int) P y0 b J i
+      = (2 : Int) ^ (b (i + 1)) * chain (q : Int) P y0 b J i * (2 ^ (J (i + 1) * P) - 1) := by
+    rw [rel]; int_ring
+  rw [key, hJ']
+  int_ring
+
+theorem two_mul_succ_mul (a b : Nat) : 2 * (a + 1) * b = 2 * (a * b) + 2 * b := by
+  rw [Nat.mul_assoc, Nat.add_mul, Nat.one_mul, Nat.mul_add]
+
+theorem kappa_le (q : Nat) (hq : 3 ≤ q) : ∀ u : List Nat, (∀ e ∈ u, e ≤ 1) →
+    kappa q u + q ^ ones u ≤ 2 ^ u.length * q ^ ones u
+  | [], _ => by simp [kappa, ones]
+  | e :: u, hu => by
+    have ih := kappa_le q hq u (fun d hd => hu d (by simp [hd]))
+    have he : e = 0 ∨ e = 1 := by
+      have := hu e (by simp); omega
+    simp only [kappa, ones, List.length_cons]
+    have hT : 1 ≤ 2 ^ u.length := Nat.one_le_two_pow
+    rcases he with rfl | rfl
+    · rw [show (2 : Nat) ^ (u.length + 1) = 2 * 2 ^ u.length from Nat.pow_succ']
+      obtain ⟨t1, ht1⟩ : ∃ t1, 2 ^ u.length = t1 + 1 := ⟨2 ^ u.length - 1, by omega⟩
+      rw [ht1] at ih ⊢
+      try simp only [Nat.add_zero]
+      rw [two_mul_succ_mul, Nat.mul_zero, Nat.zero_add]
+      have e2 : (t1 + 1) * q ^ ones u = t1 * q ^ ones u + q ^ ones u := by
+        rw [Nat.add_mul, Nat.one_mul]
+      rw [e2] at ih
+      omega
+    · rw [show q ^ (ones u + 1) = q * q ^ ones u from Nat.pow_succ',
+        show (2 : Nat) ^ (u.length + 1) = 2 * 2 ^ u.length from Nat.pow_succ']
+      obtain ⟨t1, ht1⟩ : ∃ t1, 2 ^ u.length = t1 + 1 := ⟨2 ^ u.length - 1, by omega⟩
+      rw [ht1] at ih ⊢
+      have hY : q ^ ones u ≤ q * q ^ ones u := Nat.le_mul_of_pos_left _ (by omega)
+      have hty : t1 * q ^ ones u ≤ t1 * (q * q ^ ones u) := Nat.mul_le_mul_left t1 hY
+      have e2 : (t1 + 1) * q ^ ones u = t1 * q ^ ones u + q ^ ones u := by
+        rw [Nat.add_mul, Nat.one_mul]
+      rw [e2] at ih
+      rw [two_mul_succ_mul, Nat.mul_one]
+      omega
+
+theorem ones_le_length : ∀ u : List Nat, (∀ e ∈ u, e ≤ 1) → ones u ≤ u.length
+  | [], _ => by simp [ones]
+  | e :: u, hu => by
+    have ih := ones_le_length u (fun d hd => hu d (by simp [hd]))
+    have he : e ≤ 1 := hu e (by simp)
+    simp only [ones, List.length_cons]
+    omega
+
+theorem theta_bound (q : Nat) (hq : 3 ≤ q) (m rb B ρ : Nat) (u : List Nat) (hu : ∀ e ∈ u, e ≤ 1)
+    (hrb : rb < m)
+    (hρ : 2 ^ u.length * ρ = q ^ ones u * rb + kappa q u) :
+    ρ + q ^ ones u * (B + 1) ≤ q ^ u.length * ((m + 1) * (B + 1)) := by
+  have hO := kappa_le q hq u hu
+  have hA : 1 ≤ 2 ^ u.length := Nat.one_le_two_pow
+  have hX : 1 ≤ q ^ ones u := Nat.one_le_pow _ _ (by omega)
+
+  have hstep1 : 2 ^ u.length * ρ ≤ 2 ^ u.length * (q ^ ones u * (rb + 1)) := by
+    have e1 : 2 ^ u.length * (q ^ ones u * (rb + 1))
+        = 2 ^ u.length * (q ^ ones u * rb) + 2 ^ u.length * q ^ ones u := by
+      simp only [Nat.mul_add, Nat.mul_one]
+    have hXr : q ^ ones u * rb ≤ 2 ^ u.length * (q ^ ones u * rb) :=
+      Nat.le_mul_of_pos_left _ (by omega)
+    rw [e1]
+    rw [hρ]
+    omega
+  have hrho : ρ ≤ q ^ ones u * (rb + 1) := Nat.le_of_mul_le_mul_left hstep1 (by omega)
+
+  have hmB : rb + 1 ≤ m := hrb
+  have hK : (rb + 1 + B + 1) ≤ (m + 1) * (B + 1) := by
+    have e3 : (m + 1) * (B + 1) = m * B + m + B + 1 := by
+      simp only [Nat.add_mul, Nat.mul_add, Nat.one_mul, Nat.mul_one]
+      omega
+    rw [e3]; omega
+
+  have hsum : ρ + q ^ ones u * (B + 1) ≤ q ^ ones u * ((m + 1) * (B + 1)) := by
+    have e4 : q ^ ones u * ((m + 1) * (B + 1))
+        = q ^ ones u * (rb + 1 + B + 1) + q ^ ones u * ((m + 1) * (B + 1) - (rb + 1 + B + 1)) := by
+      rw [← Nat.mul_add]; congr 1; omega
+    have hm1 : q ^ ones u * (rb + 1) + q ^ ones u * (B + 1)
+        = q ^ ones u * (rb + 1 + B + 1) := by
+      rw [← Nat.mul_add]; congr 1
+    have := Nat.add_le_add hrho (Nat.le_refl (q ^ ones u * (B + 1)))
+    rw [hm1] at this
+    rw [e4]; omega
+  have hpow : q ^ ones u ≤ q ^ u.length := Nat.pow_le_pow_right (by omega) (ones_le_length u hu)
+  have hfin : q ^ ones u * ((m + 1) * (B + 1)) ≤ q ^ u.length * ((m + 1) * (B + 1)) :=
+    Nat.mul_le_mul_right _ hpow
+  omega
+
+theorem class_indep_of_shifts (m q P : Nat) (hm0 : 0 < m) (hcop : Nat.Coprime m q)
+    (hP : (m : Int) ∣ (2 : Int) ^ P - 1) (y0 y0' : Int) (b b' J J' : Nat → Nat) (n : Nat)
+    (hI : Integral (q : Int) P y0 b J n) (hI' : Integral (q : Int) P y0' b' J' n)
+    (hbb : ∀ i, 1 ≤ i → i ≤ n → b i = b' i)
+    (h0 : (m : Int) ∣ y0 - y0') :
+    ∀ i, i ≤ n → (m : Int) ∣ chain (q : Int) P y0 b J i - chain (q : Int) P y0' b' J' i := by
+  intro i
+  induction i with
+  | zero => intro _; exact h0
+  | succ i ih =>
+    intro hi
+    obtain ⟨k, hk⟩ := ih (by omega)
+    obtain ⟨g1, hg1⟩ := chain_rel_mod (m : Int) q P y0 b J n hI hP i (by omega)
+    obtain ⟨g2, hg2⟩ := chain_rel_mod (m : Int) q P y0' b' J' n hI' hP i (by omega)
+    have hbe : b (i + 1) = b' (i + 1) := hbb (i + 1) (by omega) hi
+    rw [hbe] at hg1
+    have hid : (q : Int) * (chain (q : Int) P y0 b J (i + 1) - chain (q : Int) P y0' b' J' (i + 1))
+        = ((q : Int) * chain (q : Int) P y0 b J (i + 1) + 1 - (2 : Int) ^ (b' (i + 1)) * chain (q : Int) P y0 b J i)
+          - ((q : Int) * chain (q : Int) P y0' b' J' (i + 1) + 1 - (2 : Int) ^ (b' (i + 1)) * chain (q : Int) P y0' b' J' i)
+          + (2 : Int) ^ (b' (i + 1)) * (chain (q : Int) P y0 b J i - chain (q : Int) P y0' b' J' i) := by
+      int_ring
+    rw [hg1, hg2, hk] at hid
+    have hq : (m : Int) ∣ (q : Int) * (chain (q : Int) P y0 b J (i + 1) - chain (q : Int) P y0' b' J' (i + 1)) := by
+      refine ⟨g1 - g2 + (2 : Int) ^ (b' (i + 1)) * k, ?_⟩
+      rw [hid]; int_ring
+    exact int_cancel m q hm0 hcop _ hq
+
+theorem least_in_class (P Lam b j0 amin : Nat) (hP : 0 < P) (hL : 0 < Lam) (hbP : b ≤ P)
+    (ha : 1 ≤ amin) :
+    ∃ j : Nat, j % Lam = j0 % Lam ∧ amin ≤ b + j * P ∧ b + j * P < amin + P * Lam := by
+  obtain ⟨E, hE1, hE2, hE3⟩ := exists_in_class (b + j0 * P) amin (P * Lam) (Nat.mul_pos hP hL)
+  have hbE : b ≤ E := by
+    rcases Nat.lt_or_ge E b with hlt | hge
+    · exfalso
+      have h1 : E % P = (b + j0 * P) % P := by
+        have h2 : E % P = (E % (P * Lam)) % P := (Nat.mod_mod_of_dvd E (Nat.dvd_mul_right P Lam)).symm
+        rw [h2, hE3, Nat.mod_mod_of_dvd _ (Nat.dvd_mul_right P Lam)]
+      have hb' : (b + j0 * P) % P = b % P := by
+        rw [Nat.add_mod, Nat.mul_mod_left, Nat.add_zero, Nat.mod_mod]
+      rw [hb'] at h1
+      have hEP : E % P = E := Nat.mod_eq_of_lt (by omega)
+      rw [hEP] at h1
+      rcases Nat.lt_or_ge b P with hbl | hbe
+      · rw [Nat.mod_eq_of_lt hbl] at h1; omega
+      · have hbPe : b = P := by omega
+        rw [hbPe, Nat.mod_self] at h1; omega
+    · exact hge
+  have hdvd : P ∣ E - b := by
+    have e1 : E % P = (b + j0 * P) % P := by
+      have h2 : E % P = (E % (P * Lam)) % P := (Nat.mod_mod_of_dvd E (Nat.dvd_mul_right P Lam)).symm
+      rw [h2, hE3, Nat.mod_mod_of_dvd _ (Nat.dvd_mul_right P Lam)]
+    have hb' : (b + j0 * P) % P = b % P := by
+      rw [Nat.add_mod, Nat.mul_mod_left, Nat.add_zero, Nat.mod_mod]
+    have hsub := Nat.sub_mod_eq_zero_of_mod_eq (e1.trans hb')
+    exact Nat.dvd_of_mod_eq_zero hsub
+  obtain ⟨j, hj⟩ := hdvd
+  have hj' : E - b = j * P := by rw [hj, Nat.mul_comm]
+  have hEj : E = b + j * P := by omega
+  refine ⟨j, ?_, ?_, ?_⟩
+  · have hI := nat_mod_to_int_dvd E (b + j0 * P) (P * Lam) hE3
+    have hPi : (P : Int) ≠ 0 := by omega
+    have e2 : (E : Int) - ((b + j0 * P : Nat) : Int) = (P : Int) * ((j : Int) - (j0 : Int)) := by
+      rw [hEj]; simp only [Int.natCast_add, Int.natCast_mul]; int_ring
+    rw [e2, Int.natCast_mul] at hI
+    obtain ⟨k, hk⟩ := hI
+    have hk2 : (j : Int) - (j0 : Int) = (Lam : Int) * k := by
+      apply Int.eq_of_mul_eq_mul_left hPi
+      rw [hk]; int_ring
+    have hmod : (j : Int) % (Lam : Int) = (j0 : Int) % (Lam : Int) := by
+      apply Int.emod_eq_emod_iff_emod_sub_eq_zero.2
+      rw [hk2]; exact Int.mul_emod_right _ _
+    have hjn : ((j % Lam : Nat) : Int) = ((j0 % Lam : Nat) : Int) := by
+      rw [Int.natCast_emod, Int.natCast_emod]; exact hmod
+    exact Int.natCast_inj.1 hjn
+  · omega
+  · omega
+
+theorem delay_line_witness (q K P uPn τ ν t N B amin : Nat) [NonWieferich q] (ρ c : Int)
+    (hP : (2 : Int) ^ P = 1 + (q : Int) ^ (K + 1) * (uPn : Int))
+    (huP : Nat.Coprime q uPn)
+    (hc : (q : Int) ^ (K + 1) ∣ (2 - (q : Int)) * c - 1)
+    (hνc : (q : Int) ^ (K + 1) ∣ (2 : Int) ^ ν * (t : Int) - c)
+    (ht1 : 1 ≤ t) (hN : K ≤ N)
+    (b : Nat → Nat) (hb1 : ∀ i, 1 ≤ i → i ≤ K + 1 → b i = 1)
+    (hbpos : ∀ i, 1 ≤ i → i ≤ K + 1 + τ → 1 ≤ b i)
+    (E0 : Nat) (hbE : ∀ i, 1 ≤ i → i ≤ K + 1 + τ → b i ≤ E0) (hE0P : E0 ≤ P)
+    (hPpos : 0 < P) (hB : q * (B + 1) + 1 ≤ 2 ^ amin) :
+    ∃ J : Nat → Nat, Integral (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J (K + 1 + τ) ∧
+      ∃ y : Nat, Reaches q y t ∧ B < y ∧
+      (q : Int) ^ N ∣ chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J (K + 1 + τ) - ρ ∧
+      (y : Int) = chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J (K + 1 + τ) ∧
+      chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J (K + 1 + τ)
+        ≤ (2 : Int) ^ (ν + (K + τ) * ((q - 1) * P + E0) + (amin + P * q ^ (N - K))) * (t : Int) := by
+  have hodd := NonWieferich.odd (q := q)
+  have hq3 := NonWieferich.three_le (q := q)
+  have hq0 : 0 < q := by omega
+  have hcop : Nat.Coprime q uPn := huP
+  have S := setup_of q K P uPn c ((2 : Int) ^ ν * (t : Int)) b hP huP hc hνc hb1
+  obtain ⟨f, hfb, hf⟩ := choose_shifts (p := (q : Int)) q hq0 rfl S τ ρ
+  obtain ⟨j0, hj0, hw⟩ := wide_step q hq3 hodd hcop rfl S τ ρ N hN f hf
+  have hΛ : 0 < q ^ (N - K) := Nat.pow_pos (by omega)
+  have ha1 : 1 ≤ amin := by
+    rcases Nat.eq_zero_or_pos amin with h | h
+    · subst h
+      have : 0 < q * (B + 1) := Nat.mul_pos hq0 (Nat.succ_pos B)
+      simp at hB; omega
+    · exact h
+  obtain ⟨j, hjmod, hjlo, hjhi⟩ := least_in_class P (q ^ (N - K)) (b (K + 1 + τ)) j0 amin hPpos hΛ
+    (Nat.le_trans (hbE (K + 1 + τ) (by omega) (Nat.le_refl _)) hE0P) ha1
+  have hJmod : j % q ^ (N - K) = j0 := by rw [hjmod]; exact Nat.mod_eq_of_lt hj0
+  obtain ⟨J0, hJ0⟩ : ∃ J0 : Nat → Nat, J0 = fun l => if l ≤ K + τ then f l else if l = K + 1 + τ then j else 0 :=
+    ⟨_, rfl⟩
+  have hJa : ∀ l, 1 ≤ l → l ≤ K + τ → J0 l = f l := by
+    intro l h1 h2; rw [hJ0]; simp [h2]
+  have hJs : J0 (K + 1 + τ) = j := by
+    have hn : ¬ (K + 1 + τ ≤ K + τ) := by omega
+    rw [hJ0]; simp [hn]
+  refine ⟨J0, ?_⟩
+  obtain ⟨hI, _⟩ := hf J0 hJa
+  have hdiv := hw J0 hJa (by rw [hJs]; exact hJmod)
+  have hy0 : 1 ≤ (2 : Int) ^ ν * (t : Int) := by
+    have h1 := ipow2_ge_one ν
+    have := Int.mul_le_mul_of_nonneg_left (show (1 : Int) ≤ (t : Int) by omega)
+      (show (0 : Int) ≤ (2 : Int) ^ ν by omega)
+    rw [Int.mul_one] at this; omega
+  have hY0 : ((2 ^ ν * t : Nat) : Int) = (2 : Int) ^ ν * (t : Int) := by
+    simp only [Int.natCast_mul, Int.natCast_pow]; norm_cast
+  obtain ⟨yi, hyi, hr⟩ := chain_reaches q P ((2 : Int) ^ ν * (t : Int)) b J0 (K + 1 + τ) hI hy0
+    (fun l h1 h2 => hbpos l h1 h2) (2 ^ ν * t) hY0 (K + 1 + τ) (Nat.le_refl _)
+  have hreach : Reaches q yi t := reaches_trans q hr (reaches_pow2 q t ν)
+
+  have hstep := step_lower q P ((2 : Int) ^ ν * (t : Int)) b J0 (K + 1 + τ) hI hy0
+    (fun l h1 h2 => hbpos l h1 h2) (K + τ) (by omega)
+  have e1 : K + τ + 1 = K + 1 + τ := by omega
+  rw [e1, hJs] at hstep
+  have hpow : (2 : Int) ^ amin ≤ (2 : Int) ^ (b (K + 1 + τ) + j * P) :=
+    ipow2_mono _ _ hjlo
+  have hBi : (q : Int) * ((B : Int) + 1) + 1 ≤ (2 : Int) ^ amin := by
+    have := hB; exact_mod_cast this
+  have hyB : (B : Int) + 1 ≤ chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J0 (K + 1 + τ) := by
+    have hq' : (0 : Int) < (q : Int) := by omega
+    have h1 : (q : Int) * ((B : Int) + 1) ≤ (q : Int) * chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J0 (K + 1 + τ) := by
+      have := Int.le_trans hBi (Int.le_trans hpow hstep); omega
+    exact Int.le_of_mul_le_mul_left h1 hq'
+  have hBy : B < yi := by
+    have : (yi : Int) = chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b J0 (K + 1 + τ) := hyi
+    omega
+  refine ⟨hI, yi, hreach, hBy, hdiv, hyi, ?_⟩
+
+  have hsmall : ∀ l, 1 ≤ l → l + 1 ≤ K + 1 + τ → b l + J0 l * P ≤ (q - 1) * P + E0 := by
+    intro l h1 h2
+    have hJl : J0 l = f l := hJa l h1 (by omega)
+    have hfl : f l < q := hfb l h1 (by omega)
+    have hbl := hbE l h1 (by omega)
+    have hmul : J0 l * P ≤ (q - 1) * P := by
+      apply Nat.mul_le_mul_right; rw [hJl]; omega
+    omega
+  have hlast : b (K + 1 + τ) + J0 (K + 1 + τ) * P ≤ amin + P * q ^ (N - K) := by
+    rw [hJs]; have := hjhi; rw [Nat.mul_comm j P] at *; omega
+  have hsz := size_bound q P ν t (K + 1 + τ) ((q - 1) * P + E0) (amin + P * q ^ (N - K)) ν b J0
+    (by omega) ht1 (Nat.le_refl ν) hI (fun l h1 h2 => hbpos l h1 (by omega)) hsmall hlast
+  have e2 : K + 1 + τ - 1 = K + τ := by omega
+  rw [e2] at hsz
+  exact hsz
+
+def steps (K γ m' : Nat) : Nat := if m' = 1 then 1 else K + γ + 2
+
+theorem chain_witness (q K P uPn e γ ν t N B amin m' : Nat) [NonWieferich q] (ρ c : Int)
+    (hP : (2 : Int) ^ P = 1 + (q : Int) ^ (K + 1) * (uPn : Int))
+    (huP : Nat.Coprime q uPn)
+    (hc : (q : Int) ^ (K + 1) ∣ (2 - (q : Int)) * c - 1)
+    (hνc : (q : Int) ^ (K + 1) ∣ (2 : Int) ^ ν * (t : Int) - c)
+    (ht1 : 1 ≤ t) (hN : K ≤ N)
+    (hPpos : 0 < P) (heP : e ∣ P) (he0 : 0 < e) (he : 2 ^ e % m' = 1 % m')
+    (hcov : Covers q m' γ) (hqm : Nat.Coprime m' q) (hm0 : 0 < m') (hK1 : m' = 1 → K = 0)
+    (hB : q * (B + 1) + 1 ≤ 2 ^ amin) :
+    ∃ y : Nat, Reaches q y t ∧ B < y ∧ (q : Int) ^ N * (m' : Int) ∣ (y : Int) - ρ ∧
+      (y : Int) ≤ (2 : Int) ^ (ν + (steps K γ m' - 1) * ((q - 1) * P + e) + (amin + P * q ^ (N - K)))
+        * (t : Int) := by
+  by_cases h1 : m' = 1
+  · have hK := hK1 h1
+    subst h1; subst hK
+    obtain ⟨J, _, y, hr, hBy, hdiv, hyi, hsz⟩ := delay_line_witness q 0 P uPn 0 ν t N B amin ρ c hP huP hc hνc
+      ht1 hN (fun _ => 1) (fun _ _ _ => rfl) (fun _ _ _ => Nat.le_refl 1)
+      e (fun _ _ _ => he0) (Nat.le_of_dvd hPpos heP) hPpos hB
+    refine ⟨y, hr, hBy, ?_, ?_⟩
+    · rw [hyi]; simpa using hdiv
+    · have hs : steps 0 γ 1 - 1 = 0 := by simp [steps]
+      rw [hs, hyi]; simpa using hsz
+  · have hs : steps K γ m' - 1 = K + (γ + 1) := by simp [steps, h1]; omega
+    rw [hs]
+    have hq0 : 0 < q := by have := NonWieferich.three_le (q := q); omega
+    have hodd := NonWieferich.odd (q := q)
+    have hqcop : Nat.Coprime m' q := hqm
+
+    have hm2P : (m' : Int) ∣ (2 : Int) ^ P - 1 := by
+      have h1 : 2 ^ P % m' = 1 % m' := by
+        have := pow_two_mod_period m' e he P 0 (by rw [Nat.zero_mod]; exact Nat.mod_eq_zero_of_dvd heP)
+        rw [Nat.pow_zero] at this; exact this
+      have h2 := nat_mod_to_int_dvd (2 ^ P) 1 m' h1
+      simp only [Int.natCast_pow, Int.natCast_one] at h2
+      exact h2
+
+    have S0 := setup_of q K P uPn c ((2 : Int) ^ ν * (t : Int)) (fun _ => 1) hP huP hc hνc (fun i _ _ => rfl)
+    have hI0 : Integral (q : Int) P ((2 : Int) ^ ν * (t : Int)) (fun _ => 1) (fun _ => 0) (K + 1) := (primer_chain S0 (fun _ => 0)).2
+
+    obtain ⟨β, hβb, hβs⟩ := steer q m' e γ hm0 he0 he hcov hqcop
+      (chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) (fun _ => 1) (fun _ => 0) (K + 1)) ρ
+    obtain ⟨b', hb'⟩ : ∃ b' : Nat → Nat, b' = fun i => if i ≤ K + 1 then 1 else β (i - (K + 1)) := ⟨_, rfl⟩
+    have hb1 : ∀ i, 1 ≤ i → i ≤ K + 1 → b' i = 1 := by
+      intro i h1 h2; rw [hb']; simp [h2]
+    have hβle : ∀ l, 1 ≤ l → l ≤ γ + 1 → 1 ≤ β l ∧ β l ≤ e := hβb
+    have hbpos : ∀ i, 1 ≤ i → i ≤ K + 1 + (γ + 1) → 1 ≤ b' i := by
+      intro i h1 h2
+      by_cases hi : i ≤ K + 1
+      · rw [hb1 i h1 hi]; exact Nat.le_refl 1
+      · rw [hb']; simp only [hi, ite_false]
+        exact (hβle (i - (K + 1)) (by omega) (by omega)).1
+    have hePle : e ≤ P := Nat.le_of_dvd hPpos heP
+    have hbE : ∀ i, 1 ≤ i → i ≤ K + 1 + (γ + 1) → b' i ≤ e := by
+      intro i h1 h2
+      by_cases hi : i ≤ K + 1
+      · rw [hb1 i h1 hi]; omega
+      · rw [hb']; simp only [hi, ite_false]
+        exact (hβle (i - (K + 1)) (by omega) (by omega)).2
+    obtain ⟨J, hI, y, hreach, hBy, hdiv, hyi, hszb⟩ :=
+      delay_line_witness q K P uPn (γ + 1) ν t N B amin ρ c hP huP hc hνc ht1 hN b' hb1 hbpos e hbE hePle hPpos hB
+    refine ⟨y, hreach, hBy, ?_, ?_⟩
+
+    have hIb' : Integral (q : Int) P ((2 : Int) ^ ν * (t : Int)) b' J (K + 1) :=
+      (primer_chain (setup_of q K P uPn c ((2 : Int) ^ ν * (t : Int)) b' hP huP hc hνc hb1) J).2
+    have hx0 : (m' : Int) ∣ chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b' J (K + 1)
+        - chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) (fun _ => 1) (fun _ => 0) (K + 1) := by
+      refine class_indep_of_shifts m' q P hm0 hqcop hm2P ((2 : Int) ^ ν * (t : Int)) ((2 : Int) ^ ν * (t : Int)) b' (fun _ => 1) J (fun _ => 0) (K + 1)
+        hIb' hI0 ?_ (by simp) (K + 1) (Nat.le_refl _)
+      intro i h1 h2; rw [hb1 i h1 h2]
+    have hrel : ∀ l, 1 ≤ l → l ≤ γ + 1 →
+        (m' : Int) ∣ (q : Int) * chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b' J (K + 1 + l) + 1
+          - (2 : Int) ^ (β l) * chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b' J (K + 1 + (l - 1)) := by
+      intro l h1 h2
+      have hc' := chain_rel_mod (m' : Int) q P ((2 : Int) ^ ν * (t : Int)) b' J (K + 1 + (γ + 1)) hI hm2P
+        (K + l) (by omega)
+      have e1 : K + l + 1 = K + 1 + l := by omega
+      have e2 : K + 1 + (l - 1) = K + l := by omega
+      have eb : b' (K + 1 + l) = β l := by
+        rw [hb']; simp only [show ¬ (K + 1 + l ≤ K + 1) by omega, ite_false]
+        congr 1; omega
+      rw [e2, ← eb]
+      rw [e1] at hc'
+      exact hc'
+    have hfin := hβs (fun l => chain (q : Int) P ((2 : Int) ^ ν * (t : Int)) b' J (K + 1 + l)) hx0 hrel
+    obtain ⟨g, hg⟩ := hdiv
+    have hcopN : Nat.Coprime m' (q ^ N) := Nat.Coprime.pow_right N hqm
+    have hm'g : (m' : Int) ∣ ((q ^ N : Nat) : Int) * g := by
+      rw [Int.natCast_pow, ← hg]; exact hfin
+    obtain ⟨k, hk⟩ := int_cancel m' (q ^ N) hm0 hcopN g hm'g
+    · refine ⟨k, ?_⟩
+      rw [hyi, hg, hk]
+      int_ring
+    · rw [hyi]; exact hszb
+
+def ceilLog2 (n : Nat) : Nat := Nat.log2 (n - 1) + 1
+
+theorem ceilLog2_spec (n : Nat) : n ≤ 2 ^ ceilLog2 n := by
+  unfold ceilLog2
+  have := @Nat.lt_log2_self (n - 1)
+  omega
+
+theorem final_budget (α ν S Q amin dK q m B t Θ y w : Nat)
+    (hw : w ≤ 2 ^ α * y) (hy : y ≤ 2 ^ (ν + S + (amin + Q)) * t) (hν : ν + 1 ≤ dK)
+    (ham : 2 ^ amin ≤ 2 * (q * Θ)) (hΘ : Θ ≤ q ^ α * ((m + 1) * (B + 1))) :
+    w ≤ (B + 1) * t * 2 ^ (dK + S + Q + (α + 1) + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1))) := by
+  have hm1 : m + 1 ≤ 2 ^ (ceilLog2 (m + 1)) := ceilLog2_spec (m + 1)
+  have hqa : q ^ (α + 1) ≤ 2 ^ (ceilLog2 (q ^ (α + 1))) := ceilLog2_spec _
+
+  have h2a : 2 ^ amin ≤ 2 ^ (1 + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1))) * (B + 1) := by
+    have e1 : q * Θ ≤ q ^ (α + 1) * (m + 1) * (B + 1) := by
+      have := Nat.mul_le_mul_left q hΘ
+      calc q * Θ ≤ q * (q ^ α * ((m + 1) * (B + 1))) := this
+        _ = q ^ (α + 1) * (m + 1) * (B + 1) := by rw [Nat.pow_succ]; ac_rfl
+    have e2 : q ^ (α + 1) * (m + 1) * (B + 1) ≤ 2 ^ (ceilLog2 (q ^ (α + 1))) * 2 ^ (ceilLog2 (m + 1)) * (B + 1) :=
+      Nat.mul_le_mul_right _ (Nat.mul_le_mul hqa hm1)
+    have e3 : 2 ^ (1 + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1))) * (B + 1)
+        = 2 * (2 ^ (ceilLog2 (q ^ (α + 1))) * 2 ^ (ceilLog2 (m + 1)) * (B + 1)) := by
+      rw [Nat.pow_add, Nat.pow_add, Nat.pow_one]; ac_rfl
+    rw [e3]; omega
+  have hexp : α + (ν + S + Q) + (1 + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1)))
+      ≤ dK + S + Q + (α + 1) + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1)) := by
+    omega
+  calc w ≤ 2 ^ α * y := hw
+    _ ≤ 2 ^ α * (2 ^ (ν + S + (amin + Q)) * t) := Nat.mul_le_mul_left _ hy
+    _ = 2 ^ (α + (ν + S + Q)) * 2 ^ amin * t := by
+        rw [show ν + S + (amin + Q) = (ν + S + Q) + amin by omega,
+          show α + (ν + S + Q) = α + (ν + S + Q) from rfl, Nat.pow_add 2 (ν + S + Q) amin,
+          Nat.pow_add 2 α (ν + S + Q)]; ac_rfl
+    _ ≤ 2 ^ (α + (ν + S + Q)) * (2 ^ (1 + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1))) * (B + 1)) * t :=
+        Nat.mul_le_mul_right _ (Nat.mul_le_mul_left _ h2a)
+    _ = (B + 1) * t * 2 ^ (α + (ν + S + Q) + (1 + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1)))) := by
+        rw [Nat.pow_add 2 (α + (ν + S + Q))]; ac_rfl
+    _ ≤ (B + 1) * t * 2 ^ (dK + S + Q + (α + 1) + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1))) :=
+        Nat.mul_le_mul_left _ (Nat.pow_le_pow_right (by omega) hexp)
+
+def Pper (q d K e : Nat) : Nat := Nat.lcm (d * q ^ K) e
+
+def Ebound (q m α β d K e γ m' : Nat) : Nat :=
+  d * q ^ K + (steps K γ m' - 1) * ((q - 1) * Pper q d K e + e)
+    + q ^ (α + β - K) * Pper q d K e + (α + 1) + ceilLog2 (q ^ (α + 1)) + (ceilLog2 (m + 1))
+
+def IsPrime (p : Nat) : Prop := 2 ≤ p ∧ ∀ a, a ∣ p → a = 1 ∨ a = p
+
+def IsOrder2 (n d : Nat) : Prop :=
+  0 < d ∧ 2 ^ d % n = 1 % n ∧ ∀ i, 0 < i → i < d → 2 ^ i % n ≠ 1 % n
+
+theorem covers_of_phi (q m' e k : Nat) (hm : 1 < m') (hodd : m' % 2 = 1)
+    (hM : Nat.Coprime m' q) (he : IsOrder2 m' e) (hk : m' ≤ k * TS.phi e + 1) :
+    Covers q m' k :=
+  covers_of_growth q m' e k hm hodd (by rw [Nat.gcd_comm]; exact hM) he.2.1 he.2.2 he.1
+    (by omega)
+
+def Decomp (q m α mq m' β d e eQ e' K : Nat) : Prop :=
+  m = 2 ^ α * mq * m' ∧ Nat.Coprime m' (2 * q) ∧ (∀ p, IsPrime p → p ∣ mq → p ∣ q) ∧
+  mq ∣ q ^ β ∧ (∀ j, mq ∣ q ^ j → β ≤ j) ∧
+  IsOrder2 q d ∧ IsOrder2 m' e ∧ e = eQ * e' ∧
+  (∀ p, IsPrime p → p ∣ eQ → p ∣ q) ∧ Nat.Coprime e' q ∧
+  eQ ∣ q ^ K ∧ (∀ j, eQ ∣ q ^ j → K ≤ j)
+
+theorem decomp_K1 (q m α mq m' β d e eQ e' K : Nat) (hD : Decomp q m α mq m' β d e eQ e' K) :
+    m' = 1 → K = 0 := by
+  intro h1
+  obtain ⟨-, -, -, -, -, -, ⟨he0, -, hmin⟩, hee, -, -, -, hK⟩ := hD
+  subst h1
+  have he1 : e = 1 := by
+    rcases Nat.lt_or_ge e 2 with h | h
+    · omega
+    · exact absurd (by simp [Nat.mod_one]) (hmin 1 (by omega) h)
+  rw [he1] at hee
+  have hQ : eQ = 1 := Nat.eq_one_of_mul_eq_one_right hee.symm
+  have := hK 0 (by rw [hQ]; exact Nat.one_dvd _)
+  omega
+
+theorem isPrime_dvd_mul {p a b : Nat} (hp : IsPrime p) (h : p ∣ a * b) : p ∣ a ∨ p ∣ b := by
+  rcases hp.2 _ (Nat.gcd_dvd_left p a) with h1 | h1
+  · exact Or.inr (Nat.Coprime.dvd_of_dvd_mul_left h1 h)
+  · exact Or.inl (h1 ▸ Nat.gcd_dvd_right p a)
+
+theorem isPrime_dvd_pow {p q : Nat} (hp : IsPrime p) : ∀ k, p ∣ q ^ k → p ∣ q
+  | 0, h => by rw [Nat.pow_zero] at h; have := Nat.eq_one_of_dvd_one h; have := hp.1; omega
+  | k + 1, h => by
+    rw [Nat.pow_succ] at h
+    rcases isPrime_dvd_mul hp h with h1 | h1
+    · exact isPrime_dvd_pow hp k h1
+    · exact h1
+
+theorem primes_of_dvd_pow {mq q k : Nat} (hA : mq ∣ q ^ k) : ∀ p, IsPrime p → p ∣ mq → p ∣ q :=
+  fun _ hp h => isPrime_dvd_pow hp k (Nat.dvd_trans h hA)
+
+theorem least_pow_dvd (mq q k : Nat) (hA : mq ∣ q ^ k) :
+    ∃ β, mq ∣ q ^ β ∧ ∀ j, mq ∣ q ^ j → β ≤ j := by
+  obtain ⟨β, hβ, hmin⟩ := exists_least (fun j => mq ∣ q ^ j) ⟨k, hA⟩
+  exact ⟨β, hβ, fun j hj => Nat.le_of_not_lt (fun h => hmin j h hj)⟩
+
+theorem least_order (n : Nat) (h : ∃ D, 0 < D ∧ 2 ^ D % n = 1 % n) : ∃ d, IsOrder2 n d := by
+  obtain ⟨d, ⟨hd0, hd⟩, hmin⟩ := exists_least (fun D => 0 < D ∧ 2 ^ D % n = 1 % n) h
+  exact ⟨d, hd0, hd, fun i hi hid hi' => hmin i hid ⟨hi, hi'⟩⟩
+
+def cb_cands : Nat → Nat → List (List Nat)
+  | 0, _ => [[]]
+  | k + 1, e => (List.range e).flatMap (fun a => (cb_cands k e).map (a :: ·))
+
+theorem cb_mem_cands : ∀ k e I, I ∈ cb_cands k e ↔ I.length = k ∧ ∀ a ∈ I, a < e
+  | 0, e, I => by
+    cases I with
+    | nil => exact ⟨fun _ => ⟨rfl, fun a ha => absurd ha (List.not_mem_nil)⟩, fun _ => List.mem_singleton_self []⟩
+    | cons a J => exact ⟨fun h => absurd (List.mem_singleton.1 h) (List.cons_ne_nil a J),
+        fun h => absurd h.1 (Nat.succ_ne_zero J.length)⟩
+  | k + 1, e, I => by
+    cases I with
+    | nil => exact ⟨fun h => by
+        have h' : [] ∈ (List.range e).flatMap (fun a => (cb_cands k e).map (a :: ·)) := h
+        obtain ⟨a, -, hh⟩ := List.mem_flatMap.1 h'
+        obtain ⟨J, -, hJ⟩ := List.mem_map.1 hh
+        exact absurd hJ (List.cons_ne_nil a J),
+      fun h => absurd h.1 (fun e => Nat.succ_ne_zero k e.symm)⟩
+    | cons a J =>
+      simp only [cb_cands, List.mem_flatMap, List.mem_map, List.mem_range, List.mem_cons,
+        List.length_cons]
+      constructor
+      · rintro ⟨b, hb, J', hJ', h⟩
+        cases h
+        have hJ := (cb_mem_cands k e J).1 hJ'
+        refine ⟨by omega, ?_⟩
+        intro c hc
+        rcases hc with rfl | hc
+        · exact hb
+        · exact hJ.2 c hc
+      · rintro ⟨hlen, hall⟩
+        have ha : a < e := hall a (Or.inl rfl)
+        have hJ : J.length = k ∧ ∀ c ∈ J, c < e :=
+          ⟨by omega, fun c hc => hall c (Or.inr hc)⟩
+        exact ⟨a, ha, J, (cb_mem_cands k e J).2 hJ, rfl⟩
+
+def cb_bool (q m' γ e : Nat) : Bool :=
+  (List.range m').all (fun x => (cb_cands γ e).any (fun I => wsum q I % m' == x % m'))
+
+theorem cb_bool_iff (q m' γ e : Nat) : cb_bool q m' γ e = true ↔ CoversBounded q m' γ e := by
+  unfold cb_bool CoversBounded
+  simp only [List.all_eq_true, List.any_eq_true, List.mem_range, nat_beq_iff]
+  constructor
+  · intro h x hx
+    obtain ⟨I, hI, heq⟩ := h x hx
+    exact ⟨I, ((cb_mem_cands γ e I).1 hI).1, ((cb_mem_cands γ e I).1 hI).2, heq⟩
+  · intro h x hx
+    obtain ⟨I, hl, hb, heq⟩ := h x hx
+    exact ⟨I, (cb_mem_cands γ e I).2 ⟨hl, hb⟩, heq⟩
+
+instance (q m' γ e : Nat) : Decidable (CoversBounded q m' γ e) :=
+  decidable_of_iff _ (cb_bool_iff q m' γ e)
+
+def srch (p : Nat → Prop) [DecidablePred p] : Nat → Nat → Nat
+  | 0, n => n
+  | f + 1, n => if p n then n else srch p f (n + 1)
+
+theorem srch_spec (p : Nat → Prop) [DecidablePred p] : ∀ f n, (∃ j, n ≤ j ∧ j ≤ n + f ∧ p j) →
+    p (srch p f n) ∧ ∀ j, n ≤ j → j < srch p f n → ¬ p j
+  | 0, n, ⟨j, hn, hj, hp⟩ => by
+    have hjn : j = n := by omega
+    subst hjn
+    exact ⟨hp, fun k hk hlt => by simp only [srch] at hlt; omega⟩
+  | f + 1, n, ⟨j, hn, hj, hp⟩ => by
+    by_cases hpn : p n
+    · have e1 : srch p (f + 1) n = n := by
+        show (if p n then n else srch p f (n + 1)) = n
+        exact ite_eq_left hpn
+      rw [e1]
+      exact ⟨hpn, fun k hk hlt => absurd hlt (by omega)⟩
+    · have e1 : srch p (f + 1) n = srch p f (n + 1) := by
+        show (if p n then n else srch p f (n + 1)) = srch p f (n + 1)
+        exact ite_eq_right hpn
+      have hjn : n + 1 ≤ j := by
+        rcases Nat.eq_or_lt_of_le hn with h | h
+        · exact absurd (h ▸ hp) hpn
+        · omega
+      obtain ⟨h1, h2⟩ := srch_spec p f (n + 1) ⟨j, hjn, by omega, hp⟩
+      rw [e1]
+      refine ⟨h1, fun k hk hlt => ?_⟩
+      rcases Nat.eq_or_lt_of_le hk with h | h
+      · exact h ▸ hpn
+      · exact h2 k (by omega) hlt
+
+theorem odd_of_coprime_two {n : Nat} (h : Nat.Coprime n 2) : n % 2 = 1 := by
+  rcases Nat.mod_two_eq_zero_or_one n with h0 | h0
+  · have h2 : 2 ∣ Nat.gcd n 2 := Nat.dvd_gcd (Nat.dvd_of_mod_eq_zero h0) (Nat.dvd_refl 2)
+    rw [h] at h2
+    exact absurd (Nat.le_of_dvd Nat.one_pos h2) (by decide)
+  · exact h0
+
+def gammaPhi (m' e : Nat) : Nat := (m' + TS.phi e - 2) / TS.phi e
+
+theorem covers_phi_of_order (q m' e : Nat) (hM : Nat.Coprime m' (2 * q)) (he : IsOrder2 m' e) :
+    Covers q m' (gammaPhi m' e) := by
+  obtain ⟨he0, hee, hmin'⟩ := he
+  have hM2 : m' % 2 = 1 := odd_of_coprime_two (coprime_two_of_coprime_two_mul hM)
+  unfold gammaPhi
+  rcases Nat.lt_or_ge 1 m' with h1 | h1
+  · have he2 : 2 ≤ e := by
+      rcases Nat.lt_or_ge e 2 with h | h
+      · have : e = 1 := by omega
+        subst this
+        rw [Nat.pow_one, Nat.mod_eq_of_lt (by omega : 2 < m'), Nat.mod_eq_of_lt h1] at hee; omega
+      · exact h
+    have hφ : 0 < TS.phi e := by
+      unfold TS.phi TS.card
+      refine Nat.pos_of_ne_zero (fun h0 => ?_)
+      have hx : (Nat.gcd 1 e == 1) = false :=
+        (my_countP_eq_zero _ _).1 h0 1 (List.mem_range.mpr (by omega))
+      rw [Nat.gcd_one_left] at hx
+      exact absurd hx (by decide)
+    apply covers_of_phi q m' e _ h1 hM2 (coprime_p_of_coprime_two_mul hM) ⟨he0, hee, hmin'⟩
+    have h3 := Nat.div_add_mod (m' + TS.phi e - 2) (TS.phi e)
+    have h4 := Nat.mod_lt (m' + TS.phi e - 2) hφ
+    rw [Nat.mul_comm] at h3
+    generalize (m' + TS.phi e - 2) / TS.phi e * TS.phi e = G at *
+    generalize (m' + TS.phi e - 2) % TS.phi e = R at *
+    omega
+  · have hM0 : m' ≠ 0 := by intro h; rw [h] at hM2; exact absurd hM2 (by decide)
+    have : m' = 1 := by omega
+    subst this
+    intro x hx
+    exact ⟨List.replicate ((1 + TS.phi e - 2) / TS.phi e) 0, List.length_replicate, by simp [Nat.mod_one]⟩
+
+def leastCover (q m' e : Nat) : Nat := srch (fun γ => CoversBounded q m' γ e) (gammaPhi m' e) 0
+
+theorem leastCover_spec (q m' e : Nat) (hM : Nat.Coprime m' (2 * q)) (he : IsOrder2 m' e) :
+    Covers q m' (leastCover q m' e) ∧ (∀ j, j < leastCover q m' e → ¬ Covers q m' j) := by
+  have hb := (covers_iff_bounded q m' e he.1 he.2.1 _).1 (covers_phi_of_order q m' e hM he)
+  obtain ⟨hsp, hmn⟩ := srch_spec (fun γ => CoversBounded q m' γ e) (gammaPhi m' e) 0
+    ⟨gammaPhi m' e, Nat.zero_le _, by omega, hb⟩
+  exact ⟨(covers_iff_bounded q m' e he.1 he.2.1 _).2 hsp, fun j hj hc =>
+    hmn j (Nat.zero_le _) hj ((covers_iff_bounded q m' e he.1 he.2.1 j).1 hc)⟩
+
+theorem exists_decomp (q : Nat) [NonWieferich q] (m : Nat) (hm : 1 ≤ m) :
+    ∃ α mq m' β d e eQ e' K : Nat, Decomp q m α mq m' β d e eQ e' K := by
+  have hq3 := NonWieferich.three_le (q := q)
+  obtain ⟨α, O, hmO, hOodd⟩ := split_two_power m hm
+  obtain ⟨mq, m', k, hOAM, hMq, hAk⟩ := split_coprime q O (by omega)
+  have hmA : m = 2 ^ α * mq * m' := by rw [hmO, hOAM, Nat.mul_assoc]
   have hM2 : m' % 2 = 1 := by
     rcases Nat.mod_two_eq_zero_or_one m' with h | h
-    · have := Nat.Coprime.gcd_eq_one hM; have h2 : 2 ∣ m' := Nat.dvd_of_mod_eq_zero h
-      have : Nat.gcd m' (2 * q) ≠ 1 := by
-        intro h1; have : 2 ∣ Nat.gcd m' (2 * q) := Nat.dvd_gcd h2 (Nat.dvd_mul_right 2 q)
-        rw [h1] at this; omega
-      exact absurd hM (by unfold Nat.Coprime; exact this)
+    · have := Nat.mul_mod mq m' 2; rw [h, ← hOAM] at this; simp at this; omega
     · exact h
-  have hA2 : A % 2 = 1 := by
-    rcases Nat.mod_two_eq_zero_or_one A with h | h
-    · exfalso; have h3 : 2 ∣ q ^ k := Nat.dvd_trans (Nat.dvd_of_mod_eq_zero h) hAb
-      have hq1 : q % 2 = 1 := NonWieferich.odd (q := q)
-      have : q ^ k % 2 = 1 := by rw [Nat.pow_mod, hq1]; simp
-      omega
-    · exact h
-  have hMpos : 0 < m' := by
-    apply Classical.byContradiction; intro h0; have : m' = 0 := by omega
-    subst this; simp at hNe; omega
+  have hM : Nat.Coprime m' (2 * q) := Nat.Coprime.mul_right (coprime_two_of_odd hM2) hMq
   have hMpos : 0 < m' := by omega
-  haveI : NeZero m' := ⟨by omega⟩
-  obtain ⟨D, hD0, hDM, hDper⟩ := exists_pow2_period m' hMpos (coprime_two_of_coprime_two_mul hM)
-  obtain ⟨Da, D', K, hDe, hD'a, hDaK, hKD⟩ := split_coprime q D hD0
-  obtain ⟨d, u, hd0, hdp, hd, hu⟩ := NonWieferich.gen (q := q)
-  have hD'cop : Nat.Coprime q D' := hD'a.symm
-  have hpK : 0 < q ^ K := powp_pos q K
-  have hD'0 : 0 < D' := by
-    apply Classical.byContradiction; intro h
-    have : D' = 0 := by omega
-    rw [this] at hDe; simp at hDe; omega
-  have hDper' : 2 ^ (q ^ K * D') % m' = 1 % m' := by
-    obtain ⟨c, hc⟩ := hDaK
-    have : q ^ K * D' = D * c := by rw [hc, hDe]; grind
-    rw [this, Nat.pow_mul, Nat.pow_mod, hDper, ← Nat.pow_mod, Nat.one_pow]
-  have hDM' : Da * D' ≤ m' := by rw [← hDe]; exact hDM
+  obtain ⟨β, hAβ, hβmin⟩ := least_pow_dvd mq q k hAk
+  obtain ⟨D, u, hD0, hD, -⟩ := NonWieferich.gen (q := q)
+  obtain ⟨d, hdo⟩ := least_order q ⟨D, hD0, by rw [hD, Nat.add_mul_mod_self_left]⟩
+  obtain ⟨D1, hD1, -, hD1p⟩ := exists_pow2_period m' hMpos (coprime_two_of_coprime_two_mul hM)
+  obtain ⟨e, he⟩ := least_order m' ⟨D1, hD1, hD1p⟩
+  have he0 := he.1
+  obtain ⟨eQ, e', k2, hee', he'q, hQk⟩ := split_coprime q e (by omega)
+  obtain ⟨K, hQK, hKmin⟩ := least_pow_dvd eQ q k2 hQk
+  exact ⟨α, mq, m', β, d, e, eQ, e', K, hmA, hM, primes_of_dvd_pow hAk, hAβ, hβmin, hdo, he, hee',
+    primes_of_dvd_pow hQk, he'q, hQK, hKmin⟩
 
-  obtain ⟨π, hπ, hπl, hπd⟩ := parity_prefix q α r
-  have h2α0 : 0 < 2 ^ α := Nat.pow_pos (by omega)
-  obtain ⟨z, hz⟩ := hπd
+def OddNonWieferich (q : Nat) : Prop :=
+  1 < q ∧ q % 2 = 1 ∧ ∀ d, IsOrder2 q d → Nat.Coprime q ((2 ^ d - 1) / q)
 
-  obtain ⟨u₀, nz, hlet, hou0, hlen0, hm, hcong⟩ :=
-    word_exists_s q K s m' D z w d u hM hw hDper hcov hD0 hd0 hd hu
-  have hU : ∀ e ∈ u₀ ++ List.replicate nz 0, e ≤ 1 := by
-    intro e he
-    rcases List.mem_append.1 he with h | h
-    · exact hlet e h
-    · rw [List.eq_of_mem_replicate h]; omega
-  have hW : ∀ e ∈ π ++ (u₀ ++ List.replicate nz 0), e ≤ 1 := by
-    intro e he
-    rcases List.mem_append.1 he with h | h
-    · exact hπ e h
-    · exact hU e h
-  have hoU : oneCount (u₀ ++ List.replicate nz 0) = oneCount u₀ := by
-    rw [oneCount_append, oneCount_replicate_zero, Nat.add_zero]
-  have hlU : (u₀ ++ List.replicate nz 0).length = u₀.length + nz := by
-    simp only [List.length_append, List.length_replicate]
-  have hoW : oneCount (π ++ (u₀ ++ List.replicate nz 0)) = oneCount π + oneCount u₀ := by
-    rw [oneCount_append, hoU]
-  have hlW : (π ++ (u₀ ++ List.replicate nz 0)).length = α + (u₀.length + nz) := by
-    rw [List.length_append, hlU, hπl]
-  have hCW : offset q (π ++ (u₀ ++ List.replicate nz 0))
-      = q ^ oneCount u₀ * offset q π + 2 ^ α * offset q (u₀ ++ List.replicate nz 0) := by
-    rw [offset_append, hoU, hπl]
-  have hCle := offset_le_pow q (by omega) _ hW
-  have hreach := integrality_reaches q _ hW
-  have hfol := follow_prefix q π (u₀ ++ List.replicate nz 0)
-  rw [hoU, hlU] at hcong
-  rw [hoW, hlW] at hCle hreach hfol
-  rw [hπl] at hfol
-  have hoπ := oneCount_le π hπ
-  have hou := hou0
-  rw [hπl] at hoπ
-  rw [hCW] at hCle hreach hfol
+theorem pow_eq_of_order {q d : Nat} (hq : 1 < q) (hd : IsOrder2 q d) :
+    2 ^ d = 1 + q * ((2 ^ d - 1) / q) := by
+  have h1 : 2 ^ d % q = 1 := by rw [hd.2.1]; exact Nat.mod_eq_of_lt hq
+  have h2 := Nat.div_add_mod (2 ^ d) q
+  rw [h1] at h2
+  have h3 : 2 ^ d - 1 = q * (2 ^ d / q) := by omega
+  rw [h3, Nat.mul_div_cancel_left _ (by omega)]
+  omega
 
-  have hY : (q ^ (oneCount π + oneCount u₀) * r
-        + (q ^ oneCount u₀ * offset q π + 2 ^ α * offset q (u₀ ++ List.replicate nz 0)))
-      % (q ^ (K + 1) * m') = (2 ^ (α + (u₀.length + nz)) * w) % (q ^ (K + 1) * m') := by
-    have e1 : q ^ (oneCount π + oneCount u₀) * r
-        + (q ^ oneCount u₀ * offset q π + 2 ^ α * offset q (u₀ ++ List.replicate nz 0))
-        = 2 ^ α * (q ^ oneCount u₀ * z + offset q (u₀ ++ List.replicate nz 0)) := by
-      rw [Nat.pow_add]
-      have : q ^ oneCount π * r + offset q π = 2 ^ α * z := hz
-      grind
-    rw [e1]
-    generalize q ^ (K + 1) * m' = Q at hcong ⊢
-    rw [Nat.pow_add, Nat.mul_assoc, Nat.mul_mod, hcong, ← Nat.mul_mod]
-  generalize oneCount π = oπ at *
-  generalize oneCount u₀ = o' at *
-  generalize offset q π = Cπ at *
-  generalize offset q (u₀ ++ List.replicate nz 0) = C' at *
-  generalize hℓdef : α + (u₀.length + nz) = ℓ at *
+theorem nonWieferich_of_odd {q : Nat} (hq : OddNonWieferich q) : NonWieferich q := by
+  obtain ⟨hq1, hodd, hW⟩ := hq
+  obtain ⟨D, hD0, -, hDp⟩ := exists_pow2_period q (Nat.lt_trans Nat.zero_lt_one hq1)
+    (coprime_two_of_odd hodd)
+  obtain ⟨d0, hd0⟩ := least_order q ⟨D, hD0, hDp⟩
+  exact ⟨hq1, d0, (2 ^ d0 - 1) / q, pow_eq_of_order hq1 hd0, hW d0 hd0⟩
 
-  obtain ⟨j, hj⟩ : ∃ j, (oπ + o') + k = j + 1 := ⟨oπ + o' + k - 1, by omega⟩
-  have hKj : K ≤ j := by omega
-  obtain ⟨E0, hE0⟩ := exponent_lemma q hd0 hd hu m' K j w D' ℓ _ hM hw hD'0 hD'cop hDper' hKj hY
-  have hLm0 : 0 < Nat.lcm (q ^ K * D') (d * q ^ j) :=
-    Nat.lcm_pos (Nat.mul_pos hpK hD'0) (Nat.mul_pos hd0 (powp_pos q j))
-  have hLmle : Nat.lcm (q ^ K * D') (d * q ^ j) ≤ D' * (d * q ^ j) := by
-    apply Nat.le_of_dvd (Nat.mul_pos hD'0 (Nat.mul_pos hd0 (powp_pos q j)))
-    apply Nat.lcm_dvd
-    · have h := Nat.mul_dvd_mul (Nat.pow_dvd_pow q hKj) (Nat.dvd_mul_right D' d)
-      have e : q ^ j * (D' * d) = D' * (d * q ^ j) := by grind
-      rwa [e] at h
-    · exact Nat.dvd_mul_left _ _
-  generalize Nat.lcm (q ^ K * D') (d * q ^ j) = Lm at hE0 hLm0 hLmle
-  generalize hCdef : q ^ o' * Cπ + 2 ^ α * C' = C at *
-  generalize hodef : oπ + o' = o at *
-  have hpo : 0 < q ^ o := powp_pos q o
-  have hV : 2 ^ ℓ ≤ q ^ o * (B + 1 + 2 ^ ℓ) := by
-    have : 1 * 2 ^ ℓ ≤ q ^ o * (B + 1 + 2 ^ ℓ) := Nat.mul_le_mul hpo (Nat.le_add_left _ _)
-    omega
-  obtain ⟨e, hVe, he2⟩ := exists_pow_two_between _ ℓ hV
-  obtain ⟨E, heE, hEe, hEmod⟩ := exists_in_class E0 e Lm hLm0
-  have hZ := hE0 E hEmod
-  have hpow : q ^ (j + 1) * m' = q ^ o * (q ^ k * m') := by
-    rw [← hj, Nat.pow_add, Nat.mul_assoc]
-  rw [hpow] at hZ
-  have hCZ : C ≤ 2 ^ (ℓ + E) * w := by
-    have h1 : 2 ^ (ℓ + e) ≤ 2 ^ (ℓ + E) := Nat.pow_le_pow_right (by omega) (by omega)
-    have h2 : 2 ^ (ℓ + E) ≤ 2 ^ (ℓ + E) * w := Nat.le_mul_of_pos_right _ hw0
-    have h3 : q ^ o * 2 ^ ℓ ≤ q ^ o * (B + 1 + 2 ^ ℓ) := Nat.mul_le_mul_left _ (by omega)
-    omega
-  obtain ⟨n, hZn, hnmod⟩ := witness_exists q o C r (2 ^ (ℓ + E) * w) (q ^ k * m') hpo hCZ hZ
-  refine ⟨n, ?_, ?_, ?_, ?_⟩
-  · exact (witness_size (q ^ o) C ℓ E e Lm w n B hpo hw0 hCle hZn.symm hVe he2 heE (by omega)).1
-  ·
-    have hdvd : 2 ^ ℓ ∣ q ^ o * n + C := ⟨2 ^ E * w, by rw [← hZn, Nat.pow_add]; grind⟩
-    have hq : (q ^ o * n + C) / 2 ^ ℓ = 2 ^ E * w := by
-      rw [← hZn, Nat.pow_add, Nat.mul_assoc, Nat.mul_div_cancel_left _ (Nat.pow_pos (by omega))]
-    have hrz := hreach n hdvd
-    rw [hq] at hrz
-    exact reaches_trans q hrz (reaches_pow2 q w E)
-  ·
-    have hdvd : 2 ^ ℓ ∣ q ^ o * n + C := ⟨2 ^ E * w, by rw [← hZn, Nat.pow_add]; grind⟩
-    have h2 := hfol n hdvd
-    have h2r : 2 ^ α ∣ q ^ oπ * r + Cπ := ⟨z, hz⟩
-    have hα := prefix_mod q α oπ Cπ n r h2 h2r
-    have hcop : Nat.Coprime (2 ^ α) (A * m') :=
-      Nat.Coprime.pow_left _ (Nat.Coprime.mul_right
-        (coprime_two_of_odd hA2).symm (coprime_two_of_odd hM2).symm)
-    have hnAM : n % (A * m') = r % (A * m') :=
-      mod_of_dvd_mod (Nat.mul_dvd_mul_right hAb m') hnmod
-    rw [hNe, Nat.mul_assoc]
-    exact mod_combine hcop hα hnAM
-  ·
-    have hs := (witness_size (q ^ o) C ℓ E e Lm w n B hpo hw0 hCle hZn.symm hVe he2 heE (by omega)).2
-    have hX := exponent_bound_s q L m α k A m' K Da D' d j ℓ Lm s D hp3 hpL hN hNe hbA hKD hDM' hD'0 hDM hdp
-      (by omega)
-      (by
-        have : d * q ^ K ≤ q * q ^ K := Nat.mul_le_mul_right _ hdp
-        omega)
-      hLmle
-    exact Nat.le_trans hs (Nat.mul_le_mul_left _ (Nat.pow_le_pow_right (by omega) hX))
+theorem params_exist (q : Nat) (hq : OddNonWieferich q) (m : Nat) (hm : 1 ≤ m) :
+    ∃ α mq m' β d e eQ e' K γ : Nat, Decomp q m α mq m' β d e eQ e' K ∧ Covers q m' γ ∧
+      ∀ j, j < γ → ¬ Covers q m' j := by
+  haveI := nonWieferich_of_odd hq
+  obtain ⟨α, mq, m', β, d, e, eQ, e', K, hD⟩ := exists_decomp q m hm
+  have hD2 := hD
+  obtain ⟨-, hM, -, -, -, -, he, -⟩ := hD2
+  have hs := leastCover_spec q m' e hM he
+  exact ⟨α, mq, m', β, d, e, eQ, e', K, leastCover q m' e, hD, hs.1, hs.2⟩
+
+theorem theorem_A (q : Nat) (hq : OddNonWieferich q) (m : Nat) (hm : 1 ≤ m)
+    (α mq m' β d e eQ e' K γ : Nat) (hD : Decomp q m α mq m' β d e eQ e' K)
+    (hγ : Covers q m' γ) (_ : ∀ j, j < γ → ¬ Covers q m' j)
+    (t : Nat) (ht0 : 1 ≤ t) (ht : ∃ i, t % q = 2 ^ i % q) (r B : Nat) :
+    ∃ w : Nat, B < w ∧ Reaches q w t ∧ w % m = r % m ∧
+      w ≤ (B + 1) * t * 2 ^ (Ebound q m α β d K e γ m') := by
+  obtain ⟨i, hi⟩ := ht
+  haveI := nonWieferich_of_odd hq
+  have hK1 := decomp_K1 q m α mq m' β d e eQ e' K hD
+  obtain ⟨hmA, hM, -, hA, -, hdo, ⟨he0, he, -⟩, hee, -, he'q, hKe, -⟩ := hD
+  obtain ⟨u, hd, hu⟩ : ∃ u, 2 ^ d = 1 + q * u ∧ Nat.Coprime q u :=
+    ⟨(2 ^ d - 1) / q, pow_eq_of_order hq.1 hdo, hq.2.2 d hdo⟩
+  have hcov := hγ
+  have hq3 := NonWieferich.three_le (q := q)
+  have hm0 : 0 < m' := by
+    rcases Nat.eq_zero_or_pos m' with h | h
+    · rw [h, Nat.mul_zero] at hmA; omega
+    · exact h
+  have hqm : Nat.Coprime m' q := Nat.Coprime.coprime_mul_left_right hM
+
+  obtain ⟨uP, hPs, huP⟩ := P_struct q K d u e eQ e' hd hu he0 hee hKe he'q
+  have hPpos : 0 < Nat.lcm (d * q ^ K) e := by
+    have hd0 : 0 < d := hdo.1
+    exact Nat.lcm_pos (Nat.mul_pos hd0 (Nat.pow_pos (by omega))) he0
+  have hPI : (2 : Int) ^ (Nat.lcm (d * q ^ K) e) = 1 + (q : Int) ^ (K + 1) * (uP : Int) := by
+    exact_mod_cast hPs
+  obtain ⟨c, hc⟩ := fixed_point_int q K hq3 (coprime_p_two q)
+  obtain ⟨ν, hν, hνc⟩ := exists_nu q K d u hd hu t i hi c hc
+
+  obtain ⟨uw, huw, hlen, hdiv⟩ := parity_prefix q α (r % m)
+  obtain ⟨ρ, hρ⟩ := hdiv
+  have hρ' : 2 ^ α * ρ = q ^ ones uw * (r % m) + kappa q uw := hρ.symm
+  have hn : ones uw ≤ α := hlen ▸ ones_le_length uw huw
+  have hΘ := theta_bound q hq3 m (r % m) B ρ uw huw (Nat.mod_lt _ (by omega)) (by rw [hlen]; exact hρ')
+  rw [hlen] at hΘ
+
+  have hX : 1 ≤ q * (ρ + q ^ ones uw * (B + 1)) := by
+    exact Nat.mul_pos (by omega) (Nat.lt_of_lt_of_le (Nat.mul_pos (Nat.pow_pos (by omega)) (Nat.succ_pos B)) (Nat.le_add_left _ _))
+  obtain ⟨amin, ha1, ha2⟩ := amin_exists _ hX
+
+  have hN : K ≤ K + (α + β - K) := by omega
+  obtain ⟨y, hry, hBy, hdy, hsz⟩ := chain_witness q K (Nat.lcm (d * q ^ K) e) uP e γ ν t
+    (K + (α + β - K)) (ρ + q ^ ones uw * (B + 1) - 1) amin m' (ρ : Int) (c : Int)
+    hPI huP hc hνc ht0 hN hPpos (Nat.dvd_lcm_right _ _) he0 he hcov hqm hm0 hK1
+    (by have : ρ + q ^ ones uw * (B + 1) - 1 + 1 = ρ + q ^ ones uw * (B + 1) := by
+          have : 0 < q ^ ones uw * (B + 1) :=
+            Nat.mul_pos (Nat.pow_pos (by omega)) (Nat.succ_pos B)
+          omega
+        rw [this]; omega)
+
+  have hρy : ρ + q ^ ones uw * (B + 1) ≤ y := by omega
+  have hyc : q ^ (ones uw + β) * m' ∣ y - ρ := by
+    have h1 : ((q ^ (K + (α + β - K)) * m' : Nat) : Int) ∣ ((y - ρ : Nat) : Int) := by
+      rw [Int.natCast_sub (by omega)]; push_cast; exact hdy
+    have h2 := Int.ofNat_dvd.1 h1
+    exact Nat.dvd_trans (Nat.mul_dvd_mul_right (Nat.pow_dvd_pow q (by omega)) m') h2
+  obtain ⟨w, hBw, hrw, hwm, hwy⟩ := tail_lemma q uw huw α hlen (r % m) ρ hρ' mq m' β B y hA hρy hyc
+  refine ⟨w, hBw, reaches_trans q hrw hry, ?_, ?_⟩
+  · rw [← hmA] at hwm; rw [hwm, Nat.mod_mod]
+  · have hyN : y ≤ 2 ^ (ν + (steps K γ m' - 1) * ((q - 1) * Nat.lcm (d * q ^ K) e + e)
+        + (amin + Nat.lcm (d * q ^ K) e * q ^ (K + (α + β - K) - K))) * t := by
+      have : ((2 ^ (ν + (steps K γ m' - 1) * ((q - 1) * Nat.lcm (d * q ^ K) e + e)
+        + (amin + Nat.lcm (d * q ^ K) e * q ^ (K + (α + β - K) - K))) * t : Nat) : Int)
+          = (2 : Int) ^ (ν + (steps K γ m' - 1) * ((q - 1) * Nat.lcm (d * q ^ K) e + e)
+        + (amin + Nat.lcm (d * q ^ K) e * q ^ (K + (α + β - K) - K))) * (t : Int) := by push_cast; rfl
+      exact_mod_cast (this ▸ hsz)
+    have hKK : K + (α + β - K) - K = α + β - K := by omega
+    rw [hKK] at hyN
+    have hfb := final_budget α ν ((steps K γ m' - 1) * ((q - 1) * Nat.lcm (d * q ^ K) e + e))
+      (Nat.lcm (d * q ^ K) e * q ^ (α + β - K)) amin (d * q ^ K) q m B t
+      (ρ + q ^ ones uw * (B + 1)) y w hwy hyN (by omega) ha2 hΘ
+    unfold Ebound Pper
+    have e2 : q ^ (α + β - K) * Nat.lcm (d * q ^ K) e = Nat.lcm (d * q ^ K) e * q ^ (α + β - K) :=
+      Nat.mul_comm _ _
+    rw [e2]; exact hfb
 
 def Trapped (qg g x : Nat) : Prop := (∃ k, x % qg = 2 ^ k % qg) ∨ x % g = 0
 
@@ -2228,124 +3509,124 @@ theorem trapped_of_iter (q g d t : Nat) (hq : 0 < q) (hg : 1 < g) (hgq : g ∣ q
     intro x h
     exact trapped_step q g d x hq hg hgq hQ hmin (ih _ h)
 
-theorem predecessor_bound (q : Nat) [NonWieferich q] (L : Nat) (hqL : q ≤ 2 ^ L)
-    (m : Nat) (hm : 1 ≤ m) (α A m' k s : Nat) (hmA : m = 2 ^ α * A * m')
-    (hAb : A ∣ q ^ k) (hbA : 2 ^ k ≤ A) (hM : Nat.Coprime m' (2 * q)) (hcov : Covers q m' s)
-    (t : Nat) (ht0 : 1 ≤ t) (ht : ∃ i, t % q = 2 ^ i % q) (r B : Nat) :
-    ∃ w : Nat, B < w ∧ Reaches q w t ∧ w % m = r % m ∧
-      w ≤ (B + 1) * t * 2 ^ (2 * m ^ (L + 1) * q ^ (s + 1)) := by
-  rcases Nat.lt_or_ge m 2 with h | h
-  · obtain ⟨e, h1, h2⟩ := exists_pow_two_between (B + 1) 0 (by omega)
-    rw [Nat.zero_add] at h1 h2
-    have hm1 : m = 1 := by omega
-    subst hm1
-    refine ⟨2 ^ e * t, ?_, reaches_pow2 q t e, by simp [Nat.mod_one], ?_⟩
-    · have := Nat.le_mul_of_pos_right (2 ^ e) ht0; omega
-    · have h3 : 2 ≤ 2 ^ (2 * 1 ^ (L + 1) * q ^ (s + 1)) :=
-        Nat.le_self_pow (by have h3q := NonWieferich.three_le (q := q); have : 0 < q ^ (s + 1) := Nat.pow_pos (by omega); simp only [Nat.one_pow, Nat.mul_one]; omega) 2
-      have h4 : 2 ^ e ≤ (B + 1) * 2 ^ (2 * 1 ^ (L + 1) * q ^ (s + 1)) := by
-        have := Nat.mul_le_mul_left (B + 1) h3; grind
-      have := Nat.mul_le_mul_right t h4; grind
-  · exact predecessor_bound_core q L hqL m h α A m' k s hmA hAb hbA hM hcov t ht0 ht r B
+theorem order_dvd {n d k : Nat} (hd : IsOrder2 n d) (hk : 2 ^ k % n = 1 % n) : d ∣ k := by
+  obtain ⟨hd0, hdm, hmin⟩ := hd
+  have h := pow_mod_period hdm (k % d) (k / d)
+  rw [Nat.mod_add_div] at h
+  rcases Nat.eq_zero_or_pos (k % d) with h0 | h0
+  · exact Nat.dvd_of_mod_eq_zero h0
+  · exact absurd (h.symm.trans hk) (hmin _ h0 (Nat.mod_lt _ hd0))
 
-theorem int_bez (a b : Nat) : ∃ x y : Int, x*a + y*b = (Nat.gcd a b : Int) := by
-  induction a, b using Nat.gcd.induction with
-  | H0 n => exact ⟨0, 1, by simp⟩
-  | H1 m' n hm ih =>
-    obtain ⟨x, y, h⟩ := ih
-    refine ⟨y - x*(n/m' : Nat), x, ?_⟩
-    rw [Nat.gcd_rec m' n, ← h]
-    have e := Nat.mod_add_div n m'
-    have e' : ((n % m' : Nat) : Int) + (m':Int) * ((n/m' : Nat) : Int) = (n : Int) := by exact_mod_cast e
-    grind
+theorem theorem_B (q g d t : Nat) (hq : 1 < q) (hg : 1 < g) (hgq : g ∣ q)
+    (hd : IsOrder2 q d) (hdg : IsOrder2 (q * g) d) (ht : Trapped (q * g) g t) :
+    ∀ x, Reaches q x t → Trapped (q * g) g x := by
+  intro x hx
+  obtain ⟨k, hk⟩ := hx
+  exact trapped_of_iter q g d t (Nat.lt_trans Nat.zero_lt_one hq) hg hgq hdg.2.1
+    (fun k' hk' => order_dvd hd hk') ht k x hk
 
-theorem nat_bez (a m' : Nat) (hm : 1 < m') (h : Nat.gcd a m' = 1) :
-    ∃ k w : Nat, a*k = m'*w + 1 := by
-  obtain ⟨x, y, hxy⟩ := int_bez a m'
-  rw [h] at hxy
-  have hm0 : (0:Int) < m' := by omega
-  have hr0 := Int.emod_nonneg x (by omega : (m':Int) ≠ 0)
-  have hr1 := Int.emod_lt_of_pos x hm0
-  have hq := Int.emod_add_mul_ediv x m'
-  generalize x % m' = r at *
-  generalize x / m' = q at *
-  subst hq
-  have key : r*a = 1 - (y + q*a)*m' := by grind
-  generalize hz : y + q*a = z at key
-  have hra : 0 ≤ r*a := Int.mul_nonneg hr0 (by omega)
-  have hz0 : z ≤ 0 := by
-    cases Int.lt_or_le 0 z with
-    | inl hp =>
-      have : (m':Int) ≤ z*m' := by
-        have := Int.mul_le_mul_of_nonneg_right (show (1:Int) ≤ z by omega) (show (0:Int) ≤ m' by omega)
-        simpa using this
-      omega
-    | inr hp => exact hp
-  refine ⟨r.toNat, (-z).toNat, ?_⟩
-  have : ((a * r.toNat : Nat) : Int) = ((m' * (-z).toNat + 1 : Nat) : Int) := by
-    push_cast
-    rw [Int.toNat_of_nonneg hr0, Int.toNat_of_nonneg (by omega)]
-    grind
-  exact_mod_cast this
-theorem predecessor_bound_phi (q : Nat) [NonWieferich q] (L : Nat) (hqL : q ≤ 2 ^ L)
-    (m : Nat) (hm : 1 ≤ m) (t : Nat) (ht0 : 1 ≤ t) (ht : ∃ i, t % q = 2 ^ i % q) (r B : Nat) :
-    ∃ m' e : Nat, m' ∣ m ∧ Nat.Coprime m' (2 * q) ∧
-      (∀ g, g ∣ m → Nat.Coprime g (2 * q) → g ∣ m') ∧
-      0 < e ∧ 2 ^ e % m' = 1 % m' ∧ (∀ i, 0 < i → i < e → 2 ^ i % m' ≠ 1 % m') ∧
-      ∃ w : Nat, B < w ∧ Reaches q w t ∧ w % m = r % m ∧
-        w ≤ (B + 1) * t * 2 ^ (2 * m ^ (L + 1) * q ^ ((m' - 1) / TS.phi e + 2)) := by
-  obtain ⟨α, O, hmO, hOodd⟩ := split_two_power m hm
-  obtain ⟨A, m', k, hOAM, hMq, hAk, hkA⟩ := split_coprime q O (by omega)
-  have hmA : m = 2 ^ α * A * m' := by rw [hmO, hOAM, Nat.mul_assoc]
-  have hM2 : m' % 2 = 1 := by
-    rcases Nat.mod_two_eq_zero_or_one m' with h | h
-    · have := Nat.mul_mod A m' 2; rw [h, ← hOAM] at this; simp at this; omega
-    · exact h
-  have hM : Nat.Coprime m' (2 * q) := Nat.Coprime.mul_right (coprime_two_of_odd hM2) hMq
-  have hMpos : 0 < m' := by omega
-  have hdvd : m' ∣ m := ⟨2 ^ α * A, by rw [hmA]; grind⟩
-  have hmax : ∀ g, g ∣ m → Nat.Coprime g (2 * q) → g ∣ m' := by
-    intro g hg hgc
-    have hg2 : Nat.Coprime g (2 ^ α) := Nat.Coprime.pow_right _ (coprime_two_of_coprime_two_mul hgc)
-    have hgA : Nat.Coprime g A :=
-      Nat.Coprime.coprime_dvd_right hAk (Nat.Coprime.pow_right _ (coprime_p_of_coprime_two_mul hgc))
-    rw [hmA, Nat.mul_assoc] at hg
-    exact Nat.Coprime.dvd_of_dvd_mul_left (Nat.Coprime.mul_right hg2 hgA)
-      (by rw [Nat.mul_assoc]; exact hg)
-  obtain ⟨D0, hD0, _, hD0p⟩ := exists_pow2_period m' hMpos (coprime_two_of_coprime_two_mul hM)
-  obtain ⟨e, ⟨he0, he⟩, hmin⟩ := exists_least (fun n => 0 < n ∧ 2 ^ n % m' = 1 % m') ⟨D0, hD0, hD0p⟩
-  have hmin' : ∀ i, 0 < i → i < e → 2 ^ i % m' ≠ 1 % m' := fun i hi hie h => hmin i hie ⟨hi, h⟩
-  have hcov : Covers q m' ((m' - 1) / TS.phi e + 1) := by
-    rcases Nat.lt_or_ge 1 m' with h1 | h1
-    · have hq : Nat.gcd q m' = 1 := by
-        rw [Nat.gcd_comm]; exact coprime_p_of_coprime_two_mul hM
-      have he2 : 2 ≤ e := by
-        rcases Nat.lt_or_ge e 2 with h | h
-        · have : e = 1 := by omega
-          subst this
-          rw [Nat.pow_one, Nat.mod_eq_of_lt (by omega : 2 < m'), Nat.mod_eq_of_lt h1] at he; omega
-        · exact h
-      have hφ : 0 < TS.phi e := by
-        unfold TS.phi TS.card
-        exact List.countP_pos_iff.mpr ⟨1, List.mem_range.mpr (by omega), by simp⟩
-      apply covers_of_growth q m' e _ h1 hM2 hq he hmin' he0
-      have h3 := Nat.div_add_mod (m' - 1) (TS.phi e)
-      have h4 := Nat.mod_lt (m' - 1) hφ
-      rw [Nat.add_mul, Nat.one_mul]
-      rw [Nat.mul_comm] at h3
-      generalize (m' - 1) / TS.phi e * TS.phi e = P at *
-      generalize (m' - 1) % TS.phi e = R at *
-      omega
-    · have : m' = 1 := by omega
-      subst this
-      intro x hx
-      exact ⟨List.replicate ((1 - 1) / TS.phi e + 1) 0, by simp, by simp [Nat.mod_one]⟩
-  obtain ⟨w, h1, h2, h3, h4⟩ :=
-    predecessor_bound q L hqL m hm α A m' k _ hmA hAk hkA hM hcov t ht0 ht r B
-  exact ⟨m', e, hdvd, hM, hmax, he0, he, hmin', w, h1, h2, h3, h4⟩
+theorem two_pow_mul_unique {a b x y : Nat} (hx : x % 2 = 1) (hy : y % 2 = 1)
+    (h : 2 ^ a * x = 2 ^ b * y) : a = b ∧ x = y := by
+  have key : ∀ a b x y : Nat, x % 2 = 1 → 2 ^ a * x = 2 ^ (a + b + 1) * y → False := by
+    intro a b x y hx h
+    have h1 : 2 ^ (a + b + 1) * y = 2 ^ a * (2 ^ (b + 1) * y) := by
+      rw [Nat.add_assoc, Nat.pow_add, Nat.mul_assoc]
+    rw [h1] at h
+    have h2 : x = 2 ^ (b + 1) * y := Nat.eq_of_mul_eq_mul_left (Nat.two_pow_pos a) h
+    have h3 : x = 2 * (2 ^ b * y) := by
+      rw [h2, Nat.pow_succ, Nat.mul_comm (2 ^ b) 2, Nat.mul_assoc]
+    rw [h3, Nat.mul_mod_right] at hx
+    exact absurd hx (by decide)
+  rcases Nat.lt_trichotomy a b with hab | hab | hab
+  · obtain ⟨c, hc⟩ : ∃ c, b = a + c + 1 := ⟨b - a - 1, by omega⟩
+    subst hc
+    exact (key a c x y hx h).elim
+  · subst hab
+    exact ⟨rfl, Nat.eq_of_mul_eq_mul_left (Nat.two_pow_pos a) h⟩
+  · obtain ⟨c, hc⟩ : ∃ c, a = b + c + 1 := ⟨a - b - 1, by omega⟩
+    subst hc
+    exact (key b c y x hy h.symm).elim
 
-#print axioms predecessor_bound
-#print axioms predecessor_bound_phi
-#print axioms trapped_of_iter
+theorem odd_of_dvd_pow {q a k : Nat} (hq : q % 2 = 1) (h : a ∣ q ^ k) : a % 2 = 1 := by
+  have hqk : q ^ k % 2 = 1 := by rw [Nat.pow_mod, hq, Nat.one_pow]
+  rcases Nat.mod_two_eq_zero_or_one a with h0 | h0
+  · have h2 : 2 ∣ a := Nat.dvd_of_mod_eq_zero h0
+    have h3 : 2 ∣ q ^ k := Nat.dvd_trans h2 h
+    have h4 := Nat.mod_eq_zero_of_dvd h3
+    rw [hqk] at h4
+    exact absurd h4 (by decide)
+  · exact h0
+
+theorem smooth_part_unique {q a a' b b' k k' : Nat} (hq : 0 < q) (ha : a ∣ q ^ k)
+    (ha' : a' ∣ q ^ k') (hb : Nat.Coprime b q) (hb' : Nat.Coprime b' q)
+    (h : a * b = a' * b') : a = a' ∧ b = b' := by
+  have hapos : 0 < a := Nat.pos_of_dvd_of_pos ha (Nat.pow_pos hq)
+  have hcop1 : Nat.Coprime a b' :=
+    (Nat.Coprime.coprime_dvd_right ha (Nat.Coprime.pow_right k hb')).symm
+  have hcop2 : Nat.Coprime a' b :=
+    (Nat.Coprime.coprime_dvd_right ha' (Nat.Coprime.pow_right k' hb)).symm
+  have hd1 : a ∣ a' := Nat.Coprime.dvd_of_dvd_mul_right hcop1 (h ▸ Nat.dvd_mul_right a b)
+  have hd2 : a' ∣ a := Nat.Coprime.dvd_of_dvd_mul_right hcop2 (h.symm ▸ Nat.dvd_mul_right a' b')
+  have hEq : a = a' := Nat.dvd_antisymm hd1 hd2
+  subst hEq
+  exact ⟨rfl, Nat.eq_of_mul_eq_mul_left hapos h⟩
+
+theorem order2_unique {n d d' : Nat} (h : IsOrder2 n d) (h' : IsOrder2 n d') : d = d' := by
+  rcases Nat.lt_trichotomy d d' with hlt | heq | hgt
+  · exact absurd h.2.1 (h'.2.2 d h.1 hlt)
+  · exact heq
+  · exact absurd h'.2.1 (h.2.2 d' h'.1 hgt)
+
+theorem covering_length_unique {q m' γ γ' : Nat} (h : Covers q m' γ)
+    (hmin : ∀ j, j < γ → ¬ Covers q m' j) (h' : Covers q m' γ')
+    (hmin' : ∀ j, j < γ' → ¬ Covers q m' j) : γ = γ' := by
+  rcases Nat.lt_trichotomy γ γ' with hlt | heq | hgt
+  · exact absurd h (hmin' γ hlt)
+  · exact heq
+  · exact absurd h' (hmin γ' hgt)
+
+theorem decomp_unique {q m α mq m' β d e eQ e' K α2 mq2 mp2 β2 d2 e2 eQ2 ep2 K2 : Nat}
+    (hq : OddNonWieferich q) (hD : Decomp q m α mq m' β d e eQ e' K)
+    (hD2 : Decomp q m α2 mq2 mp2 β2 d2 e2 eQ2 ep2 K2) :
+    α = α2 ∧ mq = mq2 ∧ m' = mp2 ∧ β = β2 ∧ d = d2 ∧ e = e2 ∧ eQ = eQ2 ∧ e' = ep2 ∧ K = K2 := by
+  obtain ⟨hq1, hodd, -⟩ := hq
+  have hq0 : 0 < q := Nat.lt_trans Nat.zero_lt_one hq1
+  obtain ⟨hm, hM, -, hA, hAmin, hdo, heo, hee, -, he'q, hKe, hKmin⟩ := hD
+  obtain ⟨hm2, hM2, -, hA2, hAmin2, hdo2, heo2, hee2, -, he'q2, hKe2, hKmin2⟩ := hD2
+  have hmq : mq % 2 = 1 := odd_of_dvd_pow hodd hA
+  have hmq2 : mq2 % 2 = 1 := odd_of_dvd_pow hodd hA2
+  have hm'2 : m' % 2 = 1 := odd_of_coprime_two (coprime_two_of_coprime_two_mul hM)
+  have hmp2 : mp2 % 2 = 1 := odd_of_coprime_two (coprime_two_of_coprime_two_mul hM2)
+  have hx : (mq * m') % 2 = 1 := by rw [Nat.mul_mod, hmq, hm'2]
+  have hy : (mq2 * mp2) % 2 = 1 := by rw [Nat.mul_mod, hmq2, hmp2]
+  have e1 : 2 ^ α * (mq * m') = 2 ^ α2 * (mq2 * mp2) := by
+    rw [← Nat.mul_assoc, ← Nat.mul_assoc, ← hm, ← hm2]
+  obtain ⟨hα, hprod⟩ := two_pow_mul_unique hx hy e1
+  obtain ⟨hmqe, hm'e⟩ := smooth_part_unique hq0 hA hA2 (coprime_p_of_coprime_two_mul hM)
+    (coprime_p_of_coprime_two_mul hM2) hprod
+  subst hmqe
+  subst hm'e
+  have hβ : β = β2 := Nat.le_antisymm (hAmin β2 hA2) (hAmin2 β hA)
+  have hd : d = d2 := order2_unique hdo hdo2
+  have he : e = e2 := order2_unique heo heo2
+  have hee3 : eQ * e' = eQ2 * ep2 := hee.symm.trans (he.trans hee2)
+  obtain ⟨heQ, hep⟩ := smooth_part_unique hq0 hKe hKe2 he'q he'q2 hee3
+  subst heQ
+  subst hep
+  have hK : K = K2 := Nat.le_antisymm (hKmin K2 hKe2) (hKmin2 K hKe)
+  exact ⟨hα, rfl, rfl, hβ, hd, he, rfl, rfl, hK⟩
+
+theorem params_unique {q m α mq m' β d e eQ e' K γ α2 mq2 mp2 β2 d2 e2 eQ2 ep2 K2 γ2 : Nat}
+    (hq : OddNonWieferich q) (hD : Decomp q m α mq m' β d e eQ e' K) (hγ : Covers q m' γ)
+    (hmin : ∀ j, j < γ → ¬ Covers q m' j)
+    (hD2 : Decomp q m α2 mq2 mp2 β2 d2 e2 eQ2 ep2 K2) (hγ2 : Covers q mp2 γ2)
+    (hmin2 : ∀ j, j < γ2 → ¬ Covers q mp2 j) :
+    α = α2 ∧ mq = mq2 ∧ m' = mp2 ∧ β = β2 ∧ d = d2 ∧ e = e2 ∧ eQ = eQ2 ∧ e' = ep2 ∧ K = K2 ∧
+      γ = γ2 := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := decomp_unique hq hD hD2
+  subst h3
+  exact ⟨h1, h2, rfl, h4, h5, h6, h7, h8, h9, covering_length_unique hγ hmin hγ2 hmin2⟩
 
 end Collatz
+#print axioms Collatz.theorem_A
+#print axioms Collatz.theorem_B
