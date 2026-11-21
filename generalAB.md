@@ -2,7 +2,7 @@
 
 **Scope and verification boundary.** For every odd $q > 1$ and every $t \ge 1$ we determine whether the backward orbit $R_q(t)$ of the map $\operatorname{Col}_q$ is dense in $\widehat{\mathbb{Z}}$ (Theorem A) or a Haar-null set (Theorem B). Which case occurs is decided by a finite computation on a graph (Proposition 1). These are statements about *backward* orbits only: nothing here bears on forward orbits, on cycles of $\operatorname{Col}_q$ beyond those in $R_q(t)$, or on the Collatz conjecture.
 
-All integer and finite-modulus statements (Proposition 1, Theorems A and B with every explicit bound) are formalized in Lean 4 core, with no Mathlib, as `general_prop1`, `general_theorem_A`, and `general_theorem_B` (folder `QX+1/`). The proofs use no `sorry`, and `#print axioms` reports only `[propext, Quot.sound]`. The profinite ring $\widehat{\mathbb{Z}}$ and its Haar measure $\mu$ are not in Lean, because core Lean has no measure theory. The measure statements follow in a few lines from the formalized ones; this derivation is §6, and it is the only part of the paper not machine-checked.
+All integer and finite-modulus statements (Proposition 1, Theorems A and B with every explicit bound) are formalized in Lean 4.35 core, with no Mathlib, as `general_prop1`, `general_theorem_A`, and `general_theorem_B` (folder `QX+1/`). The proofs use no `sorry`, and in Lean 4.35 `#print axioms` reports only `[propext, Quot.sound]`. The profinite ring $\widehat{\mathbb{Z}}$ and its Haar measure $\mu$ are not in Lean 4.35, because Lean 4.35 core has no measure theory. The measure statements follow in a few lines from the formalized ones; this derivation is §6, and it is the only part of the paper not machine-checked.
 
 ---
 
@@ -16,7 +16,7 @@ For $t \ge 1$ and $m \ge 1$, a *backward chain of $m$ odd steps* in $R_q(t)$ is 
 
 Since $q \ge 3$ is odd, $\gcd(2, q) = 1$ and $2 \not\equiv 1 \pmod q$, so $d = \operatorname{ord}_q(2) \ge 2$ exists and $u = (2^d - 1)/q \in \mathbb{Z}_{\ge 1}$ satisfies $2^d = 1 + qu$. Put $g_0 = \gcd(q, u)$. For each prime $p \mid q$, let $v_p$ denote the $p$-adic valuation and set $\alpha_p = v_p(q) \ge 1$ and $\nu_p = v_p(u) \ge 0$. Define
 $$u_q = \prod_{p \mid q} p^{\nu_p}, \qquad N_q = q u_q = \prod_{p \mid q} p^{\alpha_p + \nu_p}, \qquad \kappa = \max_{p \mid q} \left\lceil \frac{\nu_p}{\alpha_p} \right\rceil \ge 0.$$
-Equivalently, $\kappa$ is the least $k \ge 0$ with $u_q \mid q^k$, since $p^{\nu_p} \mid p^{k\alpha_p}$ iff $k \ge \lceil \nu_p/\alpha_p \rceil$. (Lean uses this form; `nu_le_kappa` and `kappa_le_of_nu_le` prove the equivalence.) Then $g_0 = 1$ if and only if $\nu_p = 0$ for all $p \mid q$, which holds if and only if $u_q = 1$, and if and only if $\kappa = 0$. Since $q \mid N_q$ and $N_q \mid qu = 2^d - 1$, we have $\operatorname{ord}_{N_q}(2) = d$.
+Equivalently, $\kappa$ is the least $k \ge 0$ with $u_q \mid q^k$, since $p^{\nu_p} \mid p^{k\alpha_p}$ iff $k \ge \lceil \nu_p/\alpha_p \rceil$. (Lean 4.35 uses this form; `nu_le_kappa` and `kappa_le_of_nu_le` prove the equivalence.) Then $g_0 = 1$ if and only if $\nu_p = 0$ for all $p \mid q$, which holds if and only if $u_q = 1$, and if and only if $\kappa = 0$. Since $q \mid N_q$ and $N_q \mid qu = 2^d - 1$, we have $\operatorname{ord}_{N_q}(2) = d$.
 
 Let $H_q = \langle 2 \rangle \subseteq (\mathbb{Z}/q\mathbb{Z})^\times$. For each $a \in \{1, \dots, d\}$, $\gcd(2^a - q, q) = \gcd(2^a, q) = 1$, so $2^a - q$ is invertible modulo every integer whose prime factors all divide $q$; let $c_a \in (\mathbb{Z}/N_q\mathbb{Z})^\times$ denote the inverse of $2^a - q$ modulo $N_q$.
 
@@ -333,9 +333,9 @@ Let $\pi_m : \widehat{\mathbb{Z}} \to \mathbb{Z}/m\mathbb{Z}$ be the projections
 2. **Null sets.** For every $n$, $\pi_{2^n}^{-1}(X \bmod 2^n)$ is closed and contains $X$. Also $(\pi_{2^n})_*\mu$ is uniform, since it is a translation-invariant probability on a finite group. So $\mu(\overline{X}) \le |X \bmod 2^n|/2^n$. Theorem B(2) gives $\mu(\overline{R_q(t)}) \le (n+1)^{\kappa+1}/2^n \to 0$, hence $\mu(\overline{R_q(t)}) = 0$ and $\overline{R_q(t)} \neq \widehat{\mathbb{Z}}$.
 3. **Dichotomy.** "Some $x \in R_q(t)$ satisfies (H)" and "no $x \in R_q(t)$ satisfies (H)" are negations of each other, so 1 and 2 give $\mu(\overline{R_q(t)}) \in \{0, 1\}$ for every odd $q > 1$ and $t \ge 1$.
 
-**Lean correspondence.**
+**Lean 4.35 correspondence.**
 
-| Paper | Lean (`QX+1/Collatz/`) |
+| Paper | Lean 4.35 (`QX+1/Collatz/`) |
 |---|---|
 | Proposition 1 | `Prop1`, `general_prop1` (GeneralDefs, GeneralLift) |
 | (3) ⇒ (1) via $D_m$ | `Dm`, `glift_step`, `lift_chain`, `prop1_three_to_one` (GeneralLift) |
@@ -343,4 +343,4 @@ Let $\pi_m : \widehat{\mathbb{Z}} \to \mathbb{Z}/m\mathbb{Z}$ be the projections
 | Lemma 12 | `shift_select` (GeneralASelect) |
 | Theorem B (1), (2) count bound, (3) | `TheoremB`, `general_theorem_B` (GeneralDefs, GeneralTheoremB) |
 | $\kappa = \max_p \lceil \nu_p/\alpha_p \rceil$ | `nu_le_kappa`, `kappa_le_of_nu_le` (GeneralAStage) |
-| §6 (Haar measure, closure, 0–1 law) | not formalized (no measure theory in core Lean) |
+| §6 (Haar measure, closure, 0–1 law) | not formalized (no measure theory in Lean 4.35 core) |
