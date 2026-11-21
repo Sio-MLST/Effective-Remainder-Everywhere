@@ -1,8 +1,8 @@
 # Supplements to `generalAB.md`
 
-Results that sit next to the main paper: sharper bounds for special moduli, corollaries, worked examples and open questions. They were extracted from the earlier version of this work, which lives on the branch `old` (file `Preprint_Reaching_Every_Residue.md`; section numbers below refer to it).
+Results that sit next to the main paper: sharper bounds for special moduli, corollaries, a worked example and open questions.
 
-**Status.** Nothing in this file is formalized in Lean 4.35, and nothing here is needed for `generalAB.md`. Unless stated otherwise the proofs were written for the case $\kappa = 0$, that is $u_q = 1$, $N_q = q$, $V_q = H_q$, where the criterion of Proposition 1 reads $t \bmod q \in \langle 2 \rangle$. Extending each statement to $\kappa \ge 1$ is part of the work listed in §6.
+**Status.** Nothing in this file is formalized in Lean 4.35, and nothing here is needed for `generalAB.md`. Proposition S1 and the results of §§2 and 4 are proved in full. Statements S2 to S6 are given with the idea of the proof only; complete proofs remain to be written. Unless stated otherwise the statements are for $\kappa = 0$, that is $u_q = 1$, $N_q = q$, $V_q = H_q$, where the criterion of Proposition 1 reads $t \bmod q \in \langle 2 \rangle$. Extending each to $\kappa \ge 1$ is listed in §5.
 
 Notation is that of `generalAB.md`: $d = \operatorname{ord}_q(2)$, $2^d = 1 + qu$, $m = 2^\alpha m_q m'$ as in its §3, and $L$ with $q \le 2^L$.
 
@@ -26,7 +26,7 @@ Let $k$ be least with $k \equiv k_r \pmod m$ and $R_k > B$, and $w = R_k$. If $k
 
 ### 1.2 Moduli $m = 2^\alpha m_q$ (no other odd primes): polynomial exponent
 
-**Proposition S2** (§6.9, Corollary 6.9). *If $m = 2^\alpha m_q \ge 2$, some $w \equiv r \pmod m$ with*
+**Proposition S2.** *If $m = 2^\alpha m_q \ge 2$, some $w \equiv r \pmod m$ with*
 $$B < w < (B+1)\, t\, 2^{\,d\, m^{\log_2 q} + \alpha + d + 1}$$
 *reaches $t$.*
 
@@ -36,17 +36,17 @@ The exponent is polynomial in $m$ of degree $\log_2 q$. For $\alpha = 0$ and $q$
 
 The double exponential in the general bound is paid for odd steps in the word that moves between classes modulo $m'$. Writing a word by the positions of its ones makes the cost explicit.
 
-**Lemma S3** (Lemma 6.10). *Let $H = \langle 2 \rangle \subseteq (\mathbb{Z}/m')^\times$, $e = \operatorname{ord}_{m'}(2)$. A word of length $\ell$ with ones at positions $C_1 > \dots > C_s \ge 1$ (counted from the end) acts on $\mathbb{Z}/m'$ by*
+**Lemma S3** *Let $H = \langle 2 \rangle \subseteq (\mathbb{Z}/m')^\times$, $e = \operatorname{ord}_{m'}(2)$. A word of length $\ell$ with ones at positions $C_1 > \dots > C_s \ge 1$ (counted from the end) acts on $\mathbb{Z}/m'$ by*
 $$S_\omega(z) = q^s 2^{-\ell} z + \sum_{k=1}^{s} q^{s-k} 2^{-C_k},$$
 *and for all $h_0, \dots, h_s \in H$ some word with exactly $s$ ones and length at most $(s+1)e - 1$ acts as $z \mapsto q^s h_0 z + \sum_k q^{s-k} h_k$.*
 
 So $s$ odd steps reach $y$ from $z$ iff $y - q^s h_0 z \in H + qH + \dots + q^{s-1}H$ for some $h_0 \in H$, and the question is how small $s$ can be for this sumset to cover $\mathbb{Z}/m'$. `generalAB.md`, Lemma 3 (Chowla) gives $s \le 1 + \lceil (m' - e)/\varphi(e) \rceil$ for every $m'$. Two families do much better.
 
-**Proposition S4** (Prop. 6.11). *If $m' = p^r$ with $2$ a primitive root modulo $p^r$ and $\gcd(m', q) = 1$, two odd steps suffice: for all $z, y$ some word with exactly two ones and length at most $3\varphi(m') - 1$ sends $z$ to $y$. The witness bound becomes $(B+1)\,t\,2^{2q^3 m^{L+1}}$.*
+**Proposition S4.** *If $m' = p^r$ with $2$ a primitive root modulo $p^r$ and $\gcd(m', q) = 1$, two odd steps suffice: for all $z, y$ some word with exactly two ones and length at most $3\varphi(m') - 1$ sends $z$ to $y$. The witness bound becomes $(B+1)\,t\,2^{2q^3 m^{L+1}}$.*
 
 (Idea: with $c = y - q^2 z$ choose a unit $h_2$ with $c - h_2$ also a unit, which needs only $p \ge 3$.)
 
-**Proposition S5** (Prop. 6.12). *Let $\lambda \ge 1$ be least with $q^\lambda \in H$ (the order of $q$ in $(\mathbb{Z}/m')^\times / H$), $s_0 = \lceil \log_2 (m' + 1) \rceil$ and $n = \lambda s_0$. Then $n$ odd steps suffice, and the witness bound is*
+**Proposition S5.** *Let $\lambda \ge 1$ be least with $q^\lambda \in H$ (the order of $q$ in $(\mathbb{Z}/m')^\times / H$), $s_0 = \lceil \log_2 (m' + 1) \rceil$ and $n = \lambda s_0$. Then $n$ odd steps suffice, and the witness bound is*
 $$(B+1)\,t\,2^{\,2 q^{2\lambda + 1} m^{(\lambda+1)L + 1}}.$$
 *For $q \in \langle 2 \rangle \bmod m'$, $\lambda = 1$.*
 
@@ -64,7 +64,7 @@ $$(B+1)\,t\,2^{\,2 q^{2\lambda + 1} m^{(\lambda+1)L + 1}}.$$
 
 ### 1.5 Number of steps
 
-**Proposition S6** (Cor. 6.14). *In the construction of the earlier version, the witness $w$ satisfies $\operatorname{Col}_q^N(w) = t$ with exactly $s$ odd steps, $s \le \log_2 m + s_* + 1$ where $s_* = \lfloor (m'-1)/\varphi(e) \rfloor + 1$, and $N \le 2 m^{L+1} q^{s_*+1} + (L+1)s + \log_2 (B+2)$.* $N$ bounds the first time the orbit of $w$ reaches $t$; it need not equal it.
+**Proposition S6.** *In the construction behind these bounds (a parity word followed by halvings), the witness $w$ satisfies $\operatorname{Col}_q^N(w) = t$ with exactly $s$ odd steps, $s \le \log_2 m + s_* + 1$ where $s_* = \lfloor (m'-1)/\varphi(e) \rfloor + 1$, and $N \le 2 m^{L+1} q^{s_*+1} + (L+1)s + \log_2 (B+2)$.* $N$ bounds the first time the orbit of $w$ reaches $t$; it need not equal it.
 
 For `generalAB.md` the corresponding statement would use $s = K + \kappa + \gamma + 2$ from its §3. That has not been written down.
 
@@ -86,7 +86,7 @@ For `generalAB.md` the corresponding statement would use $s = K + \kappa + \gamm
 
 $q = 5$ ($d = 4$, $L = 3$), $t = 7$ (admissible, $7 \equiv 2 \pmod 5$), with $11 \to 56 \to 28 \to 14 \to 7$.
 
-* $m = 11$, $r = 0$, $B = 0$: the least witness is $11$. The bound of the earlier version, $t\, 2^{2 \cdot 11^4 \cdot 5^4}$, has about $5.5$ million digits.
+* $m = 11$, $r = 0$, $B = 0$: the least witness is $11$. The general bound $t\, 2^{2 m^{L+1} q^m}$ (stated here without proof) gives $t\, 2^{2 \cdot 11^4 \cdot 5^4}$, which has about $5.5$ million digits.
 * $m = 10$, $r = 1$, $B = 0$: the least witness is again $11$ (the only smaller candidate, $1$, lies on a cycle not containing $7$). Here S2 gives $w < 7 \cdot 2^{4 \cdot 10^{\log_2 5} + 6} \approx 2.22 \cdot 10^{255}$.
 
 The bounds describe the witness the construction produces, not the least one, and their size is driven by the odd prime factors of $m$ not dividing $q$.
@@ -112,13 +112,8 @@ The theorem of `generalAB.md` (Theorem B) is stronger: it bounds the odd depth o
 ## 5. Open questions
 
 1. Is the exponent linear in $m$ for powers of $2$ and for mixed moduli $2^\alpha m_q$?
-2. Does every modulus admit a single exponential? By the earlier analysis this follows if the connecting word can always be taken with $O(\log m')$ odd steps. Known: S4 and S5 for two families, and the Chowla bound of `generalAB.md`, Lemma 3, in general.
+2. Does every modulus admit a single exponential? This follows from the construction behind S2 to S5 if the connecting word can always be taken with $O(\log m')$ odd steps. Known: S4 and S5 for two families, and the Chowla bound of `generalAB.md`, Lemma 3, in general.
 3. For $\kappa \ge 1$: does every cycle element satisfy the criterion of Proposition 1? Is every positive integer's orbit eventually met by a target satisfying it (needed for sufficiency, §2)?
 4. Compare the bound of Theorem A in `generalAB.md` ($E^*$, $E^{**}$) numerically with S1 to S5 for small $(q, m)$, and restate S1 to S6 for $\kappa \ge 1$ using $u_q$, $\kappa$ and $D_m$.
 5. Formalize S1 to S6 in Lean 4.35 as additional modules, after (4).
 
----
-
-## 6. What was not carried over
-
-Dropped from the earlier version as redundant or weaker than `generalAB.md`: the classification of targets (second case: predecessors are exactly $2^k t$) is the case $\kappa = 0$ of Theorem B(1); the classification of multipliers via the target $1$ is a special case of Proposition 1; the first effective bound $2 m^{L+1} q^m$ is weaker than Theorem A; the sumset covering lemma is Lemma 3 of `generalAB.md`; the monolithic Lean file and the $5x+1$ file with $3 \nmid N$ are superseded by the Lean 4.35 formalization of `generalAB.md`. Everything is still available on the branch `old`.

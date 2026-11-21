@@ -34,9 +34,7 @@ A compiler confirms that the proof is correct, but not that the formal statement
 
 * `generalAB.md`: the paper (Proposition 1, Theorem A, Theorem B).
 * `SUPPLEMENTS.md`: sharper bounds for special moduli, corollaries, examples and open questions. Not formalized in Lean 4.35.
-* `qx+1.lean`: an earlier single-file Lean 4.35 formalization.
-
-The earlier version of this work (with the $3x+1$ framing and a Lean file that uses `Classical.choice`) is on the branch `old`.
+* `qx+1.lean`: Lean source (single file).
 
 ## What this does not establish
 
