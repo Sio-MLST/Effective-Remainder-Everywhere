@@ -33,14 +33,10 @@ A compiler confirms that the proof is correct, but not that the formal statement
 ## Files
 
 * `generalAB.md`: the paper (Proposition 1, Theorem A, Theorem B).
+* `SUPPLEMENTS.md`: sharper bounds for special moduli, corollaries, examples and open questions. Not formalized in Lean 4.35.
 * `qx+1.lean`: an earlier single-file Lean 4.35 formalization.
 
-Earlier versions with the $3x+1$ framing, kept for the record and superseded by `generalAB.md`:
-
-* `Preprint_Reaching_Every_Residue.md`
-* `Effective_Remainder_Everywhere_2026-11-01.{tex,pdf,lean}`
-* `ERE_5x1.lean`
-* `Collatz-What-Remains-2026-11-01.pdf`
+The earlier version of this work (with the $3x+1$ framing and a Lean file that uses `Classical.choice`) is on the branch `old`.
 
 ## What this does not establish
 
