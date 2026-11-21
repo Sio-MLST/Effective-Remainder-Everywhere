@@ -1,10 +1,10 @@
-# Supplements to `generalAB.md`
+# Supplements to `paper.md`
 
 Results that sit next to the main paper: sharper bounds for special moduli, corollaries, a worked example and open questions.
 
-**Status.** Nothing in this file is formalized in Lean 4.35, and nothing here is needed for `generalAB.md`. Proposition S1 and the results of §§2 and 4 are proved in full. Statements S2 to S6 are given with the idea of the proof only; complete proofs remain to be written. Unless stated otherwise the statements are for $\kappa = 0$, that is $u_q = 1$, $N_q = q$, $V_q = H_q$, where the criterion of Proposition 1 reads $t \bmod q \in \langle 2 \rangle$. Extending each to $\kappa \ge 1$ is listed in §5.
+**Status.** Nothing in this file is formalized in Lean 4.35, and nothing here is needed for `paper.md`. Proposition S1 and the results of §§2 and 4 are proved in full. Statements S2 to S6 are given with the idea of the proof only; complete proofs remain to be written. Unless stated otherwise the statements are for $\kappa = 0$, that is $u_q = 1$, $N_q = q$, $V_q = H_q$, where the criterion of Proposition 1 reads $t \bmod q \in \langle 2 \rangle$. Extending each to $\kappa \ge 1$ is listed in §5.
 
-Notation is that of `generalAB.md`: $d = \mathrm{ord}_q(2)$, $2^d = 1 + qu$, $m = 2^\alpha m_q m'$ as in its §3, and $L$ with $q \le 2^L$.
+Notation is that of `paper.md`: $d = \mathrm{ord}_q(2)$, $2^d = 1 + qu$, $m = 2^\alpha m_q m'$ as in its §3, and $L$ with $q \le 2^L$.
 
 ---
 
@@ -40,7 +40,7 @@ The double exponential in the general bound is paid for odd steps in the word th
 $$S_\omega(z) = q^s 2^{-\ell} z + \sum_{k=1}^{s} q^{s-k} 2^{-C_k},$$
 *and for all $h_0, \dots, h_s \in H$ some word with exactly $s$ ones and length at most $(s+1)e - 1$ acts as $z \mapsto q^s h_0 z + \sum_k q^{s-k} h_k$.*
 
-So $s$ odd steps reach $y$ from $z$ iff $y - q^s h_0 z \in H + qH + \dots + q^{s-1}H$ for some $h_0 \in H$, and the question is how small $s$ can be for this sumset to cover $\mathbb{Z}/m'$. `generalAB.md`, Lemma 3 (Chowla) gives $s \le 1 + \lceil (m' - e)/\varphi(e) \rceil$ for every $m'$. Two families do much better.
+So $s$ odd steps reach $y$ from $z$ iff $y - q^s h_0 z \in H + qH + \dots + q^{s-1}H$ for some $h_0 \in H$, and the question is how small $s$ can be for this sumset to cover $\mathbb{Z}/m'$. `paper.md`, Lemma 3 (Chowla) gives $s \le 1 + \lceil (m' - e)/\varphi(e) \rceil$ for every $m'$. Two families do much better.
 
 **Proposition S4.** *If $m' = p^r$ with $2$ a primitive root modulo $p^r$ and $\gcd(m', q) = 1$, two odd steps suffice: for all $z, y$ some word with exactly two ones and length at most $3\varphi(m') - 1$ sends $z$ to $y$. The witness bound becomes $(B+1)\,t\,2^{2q^3 m^{L+1}}$.*
 
@@ -60,13 +60,13 @@ $$(B+1)\,t\,2^{\,2 q^{2\lambda + 1} m^{(\lambda+1)L + 1}}.$$
 | $m = 2^\alpha m_q$ | $d\, m^{\log_2 q} + \alpha + d + 1$ | S2 |
 | $m' = p^r$, $2$ a primitive root | $2 q^3 m^{L+1}$ | S4 |
 | $q^\lambda \in \langle 2 \rangle \bmod m'$ | $2 q^{2\lambda+1} m^{(\lambda+1)L+1}$ | S5 |
-| all $m$ | the bound of Theorem A in `generalAB.md` | Theorem A |
+| all $m$ | the bound of Theorem A in `paper.md` | Theorem A |
 
 ### 1.5 Number of steps
 
 **Proposition S6.** *In the construction behind these bounds (a parity word followed by halvings), the witness $w$ satisfies $\mathrm{Col}_q^N(w) = t$ with exactly $s$ odd steps, $s \le \log_2 m + s_* + 1$ where $s_* = \lfloor (m'-1)/\varphi(e) \rfloor + 1$, and $N \le 2 m^{L+1} q^{s_*+1} + (L+1)s + \log_2 (B+2)$.* $N$ bounds the first time the orbit of $w$ reaches $t$; it need not equal it.
 
-For `generalAB.md` the corresponding statement would use $s = K + \kappa + \gamma + 2$ from its §3. That has not been written down.
+For `paper.md` the corresponding statement would use $s = K + \kappa + \gamma + 2$ from its §3. That has not been written down.
 
 ---
 
@@ -105,15 +105,15 @@ $$T = \{x : x \equiv 2^i \pmod{qg} \text{ for some } i \ge 0\} \cup \{x : g \mid
 
 *Example.* $q = 21$, $g = 3$, $d = 6$: $T$ consists of the classes $1, 2, 4, 8, 16, 32$ and the multiples of $3$ modulo $63$. The class of $5$ modulo $63$ is outside $T$, so no $x \equiv 5 \pmod{63}$ reaches $1$ under $21x + 1$. Consistently, $t = 1$ is not among the qualifying targets listed for $q = 21$ in `README.md`.
 
-The theorem of `generalAB.md` (Theorem B) is stronger: it bounds the odd depth of every chain by $\kappa$ and gives Haar measure zero. The sets $T$ give the same conclusion as an explicit union of residue classes, closed under taking predecessors, which is useful as a short certificate.
+The theorem of `paper.md` (Theorem B) is stronger: it bounds the odd depth of every chain by $\kappa$ and gives Haar measure zero. The sets $T$ give the same conclusion as an explicit union of residue classes, closed under taking predecessors, which is useful as a short certificate.
 
 ---
 
 ## 5. Open questions
 
 1. Is the exponent linear in $m$ for powers of $2$ and for mixed moduli $2^\alpha m_q$?
-2. Does every modulus admit a single exponential? This follows from the construction behind S2 to S5 if the connecting word can always be taken with $O(\log m')$ odd steps. Known: S4 and S5 for two families, and the Chowla bound of `generalAB.md`, Lemma 3, in general.
+2. Does every modulus admit a single exponential? This follows from the construction behind S2 to S5 if the connecting word can always be taken with $O(\log m')$ odd steps. Known: S4 and S5 for two families, and the Chowla bound of `paper.md`, Lemma 3, in general.
 3. For $\kappa \ge 1$: does every cycle element satisfy the criterion of Proposition 1? Is every positive integer's orbit eventually met by a target satisfying it (needed for sufficiency, §2)?
-4. Compare the bound of Theorem A in `generalAB.md` ($E^*$, $E^{**}$) numerically with S1 to S5 for small $(q, m)$, and restate S1 to S6 for $\kappa \ge 1$ using $u_q$, $\kappa$ and $D_m$.
+4. Compare the bound of Theorem A in `paper.md` ($E^*$, $E^{**}$) numerically with S1 to S5 for small $(q, m)$, and restate S1 to S6 for $\kappa \ge 1$ using $u_q$, $\kappa$ and $D_m$.
 5. Formalize S1 to S6 in Lean 4.35 as additional modules, after (4).
 

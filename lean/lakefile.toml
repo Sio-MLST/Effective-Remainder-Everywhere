@@ -1,0 +1,5 @@
+name = "QX"
+defaultTargets = ["Collatz"]
+
+[[lean_lib]]
+name = "Collatz"
