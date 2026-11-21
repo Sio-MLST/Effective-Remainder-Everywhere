@@ -4,7 +4,7 @@ Results that sit next to the main paper: sharper bounds for special moduli, coro
 
 **Status.** Nothing in this file is formalized in Lean 4.35, and nothing here is needed for `generalAB.md`. Proposition S1 and the results of §§2 and 4 are proved in full. Statements S2 to S6 are given with the idea of the proof only; complete proofs remain to be written. Unless stated otherwise the statements are for $\kappa = 0$, that is $u_q = 1$, $N_q = q$, $V_q = H_q$, where the criterion of Proposition 1 reads $t \bmod q \in \langle 2 \rangle$. Extending each to $\kappa \ge 1$ is listed in §5.
 
-Notation is that of `generalAB.md`: $d = \operatorname{ord}_q(2)$, $2^d = 1 + qu$, $m = 2^\alpha m_q m'$ as in its §3, and $L$ with $q \le 2^L$.
+Notation is that of `generalAB.md`: $d = \mathrm{ord}_q(2)$, $2^d = 1 + qu$, $m = 2^\alpha m_q m'$ as in its §3, and $L$ with $q \le 2^L$.
 
 ---
 
@@ -36,7 +36,7 @@ The exponent is polynomial in $m$ of degree $\log_2 q$. For $\alpha = 0$ and $q$
 
 The double exponential in the general bound is paid for odd steps in the word that moves between classes modulo $m'$. Writing a word by the positions of its ones makes the cost explicit.
 
-**Lemma S3** *Let $H = \langle 2 \rangle \subseteq (\mathbb{Z}/m')^\times$, $e = \operatorname{ord}_{m'}(2)$. A word of length $\ell$ with ones at positions $C_1 > \dots > C_s \ge 1$ (counted from the end) acts on $\mathbb{Z}/m'$ by*
+**Lemma S3** *Let $H = \langle 2 \rangle \subseteq (\mathbb{Z}/m')^\times$, $e = \mathrm{ord}_{m'}(2)$. A word of length $\ell$ with ones at positions $C_1 > \dots > C_s \ge 1$ (counted from the end) acts on $\mathbb{Z}/m'$ by*
 $$S_\omega(z) = q^s 2^{-\ell} z + \sum_{k=1}^{s} q^{s-k} 2^{-C_k},$$
 *and for all $h_0, \dots, h_s \in H$ some word with exactly $s$ ones and length at most $(s+1)e - 1$ acts as $z \mapsto q^s h_0 z + \sum_k q^{s-k} h_k$.*
 
@@ -64,7 +64,7 @@ $$(B+1)\,t\,2^{\,2 q^{2\lambda + 1} m^{(\lambda+1)L + 1}}.$$
 
 ### 1.5 Number of steps
 
-**Proposition S6.** *In the construction behind these bounds (a parity word followed by halvings), the witness $w$ satisfies $\operatorname{Col}_q^N(w) = t$ with exactly $s$ odd steps, $s \le \log_2 m + s_* + 1$ where $s_* = \lfloor (m'-1)/\varphi(e) \rfloor + 1$, and $N \le 2 m^{L+1} q^{s_*+1} + (L+1)s + \log_2 (B+2)$.* $N$ bounds the first time the orbit of $w$ reaches $t$; it need not equal it.
+**Proposition S6.** *In the construction behind these bounds (a parity word followed by halvings), the witness $w$ satisfies $\mathrm{Col}_q^N(w) = t$ with exactly $s$ odd steps, $s \le \log_2 m + s_* + 1$ where $s_* = \lfloor (m'-1)/\varphi(e) \rfloor + 1$, and $N \le 2 m^{L+1} q^{s_*+1} + (L+1)s + \log_2 (B+2)$.* $N$ bounds the first time the orbit of $w$ reaches $t$; it need not equal it.
 
 For `generalAB.md` the corresponding statement would use $s = K + \kappa + \gamma + 2$ from its §3. That has not been written down.
 
@@ -76,9 +76,9 @@ For `generalAB.md` the corresponding statement would use $s = K + \kappa + \gamm
 
 **Infinitude.** Reapplying Theorem A with $B$ replaced by a predecessor already found gives infinitely many predecessors in every class.
 
-**Sufficient sets** (in the sense of Monks). Call $S \subseteq \mathbb{N}_{\ge 1}$ sufficient for $\operatorname{Col}_q$ if the orbit of every positive integer meets the orbit of an element of $S$. Let $x \ge 1$ and let $y$ be the odd number reached by halving $x$. Then $t = qy + 1 \equiv 1 \pmod q$ lies in the orbit of $x$ and $t \bmod q \in H_q$. If $\kappa = 0$, Theorem A applies to $t$, so every arithmetic progression $a + b\mathbb{N}$ is sufficient, with $w$ bounded as in Theorem A. For $\kappa \ge 1$ the same holds for every $x$ whose orbit meets a target satisfying the criterion of Proposition 1; whether that is every $x$ is open (§5).
+**Sufficient sets** (in the sense of Monks). Call $S \subseteq \mathbb{N}_{\ge 1}$ sufficient for $\mathrm{Col}_q$ if the orbit of every positive integer meets the orbit of an element of $S$. Let $x \ge 1$ and let $y$ be the odd number reached by halving $x$. Then $t = qy + 1 \equiv 1 \pmod q$ lies in the orbit of $x$ and $t \bmod q \in H_q$. If $\kappa = 0$, Theorem A applies to $t$, so every arithmetic progression $a + b\mathbb{N}$ is sufficient, with $w$ bounded as in Theorem A. For $\kappa \ge 1$ the same holds for every $x$ whose orbit meets a target satisfying the criterion of Proposition 1; whether that is every $x$ is open (§5).
 
-**Cycles.** Every element $t$ of a cycle of $\operatorname{Col}_q$ satisfies $t \bmod q \in H_q$: going backward around the cycle from $t$, the first odd element $x$ satisfies $qx + 1 = 2^k t$. So for $\kappa = 0$ the predecessors of every cycle element meet every class modulo every $m$. For $\kappa \ge 1$ this needs the criterion of Proposition 1 at the cycle element.
+**Cycles.** Every element $t$ of a cycle of $\mathrm{Col}_q$ satisfies $t \bmod q \in H_q$: going backward around the cycle from $t$, the first odd element $x$ satisfies $qx + 1 = 2^k t$. So for $\kappa = 0$ the predecessors of every cycle element meet every class modulo every $m$. For $\kappa \ge 1$ this needs the criterion of Proposition 1 at the cycle element.
 
 ---
 
@@ -97,11 +97,11 @@ The bounds describe the witness the construction produces, not the least one, an
 
 ## 4. Explicit trapped classes
 
-A concrete certificate form of the finite-depth trap. Let $g > 1$ divide $q$ with $\operatorname{ord}_{qg}(2) = d = \operatorname{ord}_q(2)$ (equivalently $qg \mid 2^d - 1$). Put
+A concrete certificate form of the finite-depth trap. Let $g > 1$ divide $q$ with $\mathrm{ord}_{qg}(2) = d = \mathrm{ord}_q(2)$ (equivalently $qg \mid 2^d - 1$). Put
 $$T = \{x : x \equiv 2^i \pmod{qg} \text{ for some } i \ge 0\} \cup \{x : g \mid x\}.$$
 **If $t \in T$, then every $x$ reaching $t$ lies in $T$.**
 
-*Proof.* It suffices to show $\operatorname{Col}_q(x) \in T \Rightarrow x \in T$. For even $x$ this is clear. For odd $x$, $qx + 1 \equiv 1 \pmod g$, so $g \nmid qx + 1$, hence $qx + 1 \equiv 2^i \pmod{qg}$. Reducing modulo $q$ gives $d \mid i$, so $2^i \equiv 1 \pmod{qg}$ and $g \mid x$. $\square$
+*Proof.* It suffices to show $\mathrm{Col}_q(x) \in T \Rightarrow x \in T$. For even $x$ this is clear. For odd $x$, $qx + 1 \equiv 1 \pmod g$, so $g \nmid qx + 1$, hence $qx + 1 \equiv 2^i \pmod{qg}$. Reducing modulo $q$ gives $d \mid i$, so $2^i \equiv 1 \pmod{qg}$ and $g \mid x$. $\square$
 
 *Example.* $q = 21$, $g = 3$, $d = 6$: $T$ consists of the classes $1, 2, 4, 8, 16, 32$ and the multiples of $3$ modulo $63$. The class of $5$ modulo $63$ is outside $T$, so no $x \equiv 5 \pmod{63}$ reaches $1$ under $21x + 1$. Consistently, $t = 1$ is not among the qualifying targets listed for $q = 21$ in `README.md`.
 
