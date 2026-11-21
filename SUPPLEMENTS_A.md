@@ -1,6 +1,6 @@
-# Supplements to `paper.md`
+# Supplements A to `paper.md`: sharper witnesses for Theorem A
 
-Results that sit next to the main paper: sharper bounds for special moduli, corollaries, a worked example and open questions.
+Results that sit next to the main paper, mostly about Theorem A: sharper bounds for special moduli, corollaries, a worked example and open questions. The companion `SUPPLEMENTS_B.md` treats Theorem B, Wieferich-type multipliers and their traps.
 
 **Status.** Nothing in this file is formalized in Lean 4.35, and nothing here is needed for `paper.md`. Proposition S1 and the results of §§2 and 4 are proved in full. Statements S2 to S6 are given with the idea of the proof only; complete proofs remain to be written. Unless stated otherwise the statements are for $\kappa = 0$, that is $u_q = 1$, $N_q = q$, $V_q = H_q$, where the criterion of Proposition 1 reads $t \bmod q \in \langle 2 \rangle$. Extending each to $\kappa \ge 1$ is listed in §5.
 
@@ -76,7 +76,7 @@ For `paper.md` the corresponding statement would use $s = K + \kappa + \gamma + 
 
 **Infinitude.** Reapplying Theorem A with $B$ replaced by a predecessor already found gives infinitely many predecessors in every class.
 
-**Sufficient sets** (in the sense of Monks). Call $S \subseteq \mathbb{N}_{\ge 1}$ sufficient for $\mathrm{Col}_q$ if the orbit of every positive integer meets the orbit of an element of $S$. Let $x \ge 1$ and let $y$ be the odd number reached by halving $x$. Then $t = qy + 1 \equiv 1 \pmod q$ lies in the orbit of $x$ and $t \bmod q \in H_q$. If $\kappa = 0$, Theorem A applies to $t$, so every arithmetic progression $a + b\mathbb{N}$ is sufficient, with $w$ bounded as in Theorem A. For $\kappa \ge 1$ the same holds for every $x$ whose orbit meets a target satisfying the criterion of Proposition 1; whether that is every $x$ is open (§5).
+**Sufficient sets** (in the sense of Monks). Call $S \subseteq \mathbb{N}_{\ge 1}$ sufficient for $\mathrm{Col}_q$ if the orbit of every positive integer meets the orbit of an element of $S$. Let $x \ge 1$ and let $y$ be the odd number reached by halving $x$. Then $t = qy + 1 \equiv 1 \pmod q$ lies in the orbit of $x$ and $t \bmod q \in H_q$. If $\kappa = 0$, Theorem A applies to $t$, so every arithmetic progression $a + b\mathbb{N}$ is sufficient, with $w$ bounded as in Theorem A. For $\kappa \ge 1$ the same holds for every $x$ whose orbit meets a target satisfying the criterion of Proposition 1; whether that is every $x$ was open here (§5); it is settled affirmatively in `SUPPLEMENTS_B.md`, Proposition B1.
 
 **Cycles.** Every element $t$ of a cycle of $\mathrm{Col}_q$ satisfies $t \bmod q \in H_q$: going backward around the cycle from $t$, the first odd element $x$ satisfies $qx + 1 = 2^k t$. So for $\kappa = 0$ the predecessors of every cycle element meet every class modulo every $m$. For $\kappa \ge 1$ this needs the criterion of Proposition 1 at the cycle element.
 
@@ -113,7 +113,7 @@ The theorem of `paper.md` (Theorem B) is stronger: it bounds the odd depth of ev
 
 1. Is the exponent linear in $m$ for powers of $2$ and for mixed moduli $2^\alpha m_q$?
 2. Does every modulus admit a single exponential? This follows from the construction behind S2 to S5 if the connecting word can always be taken with $O(\log m')$ odd steps. Known: S4 and S5 for two families, and the Chowla bound of `paper.md`, Lemma 3, in general.
-3. For $\kappa \ge 1$: does every cycle element satisfy the criterion of Proposition 1? Is every positive integer's orbit eventually met by a target satisfying it (needed for sufficiency, §2)?
+3. For $\kappa \ge 1$: does every cycle element satisfy the criterion of Proposition 1? Is every positive integer's orbit eventually met by a target satisfying it (needed for sufficiency, §2)? *Both answered yes in `SUPPLEMENTS_B.md`, Proposition B1.*
 4. Compare the bound of Theorem A in `paper.md` ($E^*$, $E^{**}$) numerically with S1 to S5 for small $(q, m)$, and restate S1 to S6 for $\kappa \ge 1$ using $u_q$, $\kappa$ and $D_m$.
 5. Formalize S1 to S6 in Lean 4.35 as additional modules, after (4).
 
