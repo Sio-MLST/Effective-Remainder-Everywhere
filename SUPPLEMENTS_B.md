@@ -296,15 +296,22 @@ together with auxiliary prime factors $r^*$ that make $p_{L-1} \mid d$ and $p_0^
 - *Proof route for L2:* make the "free mod $p_1$ unlocks $a$" step precise in the language of B7.
 
 **L3 [R] "$\kappa_{\mathrm{trap}} \le 1$ for all $q$; perhaps provable" (an earlier review remark, made after Scan 1).**
-- *Refuted* by $11571$, and also by $7959$ and $10887$.
-- *Surviving weaker form:* exactly Rule 2. It holds whenever every $p \mid u_q^*$ has $\delta_p = 0$, which covers every $q < 7959$.
+- *Refutation, by hand, at $q = 7959 = 3 \cdot 7 \cdot 379$.* Here $d = 378$, $g_0 = 21$, $u_q = 189$, $N_q = 7959 \cdot 189$, and $\kappa = 3$.
+  1. *A suitable vertex exists.* By B4(2), $c_0$ runs over all of $\mathbb{Z}/189$ along each fibre, so some $t \in V_q$ has $c_0(t) \equiv 1 \pmod{189}$.
+  2. *It has a successor.* A successor is a $z' \equiv 1 \pmod{189}$ with $z' \equiv 2^{-a} \pmod{7959}$. Compatibility modulo $21$ requires $2^{-a} \equiv 1$, that is $6 \mid a$, which is possible. So $t$ has a path of length $1$ and $m(t) \ge 2$.
+  3. *Every successor is a dead end.* For any such $z'$, $6 \mid a = a_0(z')$ gives $2^a \equiv 1 \pmod 9$, and $z' \equiv 1 \pmod 9$, so $9 \mid 2^a z' - 1$. Since $3 \parallel q$, $c_0(z') = (2^a z' - 1)/q \equiv 0 \pmod 3$. No unit is $\equiv 0 \pmod 3$, so $z'$ has out-degree $0$ by B4(1).
+  4. Hence $L(t) = 1$, $m(t) = 2 \le \kappa - 1$, and $t$ is a Theorem B target of depth $2$. So $\kappa_{\mathrm{trap}}(7959) \ge 2$.
+- *Independent computational confirmations* **[C]**: $10887$ and $11571$ (§5.5). For $11571$, the chain for $t = 415$ is reproducible: $w_1 = c_j(415)$ for the least $j < q$ with $w_1 \bmod N_q \in V_q$, and $w_2 = c_0(w_1)$. Both $q w_1 + 1 = 2^k \cdot 415$ and $q w_2 + 1 = 2^{k'} w_1$ were verified, and $w_2 \bmod q \notin H_q$, so the chain cannot be extended from this $w_1$. Maximality over all chains comes from the graph computation.
+- *Surviving weaker form:* Rule 2 (B8). If every $p \mid u_q^*$ has $\delta_p = 0$, then $\kappa_{\mathrm{trap}} = 1$. By B10 [P\*], this covers every $q < 7959$.
 - *Lesson:* Scan 1's cap on $N_q$ hid the counterexamples.
 
 **L4 [P, in the form stated] Multi-prime resonance (Gemini's first draft).** *Claim:* resonance among several primes of $g_0$ could produce $\kappa_{\mathrm{trap}} \ge 2$ without any Wieferich prime.
 - This is confirmed by B10.
 - The draft's earlier necessary condition ("a Wieferich prime in $g_0$ with $\kappa \ge 2$, or at least two primes in $g_0$") is true but weak. Rule 2 gives the sharp form: $\delta_p \ge 1$ for some $p \mid u_q^*$.
-- **[R]** The draft's parenthetical pointing to *super-Wieferich* primes ($p^3 \mid 2^{p-1} - 1$) is misleading. $\nu_p$ grows when $p \mid \mathrm{ord}_\ell(2)$ for other primes $\ell \mid q$, as $3$ does in $57$. No higher Wieferich condition is needed for $\kappa \ge 2$.
-- *Weaker true form:* a Wieferich $p$ shifts $\lambda_p$ by its Wieferich excess, so it may matter for $\delta_p$.
+- **[R]** The draft's parenthetical pointing to *super-Wieferich* primes ($p^3 \mid 2^{p-1} - 1$) as the route to $\kappa \ge 2$ is misleading for composite $q$.
+  - *Counterexample:* $q = 57 = 3 \cdot 19$ has $\kappa = 2$. Here $3 \mid \mathrm{ord}_{19}(2) = 18$ forces $3^2 \mid d$, so $\nu_3 = v_3(2^{18} - 1) - 1 = 2$, and $3$ is not even a Wieferich prime. Likewise $7959$ has $\kappa_{\mathrm{trap}} = 2$ with no Wieferich prime dividing it.
+  - *Weaker form that is exactly true (for prime $q = p$):* then $d = \mathrm{ord}_p(2)$ and $v_p(2^d - 1) = v_p(2^{p-1} - 1)$, because $(p-1)/d$ is prime to $p$. So $\nu_p = v_p(2^{p-1} - 1) - 1$, and $\kappa \ge 2$ iff $p^3 \mid 2^{p-1} - 1$. For prime multipliers, super-Wieferich is exactly the condition for $\kappa \ge 2$.
+  - *Open:* whether such a $p$ would also have $\kappa_{\mathrm{trap}} \ge 2$. For $q = p$, $g_0 = p$ and $u_q^* = p^{\nu - 1}$ with $\delta_p = \nu_p$, so B9 allows up to $1 + \min(\nu, \nu - 1) = \nu$. No super-Wieferich prime is known.
 
 **L5 [L] Multi-prime $u_q^*$.** When two or more primes divide $u_q^*$, B9 does not apply. Rule 2 still applies when every $\delta_p = 0$.
 - *Conjecture:* $\kappa_{\mathrm{trap}} \le 1 + \max_p \lceil M_1(p) / \alpha_p \rceil$. Alternatively, cross-prime interaction may add depth, which is where L1's chains might live.
