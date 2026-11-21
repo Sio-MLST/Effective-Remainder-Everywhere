@@ -1,3 +1,11 @@
+# Backward orbits of $qx+1$ maps: a 0–1 law for their profinite closure
+
+**Scope and verification boundary.** For every odd $q > 1$ and every $t \ge 1$ we determine whether the backward orbit $R_q(t)$ of the map $\operatorname{Col}_q$ is dense in $\widehat{\mathbb{Z}}$ (Theorem A) or a Haar-null set (Theorem B). Which case occurs is decided by a finite computation on a graph (Proposition 1). These are statements about *backward* orbits only: nothing here bears on forward orbits, on cycles of $\operatorname{Col}_q$ beyond those in $R_q(t)$, or on the Collatz conjecture.
+
+All integer and finite-modulus statements (Proposition 1, Theorems A and B with every explicit bound) are formalized in Lean 4 core, with no Mathlib, as `general_prop1`, `general_theorem_A`, and `general_theorem_B` (folder `QX+1/`). The proofs use no `sorry`, and `#print axioms` reports only `[propext, Quot.sound]`. The profinite ring $\widehat{\mathbb{Z}}$ and its Haar measure $\mu$ are not in Lean, because core Lean has no measure theory. The measure statements follow in a few lines from the formalized ones; this derivation is §6, and it is the only part of the paper not machine-checked.
+
+---
+
 ### 1. Definitions, Structural Parameters, and the Residue Graph $\mathcal{G}_q$
 
 Let $\mathbb{N} = \{0, 1, 2, \dots\}$. For an odd integer $q > 1$ (so $q \ge 3$), define $\operatorname{Col}_q : \mathbb{N} \to \mathbb{N}$ by
@@ -8,7 +16,7 @@ For $t \ge 1$ and $m \ge 1$, a *backward chain of $m$ odd steps* in $R_q(t)$ is 
 
 Since $q \ge 3$ is odd, $\gcd(2, q) = 1$ and $2 \not\equiv 1 \pmod q$, so $d = \operatorname{ord}_q(2) \ge 2$ exists and $u = (2^d - 1)/q \in \mathbb{Z}_{\ge 1}$ satisfies $2^d = 1 + qu$. Put $g_0 = \gcd(q, u)$. For each prime $p \mid q$, let $v_p$ denote the $p$-adic valuation and set $\alpha_p = v_p(q) \ge 1$ and $\nu_p = v_p(u) \ge 0$. Define
 $$u_q = \prod_{p \mid q} p^{\nu_p}, \qquad N_q = q u_q = \prod_{p \mid q} p^{\alpha_p + \nu_p}, \qquad \kappa = \max_{p \mid q} \left\lceil \frac{\nu_p}{\alpha_p} \right\rceil \ge 0.$$
-Then $g_0 = 1$ if and only if $\nu_p = 0$ for all $p \mid q$, which holds if and only if $u_q = 1$, and if and only if $\kappa = 0$. Since $q \mid N_q$ and $N_q \mid qu = 2^d - 1$, we have $\operatorname{ord}_{N_q}(2) = d$.
+Equivalently, $\kappa$ is the least $k \ge 0$ with $u_q \mid q^k$, since $p^{\nu_p} \mid p^{k\alpha_p}$ iff $k \ge \lceil \nu_p/\alpha_p \rceil$. (Lean uses this form; `nu_le_kappa` and `kappa_le_of_nu_le` prove the equivalence.) Then $g_0 = 1$ if and only if $\nu_p = 0$ for all $p \mid q$, which holds if and only if $u_q = 1$, and if and only if $\kappa = 0$. Since $q \mid N_q$ and $N_q \mid qu = 2^d - 1$, we have $\operatorname{ord}_{N_q}(2) = d$.
 
 Let $H_q = \langle 2 \rangle \subseteq (\mathbb{Z}/q\mathbb{Z})^\times$. For each $a \in \{1, \dots, d\}$, $\gcd(2^a - q, q) = \gcd(2^a, q) = 1$, so $2^a - q$ is invertible modulo every integer whose prime factors all divide $q$; let $c_a \in (\mathbb{Z}/N_q\mathbb{Z})^\times$ denote the inverse of $2^a - q$ modulo $N_q$.
 
@@ -68,24 +76,18 @@ $(2) \implies (3)$: Truncating a directed path of length $L \ge \kappa$ gives a 
 $$2^{a_0(z)} z \equiv 2^{i_0 + a} z \equiv 2^a c_a = (2^a - q)c_a + q c_a \equiv 1 + q c_a \pmod{N_q},$$
 whence $c_0(z) \equiv c_a \pmod{u_q}$. Since $c_a \bmod N_q \in R_{\mathrm{core}}$ satisfies $2^a c_a \equiv 1 + q c_a \pmod{N_q}$, we have $a_0(c_a) = a$ and $c_0(c_a) \equiv c_a \pmod{u_q}$, so both $z \to (c_a \bmod N_q)$ and $(c_a \bmod N_q) \to (c_a \bmod N_q)$ are edges in $\mathcal{G}_q$. Appending $\kappa - L$ edges yields a path of length $\kappa$.
 
-$(3) \implies (1)$ and the size bound: If $\kappa = 0$, then $u_q = 1$, $N_q = q$, $c_1 \equiv (2 - q)^{-1} \equiv 2^{-1} \pmod q \in H_q$, and $V_q = H_q = c_1 \langle 2 \rangle = R_{\mathrm{core}}$, so $x = t < (2^{dq}/q) t$ itself satisfies (H) with $a = 1$. Assume $\kappa \ge 1$, and let $z_0 \to z_1 \to \dots \to z_\kappa$ be a directed path in $\mathcal{G}_q$ with $z_0 = t \bmod N_q$; set $z_{\kappa + 1} = c_1 \bmod N_q$. For $1 \le m \le \kappa$ and each prime $p \mid q$, write $f_m(p) = \max(0, \nu_p - m \alpha_p)$. Choose integer representatives $\tilde{z}_l \in \mathbb{Z}$ of $z_l$ ($1 \le l \le \kappa + 1$) and $\tilde{c}_0(z_l) \in \mathbb{Z}$ of $c_0(z_l)$ ($1 \le l \le \kappa$).
+$(3) \implies (1)$ and the size bound: If $\kappa = 0$, then $u_q = 1$, $N_q = q$, $c_1 \equiv (2 - q)^{-1} \equiv 2^{-1} \pmod q \in H_q$, and $V_q = H_q = c_1 \langle 2 \rangle = R_{\mathrm{core}}$, so $x = t < (2^{dq}/q) t$ itself satisfies (H) with $a = 1$. Assume $\kappa \ge 1$, and let $z_0 \to z_1 \to \dots \to z_\kappa$ be a directed path in $\mathcal{G}_q$ with $z_0 = t \bmod N_q$. For $m \ge 0$ put
+$$D_m = u_q / \gcd(u_q, q^m).$$
+Then $D_0 = u_q$, $D_\kappa = 1$ (as $u_q \mid q^\kappa$), and $D_m \mid q D_{m+1}$ (as $\gcd(u_q, q^{m+1}) \mid q \gcd(u_q, q^m)$). The single modulus $D_m$ records, for all primes at once, how much of $u_q$ is still undetermined after $m$ steps, so no per-prime bookkeeping or CRT is needed.
 
-We prove by induction on $m \in \{1, \dots, \kappa\}$ that for every family of target residues $(y_{m,p} \bmod p^{\nu_p})_{p \mid q}$ satisfying $y_{m,p} \equiv \tilde{z}_{m+1} \pmod{p^{f_m(p)}}$ for all $p \mid q$ (noting that for any prime with $\nu_p = 0$, the modulus $p^{\nu_p} = 1$ and the digit ranges below are trivial/empty), there exists $(j_1, \dots, j_m) \in \{0, \dots, q - 1\}^m$ such that $x_l = c_{j_l}(x_{l-1}) \in R_q(t)$ ($x_0 = t$, $1 \le l \le m$) satisfy $x_l \bmod N_q \in V_q$ with $x_l \bmod q = z_l \bmod q$ ($1 \le l \le m$) and
-$$c_0(x_m) \equiv y_{m,p} \pmod{p^{\nu_p}} \qquad \text{for every } p \mid q.$$
+*Lifting step.* Let $z \in V_q$ with $a = a_0(z)$ and integer representative $\tilde z$, and let $Y \in \mathbb{Z}$ with $Y \equiv c_0(z) \pmod{D_{m+1}}$. Let $X$ be the class modulo $N_q$ with $2^a X \equiv 1 + qY \pmod{N_q}$; it exists because $2$ is a unit modulo $N_q$. Then:
+- $X \equiv 2^{-a} \equiv z \pmod q$, so $X \in V_q$ and $a_0(X) = a$;
+- $q c_0(X) = 2^a X - 1 \equiv qY \pmod{q u_q}$, so $c_0(X) \equiv Y \pmod{u_q}$;
+- $2^a(X - \tilde z) \equiv q\bigl(Y - c_0(z)\bigr) \pmod{N_q}$, and $D_m \mid q D_{m+1} \mid q(Y - c_0(z))$ with $D_m \mid N_q$, so $X \equiv z \pmod{D_m}$.
 
-*Base case $m = 1$:* Since $z_0 \to z_1$ in $\mathcal{G}_q$, $c_0(t) \equiv c_0(z_0) \equiv \tilde{z}_1 \pmod{u_q}$, so $\tilde{z}_1 \equiv c_0(t) \pmod{p^{\nu_p}}$ for every $p \mid q$. Setting $g_1(p) = \max(\nu_p, \alpha_p)$, the congruences $x_1 \equiv \tilde{z}_1 \pmod{p^{\alpha_p}}$ and $x_1 \equiv c_0(t) \pmod{p^{\nu_p}}$ are equivalent to $x_1 \equiv \tilde{z}_1 \pmod{p^{g_1(p)}}$. By Lemma 2(2), as $j_1$ runs over $\{0, \dots, q - 1\}$, $x_1 = c_{j_1}(t) \bmod N_q$ visits every residue class modulo $N_q$ congruent to $c_0(t) \pmod{u_q}$. Restricting to those classes satisfying $x_1 \equiv \tilde{z}_1 \pmod{p^{g_1(p)}}$ for all $p \mid q$ fixes $x_1 \bmod q = z_1 \bmod q \in H_q$ (hence $x_1 \bmod N_q \in V_q$ and $a_0(x_1) = a_0(z_1)$), while by the Chinese Remainder Theorem the $\nu_p + \alpha_p - g_1(p) = \min(\nu_p, \alpha_p)$ $p$-adic digits of $x_1 \bmod p^{\nu_p + \alpha_p}$ from $p^{g_1(p)}$ to $p^{\nu_p + \alpha_p - 1}$ are simultaneously free across all $p \mid q$. Since $q c_0(x_1) = 2^{a_0(z_1)} x_1 - 1$ and $q \tilde{c}_0(z_1) \equiv 2^{a_0(z_1)} \tilde{z}_1 - 1 \pmod{q u_q}$, we have
-$$q\bigl(c_0(x_1) - \tilde{c}_0(z_1)\bigr) \equiv 2^{a_0(z_1)}(x_1 - \tilde{z}_1) \pmod{p^{\nu_p + \alpha_p}}.$$
-Dividing by $q$ (with $v_p(q) = \alpha_p$ and $p \nmid 2^{a_0(z_1)}(q/p^{\alpha_p})$) and noting $g_1(p) - \alpha_p = f_1(p)$ shows that $c_0(x_1) \equiv \tilde{c}_0(z_1) \equiv \tilde{z}_2 \pmod{p^{f_1(p)}}$ (trivial if $\kappa = 1$, since $f_1(p) = 0$; from $z_1 \to z_2$ if $\kappa \ge 2$), and that the free digits of $x_1 \bmod p^{\nu_p + \alpha_p}$ map bijectively onto all digits of $c_0(x_1) \bmod p^{\nu_p}$ from $p^{f_1(p)}$ to $p^{\nu_p - 1}$, attaining $(y_{1,p} \bmod p^{\nu_p})_{p \mid q}$.
+*Induction.* We show for $0 \le m \le \kappa$: for every $Y \equiv c_0(z_m) \pmod{D_m}$ there are $j_1, \dots, j_m \in \{0, \dots, q-1\}$ such that $x_l = c_{j_l}(x_{l-1})$ ($x_0 = t$) satisfy $x_l \bmod N_q \in V_q$ and $c_0(x_m) \equiv Y \pmod{u_q}$. For $m = 0$ take $x_0 = t$, since $D_0 = u_q$. For $m \to m+1$, lift $Y$ at $z = z_{m+1}$ to $X$. Since $z_m \to z_{m+1}$ we have $X \equiv z_{m+1} \equiv c_0(z_m) \pmod{D_m}$, so the case $m$ with target $X$ gives $x_m$ with $c_0(x_m) \equiv X \pmod{u_q}$. Lemma 2(2) then gives $j_{m+1} < q$ with $x_{m+1} = c_{j_{m+1}}(x_m) \equiv X \pmod{N_q}$, so $x_{m+1} \bmod N_q \in V_q$ and $c_0(x_{m+1}) \equiv c_0(X) \equiv Y \pmod{u_q}$.
 
-*Inductive step $m \to m + 1$ ($1 \le m < \kappa$):* Fix target residues $(y_{m+1,p} \bmod p^{\nu_p})_{p \mid q}$ with $y_{m+1,p} \equiv \tilde{z}_{m+2} \pmod{p^{f_{m+1}(p)}}$ for all $p \mid q$. Set $g_{m+1}(p) = \max(\alpha_p, f_m(p))$ and $h_m(p) = \min(\nu_p, g_{m+1}(p))$, so $f_m(p) \le h_m(p) \le \nu_p$ (as $f_m(p) \le \nu_p$). Because $z_{m+1} \to z_{m+2}$ when $m + 1 < \kappa$ and $f_\kappa(p) = 0$ when $m + 1 = \kappa$, we have $\tilde{c}_0(z_{m+1}) \equiv \tilde{z}_{m+2} \pmod{p^{f_{m+1}(p)}}$ for every $p \mid q$. Moreover, $g_{m+1}(p) - \alpha_p = \max(0, f_m(p) - \alpha_p) = f_{m+1}(p)$, so the affine congruence
-$$q\bigl(y_{m+1,p} - \tilde{c}_0(z_{m+1})\bigr) \equiv 2^{a_0(z_{m+1})}\bigl(\tilde{x}_{m+1,p} - \tilde{z}_{m+1}\bigr) \pmod{p^{\nu_p + \alpha_p}}$$
-has a unique solution $\tilde{x}_{m+1,p} \bmod p^{\nu_p + \alpha_p}$, and this solution satisfies $\tilde{x}_{m+1,p} \equiv \tilde{z}_{m+1} \pmod{p^{g_{m+1}(p)}}$. By the Chinese Remainder Theorem, there exists $\tilde{x}_{m+1} \in \mathbb{Z}$ with $\tilde{x}_{m+1} \equiv \tilde{x}_{m+1,p} \pmod{p^{\nu_p + \alpha_p}}$ for all $p \mid q$. Setting $y_{m,p} = \tilde{x}_{m+1} \bmod p^{\nu_p}$ gives $y_{m,p} \equiv \tilde{z}_{m+1} \pmod{p^{h_m(p)}}$ and hence $\pmod{p^{f_m(p)}}$ for every $p \mid q$.
-
-By the induction hypothesis, there exists $(j_1, \dots, j_m) \in \{0, \dots, q - 1\}^m$ such that $x_l = c_{j_l}(x_{l-1}) \in R_q(t)$ ($1 \le l \le m$) satisfy $x_l \bmod N_q \in V_q$, $x_l \bmod q = z_l \bmod q$, and $c_0(x_m) \equiv y_{m,p} \equiv \tilde{x}_{m+1} \pmod{p^{\nu_p}}$ for all $p \mid q$, i.e., $c_0(x_m) \equiv \tilde{x}_{m+1} \pmod{u_q}$. By Lemma 2(2), there exists $j_{m+1} \in \{0, \dots, q - 1\}$ such that $x_{m+1} = c_{j_{m+1}}(x_m) \in R_q(t)$ satisfies $x_{m+1} \equiv \tilde{x}_{m+1} \pmod{N_q}$. Since $\tilde{x}_{m+1} \equiv \tilde{z}_{m+1} \pmod{p^{g_{m+1}(p)}}$ and $g_{m+1}(p) \ge \alpha_p$ for all $p \mid q$, we have $x_{m+1} \bmod q = z_{m+1} \bmod q \in H_q$, so $x_{m+1} \bmod N_q \in V_q$ and $a_0(x_{m+1}) = a_0(z_{m+1})$. Finally, at each $p \mid q$,
-$$q\bigl(c_0(x_{m+1}) - \tilde{c}_0(z_{m+1})\bigr) \equiv 2^{a_0(z_{m+1})}(x_{m+1} - \tilde{z}_{m+1}) \equiv q\bigl(y_{m+1,p} - \tilde{c}_0(z_{m+1})\bigr) \pmod{p^{\nu_p + \alpha_p}},$$
-and dividing by $q$ yields $c_0(x_{m+1}) \equiv y_{m+1,p} \pmod{p^{\nu_p}}$, completing the induction.
-
-At $m = \kappa$, $f_\kappa(p) = \max(0, \nu_p - \kappa \alpha_p) = 0$ for every $p \mid q$, so taking $y_{\kappa,p} = \tilde{z}_{\kappa + 1}$ yields $(j_1, \dots, j_\kappa) \in \{0, \dots, q - 1\}^\kappa$ with $c_0(x_\kappa) \equiv c_1 \pmod{u_q}$. By Lemma 2(2), there exists $j_{\kappa + 1} \in \{0, \dots, q - 1\}$ such that $x = x_{\kappa + 1} = c_{j_{\kappa + 1}}(x_\kappa) \in R_q(t)$ satisfies $x \equiv c_1 \pmod{N_q}$, so $x$ satisfies (H) with $a = 1$ and $i_0 = 0$. Finally, for each $1 \le l \le \kappa + 1$, $a_0(x_{l-1}) + d j_l \le d + d(q - 1) = dq$ gives $x_l = (2^{a_0(x_{l-1}) + d j_l} x_{l-1} - 1)/q < (2^{dq}/q) x_{l-1}$, whence $x \le (2^{dq}/q)^{\kappa + 1} t$. $\blacksquare$
+At $m = \kappa$ we have $D_\kappa = 1$, so the target $Y = c_1$ is allowed. Lemma 2(2) once more gives $x = c_j(x_\kappa) \equiv c_1 \pmod{N_q}$, that is $(2 - q)x \equiv 1 \pmod{N_q}$: $x$ satisfies (H) with $a = 1$, $i_0 = 0$. Each of the $\kappa + 1$ steps has $a_0 + dj \le dq$, so $x_l < (2^{dq}/q)\, x_{l-1}$ and $x \le (2^{dq}/q)^{\kappa + 1} t$. $\blacksquare$
 
 ---
 
@@ -99,18 +101,13 @@ writing $\widetilde{W}_0 = \widetilde{W}(\alpha)$ and $\widetilde{Q}_0 = \wideti
 
 Let $H = \langle 2 \rangle \subseteq (\mathbb{Z}/m'\mathbb{Z})^\times$ (with $H = \{0\} = \mathbb{Z}/1\mathbb{Z}$ if $m' = 1$), and define $A_0 = \{0\} \subseteq \mathbb{Z}/m'\mathbb{Z}$ and
 $$A_k = \{h_0 + qh_1 + \dots + q^{k-1} h_{k-1} : h_0, \dots, h_{k-1} \in H\} \subseteq \mathbb{Z}/m'\mathbb{Z} \qquad (k \ge 1).$$
-Since $\gcd(q, m') = 1$, we have $q \bmod m' \in (\mathbb{Z}/m'\mathbb{Z})^\times$, so $\lambda_H = \operatorname{ord}_{(\mathbb{Z}/m'\mathbb{Z})^\times / H}\bigl((q \bmod m')H\bigr) \ge 1$ is well-defined.
+
 
 **Lemma 3 (Covering length modulo $m'$).** *There exists a least integer $\gamma \ge 0$ such that $A_\gamma = \mathbb{Z}/m'\mathbb{Z}$. Moreover, $\gamma = 0$ if and only if $m' = 1$, and when $m' > 1$,*
-$$1 \le \gamma \le \min\Bigl(1 + \bigl\lceil \max(0, m' - e)/\varphi(e) \bigr\rceil,\;\; \lambda_H \lceil \log_2(m' + 1) \rceil\Bigr).$$
+$$1 \le \gamma \le 1 + \bigl\lceil \max(0, m' - e)/\varphi(e) \bigr\rceil.$$
+*(A binary-splitting argument also gives $\gamma \le \lambda_H \lceil \log_2(m'+1) \rceil$, where $\lambda_H$ is the order of $q$ in $(\mathbb{Z}/m'\mathbb{Z})^\times/H$. That bound is not used below and is not formalized.)*
 
-*Proof.* If $m' = 1$, then $A_0 = \{0\} = \mathbb{Z}/1\mathbb{Z}$, so $\gamma = 0$. Assume $m' > 1$, so $m' \ge 3$ is odd, $\gcd(m', q) = 1$, $e \ge 2$, and $|A_0| = 1 < m'$ forces $\gamma \ge 1$ once existence is shown.
-
-*Binary-splitting bound:* Put $s_0 = \lceil \log_2(m' + 1) \rceil \ge 2$. Every integer $\xi \in \{1, \dots, m'\}$ satisfies $1 \le \xi < 2^{s_0}$ and thus has a binary expansion $\xi = \sum_{l=1}^k 2^{i_l}$ with $1 \le k \le s_0$ and $i_l \in \{0, \dots, s_0 - 1\}$. While $k < s_0$, replace one summand $2^i$ by $2^{i-1} + 2^{i-1}$ if $i \ge 1$, or by $2^{e-1} + 2^{e-1} \equiv 2^e \equiv 2^0 \pmod{m'}$ if $i = 0$ (where $e - 1 \ge 1$). Each replacement increases $k$ by $1$, keeps all exponents nonnegative, and preserves the sum modulo $m'$. Repeating until $k = s_0$ and re-indexing yields $\xi \equiv \sum_{l'=0}^{s_0 - 1} 2^{i_{l'}} \pmod{m'}$ with $i_0, \dots, i_{s_0 - 1} \ge 0$.
-
-By definition of $\lambda_H$, $q^{\lambda_H} \equiv h^* \pmod{m'}$ for some $h^* \in H$. Given $x_0 \in \mathbb{Z}/m'\mathbb{Z}$, choose $\xi_0 \in \{1, \dots, m'\}$ representing $x_0$, set $\xi_j = m'$ for $1 \le j < \lambda_H$, and write $\xi_j \equiv \sum_{l'=0}^{s_0 - 1} 2^{i_{j, l'}} \pmod{m'}$ ($0 \le j < \lambda_H$). Express each $0 \le l < \lambda_H s_0$ uniquely as $l = j + \lambda_H l'$ with $0 \le j < \lambda_H$ and $0 \le l' < s_0$, and set $h_l = (h^*)^{-l'} 2^{i_{j, l'}} \bmod m' \in H$. Then $q^l h_l \equiv q^j (h^*)^{l'} (h^*)^{-l'} 2^{i_{j, l'}} = q^j 2^{i_{j, l'}} \pmod{m'}$, whence
-$$\sum_{l=0}^{\lambda_H s_0 - 1} q^l h_l \equiv \sum_{j=0}^{\lambda_H - 1} q^j \sum_{l'=0}^{s_0 - 1} 2^{i_{j, l'}} \equiv \sum_{j=0}^{\lambda_H - 1} q^j \xi_j \equiv \xi_0 \equiv x_0 \pmod{m'}.$$
-Thus $A_{\lambda_H s_0} = \mathbb{Z}/m'\mathbb{Z}$, so $\gamma \le \lambda_H s_0$ exists.
+*Proof.* If $m' = 1$, then $A_0 = \{0\} = \mathbb{Z}/1\mathbb{Z}$, so $\gamma = 0$. Assume $m' > 1$, so $m' \ge 3$ is odd, $\gcd(m', q) = 1$, $e \ge 2$, and $|A_0| = 1 < m'$ forces $\gamma \ge 1$; existence follows from the bound below.
 
 *Chowla bound:* Let $U, W \subseteq \mathbb{Z}/m'\mathbb{Z}$ be nonempty subsets with $0 \in W$ such that $\gcd(\tilde{w}, m') = 1$ for every $w \in W \setminus \{0\}$ (where $\tilde{w}$ denotes an integer representative of $w$). We prove $|U + W| \ge \min(m', |U| + |W| - 1)$ by induction on $|W| \ge 1$. For $|W| = 1$, $W = \{0\}$ and $|U + W| = |U| = \min(m', |U|)$. For $|W| \ge 2$, if $U + W = \mathbb{Z}/m'\mathbb{Z}$ there is nothing to prove. Otherwise, $U \subseteq U + W \neq \mathbb{Z}/m'\mathbb{Z}$, so $U$ is a nonempty proper subset of $\mathbb{Z}/m'\mathbb{Z}$. Pick $w^* \in W \setminus \{0\}$. Since $\gcd(\tilde{w}^*, m') = 1$, $w^*$ generates $\mathbb{Z}/m'\mathbb{Z}$; if $U + w^* \subseteq U$, finiteness of $U$ would give $U + w^* = U$ and hence (as $U \neq \varnothing$) $U = \mathbb{Z}/m'\mathbb{Z}$, a contradiction. Thus there exists $u_0 \in U$ with $u_0 + w^* \notin U$. Setting $U' = U \cup (W + u_0)$ and $W' = W \cap (U - u_0) = (U \cap (W + u_0)) - u_0$ gives $U' \neq \varnothing$, $0 \in W'$, $w^* \notin W'$ (so $1 \le |W'| < |W|$), $W' \setminus \{0\} \subseteq W \setminus \{0\}$, $U' + W' = (U + W') \cup (W + u_0 + W') \subseteq U + W$, and
 $$|U'| + |W'| = |U \cup (W + u_0)| + |U \cap (W + u_0)| = |U| + |W + u_0| = |U| + |W|.$$
@@ -130,21 +127,21 @@ $$E^{**} = \alpha + \widetilde{Q}_0 + \max\Bigl(\lceil \log_2(M + 1) \rceil,\;\;
 **Theorem A (Coverage and Haar Measure One).** *Let $q > 1$ be odd and let $t \ge 1$. Suppose that some $x \in R_q(t)$ satisfies Hypothesis (H) (equivalently, by Proposition 1, $t \bmod N_q \in V_q$ and $t \bmod N_q$ has a directed path of length $\kappa$ in $\mathcal{G}_q$). Then for every integer $m \ge 1$ and all $r, B \in \mathbb{N}$, there exist $n \in \{0, \dots, \alpha\}$ (depending only on $r \bmod 2^\alpha$) and $w \in \mathbb{N}$ such that $w \to t$, $w \equiv r \pmod m$, $w > B$, and:*
 1. *If $t$ itself satisfies (H) with exponent $a \in \{1, \dots, d\}$ (in particular, $a = 1$ may always be taken when $\kappa = 0$), then*
    $$w < \max\left( 2^{\alpha + \widetilde{Q}(n)}(B + M + 1),\;\; \frac{2^{\alpha + \widetilde{Q}(n) + dq^K - 1 + (s - 1)J_0^* P + B_0(a)}\, t}{q^{n + s}} \right) \le (B + 1)\, t\, 2^{E^*(a)}.$$
-2. *In general (when $t$ does not satisfy (H), so $\kappa \ge 1$),*
+2. *If $t$ does not satisfy (H) (then necessarily $\kappa \ge 1$),*
    $$w < \max\left( 2^{\alpha + \widetilde{Q}(n)}(B + M + 1),\;\; \frac{2^{\alpha + \widetilde{Q}(n) + dq^K - 1 + (s - 1)J_0^* P + B_0(1) + (\kappa + 1)dq}\, t}{q^{n + s + \kappa + 1}} \right) \le (B + 1)\, t\, 2^{E^{**}}.$$
 
-*In particular, $\overline{R_q(t)} = \widehat{\mathbb{Z}}$ and $\mu\bigl(\overline{R_q(t)}\bigr) = 1$.*
+*Consequently (§6), $\overline{R_q(t)} = \widehat{\mathbb{Z}}$ and $\mu\bigl(\overline{R_q(t)}\bigr) = 1$.*
 
 **Theorem B (Finite-Depth Trap and Haar Measure Zero).** *Let $q > 1$ be odd and let $t \ge 1$. Suppose that no $x \in R_q(t)$ satisfies Hypothesis (H) (equivalently, by Proposition 1, either $t \bmod q \notin H_q$, or $t \bmod N_q \in V_q$ has no directed path of length $\kappa$ in $\mathcal{G}_q$). Then:*
 1. *(Bounded odd depth.) Every backward chain of odd steps in $R_q(t)$ has length at most $\kappa$ (in particular, no such chain of length $m \ge 1$ exists when $g_0 = 1$).*
 2. *(Sparsity modulo $2^n$ and measure zero.) For every $n \ge 1$,*
    $$|R_q(t) \bmod 2^n| \le (n + 1)^{\kappa + 1}.$$
-   *Consequently, $\overline{R_q(t)} \neq \widehat{\mathbb{Z}}$ and $\mu\bigl(\overline{R_q(t)}\bigr) = 0$.*
+   *Consequently (§6), $\overline{R_q(t)} \neq \widehat{\mathbb{Z}}$ and $\mu\bigl(\overline{R_q(t)}\bigr) = 0$.*
 3. *(Non-periodicity and polylogarithmic growth.) No element of $R_q(t)$ (in particular, not $t$) is periodic under $\operatorname{Col}_q$, and for $X \ge 2$,*
    $$|R_q(t) \cap [1, X]| = O_q\bigl((\log X)^{\kappa + 1}\bigr)$$
    *(uniformly in $t \ge 1$).*
 
-Together, Theorems A and B partition all pairs $(q, t)$ with $q > 1$ odd and $t \ge 1$, establishing $\mu\bigl(\overline{R_q(t)}\bigr) \in \{0, 1\}$.
+The hypotheses of Theorems A and B are complementary, so every pair $(q, t)$ falls under exactly one of them. Hence $\mu\bigl(\overline{R_q(t)}\bigr) \in \{0, 1\}$ (§6), and Proposition 1 decides which value occurs by a finite check on $\mathcal{G}_q$.
 
 ---
 
@@ -273,6 +270,8 @@ When $\kappa = 0$, Stages $T < s$ only use $k \in [1, s - 1 - K]$ and Stage $T =
 At completion, $y_s \equiv \rho \pmod{p^{K\alpha_p + \nu_p}}$ for all $p \mid q$, so $y_s \equiv \rho \pmod{q^K u_q}$. When $\kappa = 0$, the reductions modulo $q$ yield $j_l \le q - 1 = J_0^*$ for all $1 \le l \le s - 1$. When $\kappa \ge 1$, the map $(T, p, h) \mapsto (p, k, v)$ on all steered digits across $T = K + 1, \dots, s$ is injective: every such digit has $0 \le v < \alpha_p$ and $h = (K + k - T)\alpha_p + \nu_p + v$; for fixed $(p, k, v)$, at most one $T < s$ has $h \in [0, \alpha_p)$, and $T = s$ cannot share $(p, k, v)$ with an earlier $T < s$ because its level would be $h - (s - T)\alpha_p < 0$. Hence each $(p, v)$ contributes at most one term $\beta p^v E_p^*$ ($\beta \le p - 1$) to $j_l$, giving
 $$j_l \le \sum_{p \mid q} \sum_{v=0}^{\alpha_p - 1} (p - 1) p^v E_p^* = \sum_{p \mid q} (p^{\alpha_p} - 1) E_p^* = J_0^* \qquad (1 \le l \le s - 1). \qquad \blacksquare$$
 
+*Remark (separating primes without CRT).* What keeps the primes independent is the weight $E_p^*$, not a CRT step. A change of $\beta p^v E_p^*$ in one shift moves $y$ at $p$ by exactly one controlled digit (Lemma 11(3)). At every other prime $p' \mid q$ it moves $y$ only above all levels that are still in play, because $v_{p'}(E_p^*)$ is that large. Writing $j_l = \sum_{p} E_p^* \beta_l(p)$ with digits $\beta_l(p) < p^{\alpha_p}$ makes this a digit system. The Lean proof (`GeneralAOp`, `GeneralAStage`, `GeneralASelect`) follows this scheme. It orders the work differently: it starts from all-zero digits (allowed by Lemma 6), extends integrality one stage at a time, and then fixes the digits of $y_s$; the digit of index $s$ is never touched, so $j_s = 0$ holds automatically.
+
 **Lemma 13 (Tight wide step).** *With $j_1, \dots, j_{s-1}$ fixed as in Lemma 12, let $y_s(j)$ denote the value of $y_s$ when $j_s = j \ge 0$. For every $j \ge 0$, the path remains integral up to step $s$ and $y_s(j) \equiv \rho \pmod{m'}$. Moreover, there is a unique $j'_s \in \{0, \dots, \widetilde{W}(n) - 1\}$ such that for every $j \ge 0$ with $j \equiv j'_s \pmod{\widetilde{W}(n)}$, we have $y_s(j) \equiv \rho \pmod{\tilde{\Lambda}(n)}$, where $\tilde{\Lambda}(n) = q^K u_q \widetilde{W}(n) = \operatorname{lcm}(q^n m_q, q^K u_q)$.*
 
 *Proof.* Because $d \mid P$, integrality at step $s$ is independent of $j_s$, so Lemma 9 gives $y_s(j) \equiv \rho \pmod{m'}$ for all $j \ge 0$. For any integers $0 \le j_2 < j_1$,
@@ -296,7 +295,7 @@ $$w \le \frac{2^\alpha}{q^n}\, y_s < \frac{2^{\alpha + a_s} y_{s-1}}{q^{n + 1}}.
 - **If $k_0 \ge 1$:** Here $a_s - \widetilde{Q}(n) = b_s + \bigl(j'_s + (k_0 - 1)\widetilde{W}(n)\bigr)P \ge b_s \ge 1$, so $2^{a_s - \widetilde{Q}(n)} y_{s-1}$ is an integer. By minimality of $k_0$, $2^{a_s - \widetilde{Q}(n)} y_{s-1} < q\Theta + 1$, hence $2^{a_s - \widetilde{Q}(n)} y_{s-1} \le q\Theta$ and $2^{a_s} y_{s-1} \le 2^{\widetilde{Q}(n)} q\Theta$. Consequently,
   $$w < \frac{2^{\alpha + \widetilde{Q}(n)} q\Theta}{q^{n+1}} = \frac{2^{\alpha + \widetilde{Q}(n)} \Theta}{q^n} < 2^{\alpha + \widetilde{Q}(n)}(B + M + 1).$$
 
-Combining both cases proves the bounds in Theorem A. Finally, the cylinder sets $\pi_m^{-1}(r \bmod m)$ ($m \ge 1$, $r \in \mathbb{N}$), where $\pi_m : \widehat{\mathbb{Z}} \twoheadrightarrow \mathbb{Z}/m\mathbb{Z}$ is the canonical projection, form a basis of nonempty open sets in $\widehat{\mathbb{Z}}$. Since $R_q(t)$ meets every residue class $r \bmod m$, the diagonal image of $R_q(t)$ meets every nonempty open subset of $\widehat{\mathbb{Z}}$, so $\overline{R_q(t)} = \widehat{\mathbb{Z}}$ and $\mu\bigl(\overline{R_q(t)}\bigr) = \mu(\widehat{\mathbb{Z}}) = 1$. $\blacksquare$
+Combining both cases proves the bounds in Theorem A. $\blacksquare$
 
 ---
 
@@ -312,9 +311,7 @@ which by induction gives $|O_r \bmod 2^n| \le (n + 1)^r$ for $0 \le r \le \kappa
 
 Every $x \in R_q(t)$ satisfies $x \ge 1$ (since $\operatorname{Col}_q^N(0) = 0 \neq t$) and $\operatorname{Col}_q^N(x) = t$ for some $N \ge 0$. If no odd step occurs among $x, \operatorname{Col}_q(x), \dots, \operatorname{Col}_q^{N-1}(x)$, then $x = 2^N t$ with $t \in O_0$; otherwise, letting $w_m, \dots, w_1$ ($m \ge 1$) be the odd integers from which an odd step is taken along $x, \operatorname{Col}_q(x), \dots, \operatorname{Col}_q^{N-1}(x)$, we have $x = 2^k w_m$ ($k \ge 0$), $qw_{l+1} + 1 = 2^{k_{l+1}} w_l$ ($k_{l+1} \ge 1$, $1 \le l < m$), and $qw_1 + 1 = 2^{k_1} t$ ($k_1 \ge 0$), so $w_1, \dots, w_m$ is a backward chain of $m$ odd steps in $R_q(t)$. By (1), $m \le \kappa$, so $w_m \in \bigcup_{r=0}^\kappa O_r$. Thus every $x \in R_q(t)$ has the form $x = 2^k w$ with $w \in \bigcup_{r=0}^\kappa O_r$ and $k \ge 0$. Modulo $2^n$, all terms with $k \ge n$ collapse to $0$, while $0 \le k \le n - 1$ yields at most $n$ multiples per residue class in $\bigcup_{r=0}^\kappa O_r \bmod 2^n$. Hence
 $$|R_q(t) \bmod 2^n| \le n \left|\bigcup_{r=0}^\kappa O_r \bmod 2^n\right| + 1 \le n \sum_{r=0}^\kappa (n + 1)^r + 1 = (n + 1)^{\kappa + 1}.$$
-Because the canonical projection $\pi_{2^n} : \widehat{\mathbb{Z}} \twoheadrightarrow \mathbb{Z}/2^n\mathbb{Z}$ is a continuous surjective group homomorphism onto a finite discrete group, $(\pi_{2^n})_* \mu$ is a translation-invariant probability measure on $\mathbb{Z}/2^n\mathbb{Z}$, hence the uniform probability measure. Moreover, $\pi_{2^n}^{-1}(R_q(t) \bmod 2^n)$ is closed in $\widehat{\mathbb{Z}}$ and contains the diagonal image of $R_q(t)$, so $\overline{R_q(t)} \subseteq \pi_{2^n}^{-1}(R_q(t) \bmod 2^n)$. Therefore,
-$$\mu\bigl(\overline{R_q(t)}\bigr) \le \frac{|R_q(t) \bmod 2^n|}{2^n} \le \frac{(n + 1)^{\kappa + 1}}{2^n} \xrightarrow{n \to \infty} 0,$$
-whence $\mu\bigl(\overline{R_q(t)}\bigr) = 0$ and $\overline{R_q(t)} \neq \widehat{\mathbb{Z}}$.
+
 
 (3) Suppose some $x_0 \in R_q(t)$ is periodic under $\operatorname{Col}_q$, so $\operatorname{Col}_q^L(x_0) = x_0$ for some $L \ge 1$. Since $x_0 \in R_q(t)$, $\operatorname{Col}_q^N(x_0) = t$ for some $N \ge 0$; thus
 $$\operatorname{Col}_q^L(t) = \operatorname{Col}_q^L(\operatorname{Col}_q^N(x_0)) = \operatorname{Col}_q^N(\operatorname{Col}_q^L(x_0)) = \operatorname{Col}_q^N(x_0) = t,$$
@@ -325,3 +322,25 @@ $$k + j_1 + \dots + j_m \le \lfloor \log_2 X + \kappa \log_2(2q) \rfloor =: N_X.
 Since $(m, k, j_1, \dots, j_m)$ uniquely determines $y$ and $N_X \ge 1$ for $X \ge 2$, counting nonnegative integer tuples $(k, j_1, \dots, j_m) \in \mathbb{N}^{m+1}$ with $k + j_1 + \dots + j_m \le N_X$ gives
 $$|R_q(t) \cap [1, X]| \le \sum_{m=0}^\kappa \binom{N_X + m + 1}{m + 1} \le (\kappa + 1)(N_X + \kappa + 1)^{\kappa + 1} = O_q\bigl((\log X)^{\kappa + 1}\bigr)$$
 uniformly in $t \ge 1$. $\blacksquare$
+
+---
+
+### 6. From finite moduli to $\widehat{\mathbb{Z}}$ (not machine-checked)
+
+Let $\pi_m : \widehat{\mathbb{Z}} \to \mathbb{Z}/m\mathbb{Z}$ be the projections. For $X \subseteq \mathbb{N}$ write $\overline{X}$ for the closure of its diagonal image.
+
+1. **Density.** If $X$ meets every residue class modulo every $m \ge 1$, then $\overline{X} = \widehat{\mathbb{Z}}$, because the cylinders $\pi_m^{-1}(r)$ form a basis of nonempty open sets. Theorem A gives this for $X = R_q(t)$, already with $w > B$. Hence $\mu(\overline{R_q(t)}) = 1$.
+2. **Null sets.** For every $n$, $\pi_{2^n}^{-1}(X \bmod 2^n)$ is closed and contains $X$. Also $(\pi_{2^n})_*\mu$ is uniform, since it is a translation-invariant probability on a finite group. So $\mu(\overline{X}) \le |X \bmod 2^n|/2^n$. Theorem B(2) gives $\mu(\overline{R_q(t)}) \le (n+1)^{\kappa+1}/2^n \to 0$, hence $\mu(\overline{R_q(t)}) = 0$ and $\overline{R_q(t)} \neq \widehat{\mathbb{Z}}$.
+3. **Dichotomy.** "Some $x \in R_q(t)$ satisfies (H)" and "no $x \in R_q(t)$ satisfies (H)" are negations of each other, so 1 and 2 give $\mu(\overline{R_q(t)}) \in \{0, 1\}$ for every odd $q > 1$ and $t \ge 1$.
+
+**Lean correspondence.**
+
+| Paper | Lean (`QX+1/Collatz/`) |
+|---|---|
+| Proposition 1 | `Prop1`, `general_prop1` (GeneralDefs, GeneralLift) |
+| (3) ⇒ (1) via $D_m$ | `Dm`, `glift_step`, `lift_chain`, `prop1_three_to_one` (GeneralLift) |
+| Theorem A (integer content, both bounds) | `TheoremA`, `general_theorem_A` (GeneralTheoremA, GeneralTheoremAProof) |
+| Lemma 12 | `shift_select` (GeneralASelect) |
+| Theorem B (1), (2) count bound, (3) | `TheoremB`, `general_theorem_B` (GeneralDefs, GeneralTheoremB) |
+| $\kappa = \max_p \lceil \nu_p/\alpha_p \rceil$ | `nu_le_kappa`, `kappa_le_of_nu_le` (GeneralAStage) |
+| §6 (Haar measure, closure, 0–1 law) | not formalized (no measure theory in core Lean) |
