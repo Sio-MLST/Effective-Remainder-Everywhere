@@ -1,6 +1,10 @@
 # Reaching Every Residue
 
-Backward orbits of $qx+1$ maps and their closure in the profinite integers.
+**Backward orbits of $qx+1$ maps: a 0–1 law for their profinite closure.**
+
+For every odd $q>1$ and target $t\geq 1$, the closure of the backward orbit of $\operatorname{Col}_q$ in the profinite integers has Haar measure either zero or one. The two cases are characterized by explicit arithmetic criteria and decided by a finite directed graph. In the dense case, every residue class is reached with explicit bounds; in the null case, the backward orbit occupies at most $(n+1)^{\kappa+1}$ residue classes modulo $2^n$.
+
+The integer and finite-modulus results are established by constructive proofs formalized in Lean 4.35. The profinite closure and Haar-measure conclusions are then derived from these results.
 
 For an odd $q > 1$ let $\operatorname{Col}_q$ halve even numbers and send odd $x$ to $qx+1$. For a target $t \ge 1$ let $R_q(t)$ be the set of all $x$ whose orbit reaches $t$. The target $t$ can be anywhere: inside a cycle, outside every cycle, on a divergent orbit or on a convergent one. Nothing below depends on what the forward orbit of $t$ does.
 
