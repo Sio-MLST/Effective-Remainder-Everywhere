@@ -58,7 +58,7 @@ Let $\mathcal{D}_q \subseteq V_q$ be the vertices that have a path of length $\k
 
 *Correction.* The draft said the parity vector in part 3 is "neither irrational nor periodic". That is wrong: an eventually-zero vector is eventually periodic.
 
-**[L] Strong sufficiency.** The draft called $\widetilde V_q$ *strongly sufficient*, paraphrasing [MMMM13]: a set that meets every divergent orbit, every nontrivial cycle, and every infinite back-tracing sequence with an irrational parity vector. B2(2) proves these three properties. Whether they match [MMMM13]'s actual definition has not been checked against the paper.
+**[L] Strong sufficiency.** The draft called $\widetilde V_q$ *strongly sufficient*, paraphrasing [MMMM13]: a set that meets every divergent orbit, every nontrivial cycle, and every infinite back-tracing sequence with an irrational parity vector. B2(2) proves these three properties. *Checked against [MMMM13] §6 (p. 478):* the three properties match its definition. But there, strong sufficiency is a property of residue sets inside the pruned graph $\{3 \nmid x\}$, so $\widetilde V_q$ is better described as the analogue of that pruned graph (`RESEARCH_NOTES.md` §3.2).
 
 The draft also remarked that arithmetic progressions are not in general strongly sufficient. For instance, when $q = 3$ the class $0 \bmod 3$ meets no cycle, because a forward orbit never re-enters $3\mathbb{Z}$ once it has left.
 
@@ -217,7 +217,9 @@ For $11571$, a depth-2 target is $t = 415$. Integers $w_1$ (about 450 digits) an
 - Targets $t$ with $c_0(t) \equiv 1 \pmod{189}$ have successors $z' \equiv 1 \pmod{189}$. These have $6 \mid a_0(z')$, so $2^{a_0(z')} \equiv 1 \pmod 9$ and $c_0(z') \equiv 0 \pmod 3$, a dead end.
 - So $m(t) = 2 < 3 = \kappa$.
 
-**Theorem B10 [P\*].** *$7959$ is the smallest odd $q > 1$ with $\kappa_{\mathrm{trap}}(q) \ge 2$, and the multipliers below $12000$ with $\kappa_{\mathrm{trap}} \ge 2$ are exactly $7959, 10887, 11571$.*
+**Theorem B10 [R] (as stated).** *$7959$ is the smallest odd $q > 1$ with $\kappa_{\mathrm{trap}}(q) \ge 2$, and the multipliers below $12000$ with $\kappa_{\mathrm{trap}} \ge 2$ are exactly $7959, 10887, 11571$.*
+
+*Refuted:* $10533 = 3 \cdot 3511$ also has $\kappa_{\mathrm{trap}} = 2$ (`RESEARCH_NOTES.md`, §2, with a hand proof). The step "$p_1 \mid g_0$ forces $p_1 \mid d$" below fails when $p_1$ is a Wieferich prime. *Surviving form* **[C]** (uncapped scan): $7959$ is the smallest, and the list below $12000$ is $7959, 10533, 10887, 11571$. The original proof follows, unchanged.
 
 *Proof.*
 
@@ -273,7 +275,7 @@ How the facts above were obtained, so that they can be redone independently.
    - Result: $\kappa_{\mathrm{trap}} = 1$ for every such $q$, and B6 and B4-equality held whenever $u_q$ was a single prime power.
    - *Blind spot:* the cap $N_q \le 4 \cdot 10^5$ excluded the interesting cases. The candidates with two primes in $u_q$ and $\kappa \ge 2$ found below $6000$ were $2715, 3135, 4065, 4137$, all with $\kappa_{\mathrm{trap}} = 1$, in agreement with Rule 2.
 2. **Spot checks** using the residue-pair version (about $d \cdot u_q$ checks): $11571$ (then a new counterexample to the guess in §8, L3), $7959$, $10887$.
-3. **Not done:** an uncapped scan up to $12000$, which would independently confirm B10, and any search for $\kappa_{\mathrm{trap}} \ge 3$.
+3. **Uncapped scan up to $12000$** (`scripts/kappa_trap.py --scan 12000`, `RESEARCH_NOTES.md` §2): done; it found $10533$ in addition to B10's list. **Not done:** any search for $\kappa_{\mathrm{trap}} \ge 3$.
 
 ---
 
@@ -335,16 +337,16 @@ with roots $\gamma_5 \approx 0.651$, $\gamma_{21} \approx 0.0868$, $\gamma_{39} 
 - *Known:* B5 gives density $(d + q)/(qu)$ of classes modulo $2^d - 1$ for $t = 1$, which is small but positive.
 - Nothing is proved beyond that.
 
-**L10 [L] Strongly sufficient sets for $q > 3$.** Transfer the criterion of [MMMM13, Proposition 6.5], with its simple-cycle odd-fraction threshold $\ln 2 / \ln 3$, to the graph of B2, replacing the threshold by $\ln 2 / \ln q$. Both the citation and the transfer are unchecked.
+**L10 [L] Strongly sufficient sets for $q > 3$.** Transfer the criterion of [MMMM13, Proposition 6.5], with its simple-cycle odd-fraction threshold $\ln 2 / \ln 3$, to the graph of B2, replacing the threshold by $\ln 2 / \ln q$. *Checked against the paper* (`RESEARCH_NOTES.md` §3.3): $\ln 2/\ln q$ is right only for the compressed map ($\ln 2/\ln(2q)$ for uncompressed $\mathrm{Col}_q$). Part (c) relies on the $2^{60}$ verification and fails as stated for $q = 5$, which has small cycles. Parts (a),(b) need $q$-analogues of [MMMM13, Prop. 6.3], which are not yet proved.
 
-**L11 [L] Algorithmic note.** By B7, $\kappa_{\mathrm{trap}}$ can be computed with about $e_0 \cdot u_q^*$ checks per step, with $e_0 = \mathrm{ord}_{\mathrm{lcm}(g_0, u_q)}(2)$. For example, $18$ checks for $11571$ and $54$ for $10887$ (Gemini's counts, not re-derived).
+**L11 [L] Algorithmic note.** By B7, $\kappa_{\mathrm{trap}}$ can be computed with about $e_0 \cdot u_q^*$ checks per step, with $e_0 = \mathrm{ord}_{\mathrm{lcm}(g_0, u_q)}(2)$. For example, $18$ checks for $11571$ and $54$ for $10887$ (re-derived and cross-checked by brute force in `RESEARCH_NOTES.md` §1; $162$ for $7959$).
 - In a *search*, testing Rule 2 first is sound now that Rule 2 is proved.
 - It must not be used to confirm Rule 2 itself.
 
 ---
 
 **References.**
-- [Mon06] K. M. Monks, *Sufficient sets for the $3x+1$ problem* (2006).
-- [MMMM13] K. G. Monks, K. M. Monks, K. M. Monks, M. Monks, *Strongly sufficient sets and the distribution of arithmetic sequences in the $3x+1$ graph*, Discrete Math. (2013).
+- [Mon06] K. M. Monks, *The sufficiency of arithmetic progressions for the $3x+1$ conjecture*, Proc. Amer. Math. Soc. 134 (10) (2006) 2861–2872.
+- [MMMM13] Keenan Monks, Kenneth G. Monks, Kenneth M. Monks, Maria Monks, *Strongly sufficient sets and the distribution of arithmetic sequences in the $3x+1$ graph*, Discrete Math. 313 (2013) 468–489.
 
 Both are to be checked before citing specific statements.

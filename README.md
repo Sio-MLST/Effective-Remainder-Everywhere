@@ -37,4 +37,6 @@ In Lean 4.35 these report only `[propext, Quot.sound]`; in particular `Classical
 * `paper.md`: the paper (Proposition 1, Theorem A, Theorem B, and the profinite derivation).
 * `SUPPLEMENTS_A.md`: mostly Theorem A — sharper witness bounds for special moduli, corollaries, a worked example and open questions. Not formalized in Lean 4.35.
 * `SUPPLEMENTS_B.md`: mostly Theorem B — local odd depth, trapped sets, Wieferich-type multipliers and the effective trap depth $\kappa_{\mathrm{trap}}$, with a ledger of leads, conjectures and refuted claims. Not formalized in Lean 4.35.
+* `RESEARCH_NOTES.md`: the $\kappa_{\mathrm{trap}}$ algorithm, a correction to Theorem B10, checks against [Mon06] and [MMMM13], and leads for later sessions. Not formalized.
+* `scripts/kappa_trap.py`: computes $\kappa_{\mathrm{trap}}$ and $\delta_{\mathrm{dense}}$ and scans for $\kappa_{\mathrm{trap}} \ge 2$.
 * `lean/`: the Lean 4.35 formalization.
