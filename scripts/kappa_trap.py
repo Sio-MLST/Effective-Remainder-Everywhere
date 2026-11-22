@@ -3,6 +3,7 @@
 Usage:
   python3 kappa_trap.py 11571 10887        # report for given q
   python3 kappa_trap.py --check 11571      # also compare with the independent residue-graph brute force
+  python3 kappa_trap.py --np 221898711     # numpy version for large u_q
   python3 kappa_trap.py --scan 12000       # all odd q <= bound with kappa >= 2, list those with kappa_trap >= 2
 
 No assumption of Rules 1-3 is made. 2^d - 1 is never formed as an integer.
@@ -77,6 +78,39 @@ def depth_sets(q):
     return R, (d, uq, g0, kap, e0 * us)
 
 
+def depth_sets_np(q):
+    """Same iteration as depth_sets, with numpy boolean arrays indexed by b in [0, u_q).
+
+    For large u_q (e.g. 3^3 * 3511^2). Returns (sizes of R_0..R_kappa, info, last-step difference sizes)."""
+    import numpy as np
+    d, uq, g0, kap, F = params(q)
+    us = uq // g0
+    qs = 1
+    for p in factor(us):
+        qs *= p ** F[p]
+    qp, up, e0 = q // qs, qs * us, order(2, uq)
+    assert up < 2 ** 31
+    inv = pow(qp, -1, us) if us > 1 else 0
+    j = np.arange(us, dtype=np.int64)
+    R = np.ones(uq, dtype=bool)
+    sizes, diffs = [uq], []
+    for _ in range(kap):
+        proj = R.reshape(g0, us).any(axis=0)       # b = i*us + s  ->  b mod us = s
+        new = np.zeros(uq, dtype=bool)
+        for a in range(e0):
+            b = (pow(2, -a, g0) + j * g0) % uq
+            num = (pow(2, a, up) * (b % up) - 1) % up
+            rs = ((num // qs) % us) * inv % us
+            ok = R[b] & proj[rs]
+            new[b[ok]] = True
+        diffs.append(int((R & ~new).sum()))
+        R = new
+        sizes.append(int(R.sum()))
+    kt = 1 + max([0] + [k for k in range(1, kap) if sizes[k] > sizes[k + 1]])
+    return dict(q=q, d=d, u_q=uq, g0=g0, kappa=kap, sizes=sizes, kappa_trap=kt,
+                delta_dense=Fraction(d * sizes[-1], q * uq), evals_per_step=e0 * us)
+
+
 def brute_depth_sets(q):
     """Independent check: residue graph on c_0 mod u_q by explicit CRT lifts (slow; small u_q only)."""
     d, uq, g0, kap, _ = params(q)
@@ -110,7 +144,10 @@ def report(q):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    if args and args[0] == "--scan":
+    if args and args[0] == "--np":
+        for s_ in args[1:]:
+            print(depth_sets_np(int(s_)))
+    elif args and args[0] == "--scan":
         bound = int(args[1])
         n = 0
         for q in range(3, bound + 1, 2):

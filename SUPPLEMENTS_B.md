@@ -189,7 +189,7 @@ So every value is $\equiv c_0(z_1) \pmod{p^{M_1}}$, and $0 \le s < p^{\nu - \alp
 
 **Conclusion.** At $l = L^*$, $S_{L^*} = \mathbb{Z}/u_q$, so some vertex reached in $L^*$ steps has an edge to $c_1 \in R_{\mathrm{core}}$. By Proposition 1, $z_0$ is untrapped. Hence trapped vertices have $L \le L^* - 1$, that is $m \le L^*$. $\square$
 
-*Tightness* **[C]**: on all three known examples of §5.5 the sharper bound equals the true value.
+*Tightness* **[C]**: on all three known examples of §5.5 the sharper bound equals the true value. It is not tight in general: $10533$ ($\delta_3 = 3$, $\nu_3 - \alpha_3 = 2$) has bound $3$ but $\kappa_{\mathrm{trap}} = 2$ (`RESEARCH_NOTES.md` §2).
 
 | $q$ | $\delta_3$ | $\nu_3 - \alpha_3$ | draft bound | sharper bound | actual $\kappa_{\mathrm{trap}}$ |
 | --- | --- | --- | --- | --- | --- |
@@ -291,7 +291,8 @@ together with auxiliary prime factors $r^*$ that make $p_{L-1} \mid d$ and $p_0^
 - *Gaps:* that the peeling closes up at each step has not been checked. The choice of the $r^*$ and the resulting $\nu_{p_j} \ge L - j$ are asserted, not verified. There is no concrete $q$ for $L = 3$ yet.
 - *Next step:* pin down a concrete $q$ for $L = 3$ (for example $3 \leftarrow 19 \leftarrow p_2$ with $342 \mid \mathrm{ord}_{p_2}(2)$) and compute its $\kappa_{\mathrm{trap}}$ with §5.2.
 
-**L2 [L] "Two primes in $g_0$ cannot reach depth $3$" (Gemini), in tension with Rule 3.**
+**L2 [R] "Two primes in $g_0$ cannot reach depth $3$" (Gemini), in tension with Rule 3.**
+- *Refuted* at $q = 3 \cdot 3511 \cdot 21067$, which has $g_0 = 3 \cdot 3511$, $\nu_{3511} = 2$ and $\kappa_{\mathrm{trap}} = 3$, by hand and by computation (`RESEARCH_NOTES.md` §2a). *Open weaker form:* $\kappa_{\mathrm{trap}} \le 2$ when $g_0 = p_0 p_1$ and $\nu_{p_1} \le \alpha_{p_1}$. The original entry follows.
 - *Argument for.* With $g_0 = p_0 p_1$ and $\nu_{p_1} = 1$, the residue $c_0(z_1) \bmod p_1$ is free across the lifts. That unlocks $a_2$, so a path escapes at step $2$.
 - *Tension.* B9 allows bounds of $3$ or more when $\delta_p \ge 2$ and $\nu_p - \alpha_p \ge 2$, for example $g_0 = 57$ ($\delta_3 = 2$) with $\nu_3 \ge 3$. B9 is only an upper bound, so there is no contradiction yet. But L2 predicts that B9 is not tight there.
 - *Decisive test:* $q = 57 r \cdots$ with $27 \mid d$ (so $\nu_3 \ge 3$) and $19 \mid d$. If $\kappa_{\mathrm{trap}} = 3$ for such a $q$, L2 is refuted; if it is always $2$, L2 survives and B9 can be sharpened.
