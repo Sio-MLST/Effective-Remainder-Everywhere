@@ -11,7 +11,7 @@ The last two sections record what is *not* checked and the blind spots found alo
 ## 0. One command
 
 ```
-python3 scripts/verify_claims.py            # D1, C1–C5: about 2 s, standard library only
+python3 scripts/verify_claims.py            # D1, C1–C5, C8, C10: about 15 s, needs numpy
 python3 scripts/verify_claims.py --scan     # + C6: uncapped scan of q ≤ 12000, about 5 s
 python3 scripts/verify_claims.py --big      # + C7: q = 221898711, about 17 s, needs numpy and about 1.5 GB RAM
 ```
@@ -41,6 +41,9 @@ Every line prints `PASS <id>`; any failure raises. The IDs below match the scrip
 | R5 | B9 is not tight at 10533: its bound is $1 + \lceil 2/1 \rceil = 3$, but $\kappa_{\mathrm{trap}} = 2$ | [C] | $\delta_3 = v_3(2^{3510} - 1) - 1 = 3$ and $\nu_3 - \alpha_3 = 2$; uses R1′ | `C1[10533]` |
 | F1 | Two-prime formula (RN §2b) equals $\kappa_{\mathrm{trap}}$ for all odd $q \le 40000$ with $g_0 = p_0p_1$ (309 cases), and for $10533$, $221898711$ and $36169489893$ | [C] | 1880 cases up to $200000$ also agree (loop C8's code). Patterns covered: $(0,0), (1,0), (2,0), (2,1), (3,1)$; the $\omega_{\mathrm{hi}}=1$ branch is never covered | `C8`, `C8b`, `C9` (`--huge`, about 90 s, about 6 GB) |
 | F2 | The same formula for **all** $q$ with $g_0 = p_0p_1$ | lower bound [P\*], upper bound [L+] | RN §2b; the open step is marked ⚠ | read |
+| T1 | Truncation to $\tilde u_q$ gives exactly $R_k$ | [C] | equal sizes for every $q \le 10^5$ with a nontrivial truncation (2652 cases; 29395 up to $10^6$); also $q = 3\cdot3511\cdot591701809$ | `C10`, `C11` (`--big`) |
+| G1 | $\kappa_{\mathrm{trap}} = L^*$ (general recurrence, RN §2c) | [C] for all $q \le 10^5$ with $\kappa \ge 1$ (11246 cases; 121292 up to $10^6$); proofs [P\*] | natural $q$ reach depth $\le 2$ only | `C10` |
+| D4 | $\kappa_{\mathrm{trap}}(4508686487856814609099227) \ge 4$ | [P\*] + definition-level check | explicit path of length 3 to vertex 1 (dead); 1000 random walks never reach length 4 | `python3 scripts/walk_check.py 4508686487856814609099227 1000` |
 | M1 | [MMMM13] Thm 3.1 is false as printed; the first counterexample is $b = 95$ ($\lvert\langle 2,3\rangle\rvert = 36 \ne 72$); the first six are $95, 119, 143, 145, 215, 217$ | [C] | quadratic characters: $2$ and $3$ are non-squares mod both $5$ and $19$, which gives index 2 | `C4` |
 | M2 | $T_0^{-2} T_{1,q} T_0 T_{1,q}^{-1} T_0 = (x \mapsto x+1)$ on $\mathbb{Z}/b$ for all odd $q$ and $\gcd(b, 2q) = 1$ | [P] | four lines in RN §3.4.1 | `C5d` (numeric sample) |
 | M3 | $T_5$ has cycles $\{1,3,8,4,2\}$ (2 of 5 steps red) and $\{13,33,83,208,104,52,26\}$ (3 of 7); $\ln 2/\ln(5 + 1/13) < 3/7 < \ln 2/\ln 5$ | [C] | direct iteration | `C5a`, `C5b` |

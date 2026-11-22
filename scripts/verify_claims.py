@@ -11,7 +11,7 @@ import sys, os
 from fractions import Fraction
 from math import gcd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from kappa_trap import params, order, factor, depth_sets, report, formula_two_prime
+from kappa_trap import params, order, factor, depth_sets, report, formula_two_prime, recurrence_L, truncated_modulus, depth_sets_np
 
 
 def ok(tag, cond, msg=""):
@@ -163,6 +163,25 @@ ok("C8", n8 == 309 and not bad8, f"{n8} cases, mismatches {bad8}")
 ok("C8b", formula_two_prime(10533)[0] == 2 and formula_two_prime(221898711)[0] == 3
    and formula_two_prime(36169489893)[0] == 3, "formula on constructed cases (algorithm values: C1, C7, C9)")
 
+
+# ---------- C10: general recurrence and truncated modulus vs exact algorithm, all q <= 100000 with kappa >= 1 ----------
+n10 = nt = 0; badR = []; badT = []
+for q in range(3, 100001, 2):
+    d_, uq_, g0_, kap_, _ = params(q)
+    if kap_ < 1: continue
+    n10 += 1
+    full = depth_sets_np(q)
+    if recurrence_L(q)[0] != full["kappa_trap"]: badR.append(q)
+    tm = truncated_modulus(q)
+    if tm < uq_:
+        nt += 1
+        tr = depth_sets_np(q, truncate=True)
+        if [x * (uq_ // tm) for x in tr["sizes"]] != full["sizes"]: badT.append(q)
+ok("C10", n10 == 11246 and nt == 2652 and not badR and not badT, f"{n10} cases ({nt} with nontrivial truncation); mismatches R={badR[:5]} T={badT[:5]}")
+L4 = recurrence_L(4508686487856814609099227)
+ok("C10b", recurrence_L(7619862605248203)[0] == 3 and L4[0] == 4 and L4[2] == [(4, 3, 1), (3, 2, 0), (2, 1, 0), (1, 0, 0), (0, 0, 0)],
+   "recurrence: 3*3511*21067*210671*163 -> 3; same *591701809 -> 4")
+
 # ---------- C6 (--scan): uncapped scan q <= 12000 ----------
 if "--scan" in sys.argv:
     hits, n = [], 0
@@ -178,6 +197,9 @@ if "--big" in sys.argv:
     from kappa_trap import depth_sets_np
     info = depth_sets_np(221898711)
     ok("C7", info["sizes"] == [332832267, 110912490, 36960300, 24640200] and info["kappa_trap"] == 3, str(info["sizes"]))
+if "--big" in sys.argv:   # truncated modulus makes u_q ~ 1.2e12 tractable (~16 s)
+    info = depth_sets_np(3 * 3511 * 591701809, truncate=True)
+    ok("C11", info["kappa_trap"] == 3 and info["modulus_used"] == 27 * 3511 ** 2 and info["u_q"] == 27 * 3511 ** 3, "q = 3*3511*591701809")
 if "--huge" in sys.argv:   # ~90 s, ~6 GB RAM
     from kappa_trap import depth_sets_np
     info = depth_sets_np(36169489893)

@@ -95,7 +95,7 @@ Proposed by Gemini after §2, checked here by hand and by computation.
 - **B9 is not always tight.** At $q = 10533$, B9 gives $3$ but $\kappa_{\mathrm{trap}} = 2$. This qualifies the "tightness" table in `SUPPLEMENTS_B.md` §5.4.
 - **Not known:** whether 221898711 is the smallest $q$ with $\kappa_{\mathrm{trap}} \ge 3$. A cheaper construction might use $7 \cdot 1093$ or $13 \cdot 1093$, or other auxiliary primes.
 
-## 2b. Closed form for $\kappa_{\mathrm{trap}}$ when $g_0 = p_0 p_1$ (Gemini)
+## 2b. Closed form for $\kappa_{\mathrm{trap}}$ when $g_0 = p_0 p_1$ (Gemini; superseded by §2c)
 
 **Status.**
 - Formula: **[C]** on every computable case.
@@ -158,6 +158,47 @@ where $\mathrm{hi}$ is the index with the larger $s$. In words: the spare digits
 - Make ⚠ rigorous, or find the case where a shared $s$ cannot serve both primes.
 - Find a cheaper test of the $\omega_{\mathrm{hi}}$ branch, perhaps a smarter state space than $\mathbb{Z}/u_q$: by step 1 only $(M_l)$ matters, so the iteration could be run on cosets.
 - Generalize to $\omega(g_0) \ge 3$, where L1's chains live.
+
+## 2c. General locking recurrence, exact truncation, and a depth-4 multiplier (Gemini, second round)
+
+**Status at a glance.**
+
+| claim | status | evidence |
+|---|---|---|
+| T1: the truncation theorem ($R_k = \pi^{-1}(\tilde R_k)$ modulo $\tilde u_q$) | [C] + Gemini proof, unread in detail | 29395 nontrivial truncations ($q \le 10^6$), all exact (C10 covers $q \le 10^5$) |
+| G1: $\kappa_{\mathrm{trap}} = L^*$ of the general recurrence, any $g_0$ | lower bound [P\*]; upper bound [P\*] after the ⚠ fix; formula [C] | 121292 cases $q \le 10^6$ with $\kappa \ge 1$ ($\omega(g_0)$ up to 4), plus 4 constructed cases; no mismatch |
+| D4: $\kappa_{\mathrm{trap}}(Q_4) \ge 4$ for $Q_4 = 3 \cdot 3511 \cdot 21067 \cdot 210671 \cdot 591701809 \cdot 163$ | [P\*] + definition-level check | explicit path of length 3 computed; 1000 random walks, none longer than 3 (`walk_check.py`) |
+| §2b's two-prime formula | superseded by G1, which reduces to it | — |
+
+**T1. Exact truncation.**
+- *Statement.* Let $o = \mathrm{ord}_{g_0}(2)$ and $\delta_p = v_p(2^o - 1) - \alpha_p$. Put $\tilde\nu_p = \min(\nu_p, \alpha_p + \delta_p)$ for $\nu_p > \alpha_p$, else $\nu_p$, and $\tilde u_q = \prod p^{\tilde\nu_p}$. Running §1.2 modulo $\tilde u_q$ gives $R_k$ exactly, by pulling back.
+- *Proof idea (Gemini).* Varying the exponent $a = a_0 + s\,o$ sweeps the digits of $c_0$ above $p^{\tilde\nu_p - \alpha_p}$, so successor sets are unions of cosets modulo $\tilde u_q$.
+- *Effect.* $q = 3 \cdot 3511 \cdot 591701809$ (the least prime with $3511^2 \mid \mathrm{ord}_r(2)$) has $u_q = 27 \cdot 3511^3 \approx 1.2 \cdot 10^{12}$, but $\tilde u_q = 27 \cdot 3511^2$. It gives $\kappa_{\mathrm{trap}} = 3$ in 16 s, as Gemini predicted (C11, `--big`).
+- *Code.* `truncated_modulus`, and `depth_sets_np(q, truncate=True)`.
+
+**G1. General recurrence** (`recurrence_L` in `scripts/kappa_trap.py`). Let $p_i$ run over the primes of $g_0$, with $\gamma_i = \min(\alpha_i, \nu_i)$ and $M_0(i) = \nu_i$. Then
+$$m_l(i) = \min(M_l(i), \gamma_i), \qquad o_l = \mathrm{ord}_{\prod p_i^{m_l(i)}}(2), \qquad \lambda_l(i) = v_{p_i}(2^{o_l} - 1)\ \ (0 \text{ if } m_l(i) = 0),$$
+$$M_{l+1}(i) = \max\bigl(0, \min(\lambda_l(i) - \alpha_i,\ M_l(i) - \alpha_i)\bigr), \qquad L^* = \min\{l \ge 1 : M_l = 0\}.$$
+- *Upper bound (⚠ fixed).* At each step, split the primes with $M_l \ge 1$ into two sets:
+  - $\mathcal B_l$ ($M_l > \lambda_l$): steered by one shared $s$. By CRT, $s$ only needs to be free modulo $\prod_{\mathcal B_l} p_i^{N_i}$ with $N_i = \sigma_i - (\lambda_l(i) - \alpha_i)$, and $v_{p_i}(d/o_l) \ge \alpha_i + N_i > N_i$ by Lemma 1(2).
+  - $\mathcal A_l$: steered by residue shifts $t_i p_i^{M_l(i)}$ at the fixed exponent $a^*$, which does not disturb $\mathcal A_l$ modulo $p^{M_l}$ because $o_l \mid a^* - a$.
+
+  Read once by Claude; no gap found. Recheck the case $1 \le M_l(i) < \alpha_i$, which needs $\alpha_i \ge 2$ and has never been tested by computation.
+- *Lower bound.* The witness is $c_0(t) \equiv \sum_{j \le L^*-2} q^j$, as in §2b.
+- *Structure (Gemini, [P] given G1).* $v_{p_i}(\mathrm{ord}_{p_j}(2)) > 0$ implies $p_i < p_j$, so locking only goes from larger primes to smaller ones. In the squarefree case $\lambda_l(i) - 1 = \omega_i + \max_{j \text{ active}} v_{p_i}(\mathrm{ord}_{p_j}(2))$. Hence, for squarefree $g_0$ with $r$ primes, all non-Wieferich, $\kappa_{\mathrm{trap}} \le r$. Wieferich primes add $\omega_i$. This is consistent with the data (natural $q \le 10^6$ never exceed depth 2), but no case with $r = 3$ reaching depth 3 has been computed.
+
+**D4. Depth 4 with three primes in $g_0$.**
+- *Gemini's first candidate fails because of $\kappa$.* $3 \cdot 3511 \cdot 21067 \cdot r^*$ ($r^* = 210671$, so that $21067 \mid d$) has $\kappa = 3$. Even with $163$ added ($\nu_3 = 4$, $\kappa = 4$), $\nu_{3511} = 2$ and the profile is $(4,2,1) \to (3,1,0) \to (2,0,0) \to (0,0,0)$, so $L^* = 3$.
+- *Depth 4 needs $\nu_{3511} = 3$ as well.* Adding $591701809$ gives $Q_4 = 4508686487856814609099227$, with $g_0 = 3 \cdot 3511 \cdot 21067$, $u_q = 3^4 \cdot 3511^3 \cdot 21067$ and $\kappa = 4$. The profile is $(4,3,1) \to (3,2,0) \to (2,1,0) \to (1,0,0) \to (0,0,0)$, so $L^* = 4$.
+- *Checked at the level of definitions* (`python3 scripts/walk_check.py 4508686487856814609099227 1000`, about 1 min):
+  - the explicit witness path $t \to \sum_{j<3} q^j \to 1 + q \to 1$ has length 3 and ends at vertex $1$, which has out-degree 0;
+  - 1000 random backward walks from the witness class died at lengths $\{1: 853,\ 2: 123,\ 3: 24\}$, and none survived to length 4.
+- So $\kappa_{\mathrm{trap}}(Q_4) \ge 4$ rests on the G1 lower-bound proof together with this check. $\tilde u_q \approx 7 \cdot 10^{16}$ is out of reach for the exact iteration.
+
+**Blind spots.**
+- Natural $q$ only exercise depth $\le 2$. Every claim about depth $\ge 3$ rests on five constructed $q$.
+- $\alpha_i \ge 2$ with $\nu_i > \alpha_i$ (non-squarefree $g_0$ with spare digits) is untested.
+- The $\omega_{\mathrm{hi}}$ branch of §2b ($s_{\mathrm{hi}} \ge s_{\mathrm{lo}} + 2$ at a Wieferich prime) is still uncomputed. With T1, it may now be within reach for a pair like $g_0 = 3511 \cdot 21067$; that is worth trying.
 
 ---
 

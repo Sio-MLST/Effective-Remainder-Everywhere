@@ -26,13 +26,18 @@ def factor(n):
 
 
 def order(a, n):
+    """Multiplicative order of a mod n (gcd(a, n) = 1), via the Carmichael function."""
     if n == 1:
         return 1
-    k, x = 1, a % n
-    while x != 1:
-        x = x * a % n
-        k += 1
-    return k
+    from math import lcm
+    lam = 1
+    for p, e in factor(n).items():
+        lam = lcm(lam, (p - 1) * p ** (e - 1) if p != 2 else (1 if e == 1 else 2 if e == 2 else 2 ** (e - 2)))
+    o = lam
+    for p in factor(lam):
+        while o % p == 0 and pow(a, o // p, n) == 1:
+            o //= p
+    return o
 
 
 def params(q):
@@ -78,12 +83,13 @@ def depth_sets(q):
     return R, (d, uq, g0, kap, e0 * us)
 
 
-def depth_sets_np(q):
+def depth_sets_np(q, truncate=False):
     """Same iteration as depth_sets, with numpy boolean arrays indexed by b in [0, u_q).
 
     For large u_q (e.g. 3^3 * 3511^2). Returns (sizes of R_0..R_kappa, info, last-step difference sizes)."""
     import numpy as np
-    d, uq, g0, kap, F = params(q)
+    d, uq_full, g0, kap, F = params(q)
+    uq = truncated_modulus(q) if truncate else uq_full
     us = uq // g0
     qs = 1
     for p in factor(us):
@@ -107,7 +113,7 @@ def depth_sets_np(q):
         R = new
         sizes.append(int(R.sum()))
     kt = 1 + max([0] + [k for k in range(1, kap) if sizes[k] > sizes[k + 1]])
-    return dict(q=q, d=d, u_q=uq, g0=g0, kappa=kap, sizes=sizes, kappa_trap=kt,
+    return dict(q=q, d=d, u_q=uq_full, modulus_used=uq, g0=g0, kappa=kap, sizes=sizes, kappa_trap=kt,
                 delta_dense=Fraction(d * sizes[-1], q * uq), evals_per_step=e0 * us)
 
 
@@ -138,6 +144,44 @@ def formula_two_prime(q):
         hi = p0 if s0 > s1 else p1
         L += 1 + min(om[hi], abs(s0 - s1) - 1)
     return L, s, om
+
+
+def truncated_modulus(q):
+    """Gemini's locking-truncated modulus (RESEARCH_NOTES 2c): nu~_p = min(nu_p, alpha_p + delta_p),
+    delta_p = v_p(2^o - 1) - alpha_p with o = ord_{g0}(2) (delta_p = 0 if nu_p <= alpha_p)."""
+    d, uq, g0, kap, F = params(q)
+    o = order(2, g0)
+    out = 1
+    for p in factor(uq):
+        al, nu = F[p], _vexp(p, d) - F[p]
+        de = max(0, _vexp(p, o) - al) if nu > al else 0
+        out *= p ** min(nu, al + de)
+    return out
+
+
+def recurrence_L(q):
+    """Gemini's general locking recurrence (RESEARCH_NOTES 2c), any g0: returns (L*, profile list)."""
+    d, uq, g0, kap, F = params(q)
+    if kap < 1:
+        return None
+    P = list(factor(g0))
+    al = {p: F[p] for p in P}
+    nu = {p: _vexp(p, d) - F[p] for p in P}
+    ga = {p: min(al[p], nu[p]) for p in P}
+    M = dict(nu)
+    prof = [tuple(M[p] for p in P)]
+    for l in range(1, 10 * kap + 10):
+        m = {p: min(M[p], ga[p]) for p in P}
+        mod = 1
+        for p in P:
+            mod *= p ** m[p]
+        o = order(2, mod)
+        lam = {p: (_vexp(p, o) if m[p] >= 1 else 0) for p in P}
+        M = {p: max(0, min(lam[p] - al[p], M[p] - al[p])) for p in P}
+        prof.append(tuple(M[p] for p in P))
+        if all(v == 0 for v in M.values()):
+            return l, P, prof
+    raise RuntimeError("no termination")
 
 
 def brute_depth_sets(q):
