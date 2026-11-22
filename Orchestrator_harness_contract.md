@@ -13,7 +13,7 @@ The orchestrator prompt assumes these guarantees. At the start, the orchestrator
 | H7 | The restart threshold N and the escalation threshold M | the user, or these defaults | N = 3, M = 20 |
 | H8 | The state (commit hash or environment) recorded with each result | the harness | — |
 | H9 | The user's approval for changes outside the session | the session permissions | — |
-| H10 | **Audit budget per stop.** Priority: changes to the record or tests, then the final claim, then direct dependencies of the definition of done, then the sample. Claims over the budget are listed as "unaudited" and carried into the handover. | fixed here | 3 audits per stop |
+| H10 | **Audit ceiling per stop. It is a maximum, not a quota, and zero is normal on a clean stop.** Priority: changes to the record or tests, then claims with leads, then the sample (at most one). Claims over the ceiling are listed as "unaudited" and carried into the handover. The final audit at handover is outside this ceiling. | fixed here | at most 3 audits per stop |
 | H11 | **Dependency edges.** The harness adds an edge wherever one claim's evidence cites another's tool call. The final audit re-derives the final claim's dependencies from its evidence, and an edge that was left out counts as an undisclosed selection, so the verdict is fail. | the harness, plus the final auditor | — |
 
 **Accepted gaps:**
