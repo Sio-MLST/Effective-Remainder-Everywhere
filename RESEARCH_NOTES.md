@@ -95,6 +95,70 @@ Proposed by Gemini after §2, checked here by hand and by computation.
 - **B9 is not always tight.** At $q = 10533$, B9 gives $3$ but $\kappa_{\mathrm{trap}} = 2$. This qualifies the "tightness" table in `SUPPLEMENTS_B.md` §5.4.
 - **Not known:** whether 221898711 is the smallest $q$ with $\kappa_{\mathrm{trap}} \ge 3$. A cheaper construction might use $7 \cdot 1093$ or $13 \cdot 1093$, or other auxiliary primes.
 
+## 2b. Closed form for $\kappa_{\mathrm{trap}}$ when $g_0 = p_0 p_1$ (Gemini)
+
+**Status.**
+- Formula: **[C]** on every computable case.
+- Lower bound: **[P\*]** (read once, by Claude).
+- Upper bound: **[L+]**, a complete-looking argument with one step to scrutinize (marked ⚠ below).
+- The $\omega_{\mathrm{hi}} \ge 1$ branch: **untested**.
+
+This partly answers L6.
+
+**Definitions.** Assume $\kappa \ge 1$ and $g_0 = p_0 p_1$ with distinct primes, so $\min(\alpha_i, \nu_i) = 1$. Let $o = \mathrm{ord}_{g_0}(2)$, and for $i \in \{0, 1\}$:
+- $\sigma_i = \max(0, \nu_i - \alpha_i)$. When $\sigma_i > 0$, this forces $\alpha_i = 1$.
+- $\delta_i = v_{p_i}(2^o - 1) - 1$.
+- $\omega_i = v_{p_i}(2^{\mathrm{ord}_{p_i}(2)} - 1) - 1$. This is the Wieferich excess: $1$ for $1093$ and $3511$, else $0$.
+- $s_i = 0$ if $\sigma_i = 0$, else $\min(\delta_i, \sigma_i)$.
+
+*Locking:* $p_{1-i}$ locks $p_i$ iff $p_i \mid \mathrm{ord}_{p_{1-i}}(2)$, and then $\delta_i = \omega_i + v_{p_i}(\mathrm{ord}_{p_{1-i}}(2))$.
+
+**Formula.**
+$$\kappa_{\mathrm{trap}}(q) = L^* := 1 + \min(s_0, s_1) + \begin{cases} 0 & s_0 = s_1,\\ 1 + \min(\omega_{\mathrm{hi}},\ \lvert s_0 - s_1\rvert - 1) & s_0 \ne s_1,\end{cases}$$
+where $\mathrm{hi}$ is the index with the larger $s$. In words: the spare digits of the more-locked prime beyond $s_{\mathrm{lo}} + 1$ are wasted once the other prime unlocks, unless $p_{\mathrm{hi}}$ is Wieferich.
+
+**Evidence [C].** Code: `formula_two_prime` in `scripts/kappa_trap.py`.
+- *All* 1880 odd $q \le 200000$ with $g_0 = p_0 p_1$ and $\kappa \ge 1$ agree with the algorithm: 1734 have $\kappa_{\mathrm{trap}} = 1$ and 146 have $\kappa_{\mathrm{trap}} = 2$. Check C8 covers $q \le 40000$; the full range takes about 90 s by looping C8's code.
+- Constructed cases:
+
+| $q$ | $(s_{\mathrm{hi}}, s_{\mathrm{lo}})$ | formula | algorithm | $1 + \max_p \lceil M_1/\alpha\rceil$ (L5's bound) |
+|---|---|---|---|---|
+| $10533$ | $(2, 0)$ | 2 | 2 | 3 |
+| $3 \cdot 3511 \cdot 21067$ | $(2, 1)$ | 3 | 3 | 3 |
+| $3 \cdot 3511 \cdot 21067 \cdot 163 = 36169489893$ | $(3, 1)$ | 3 | 3 (C9, `--huge`) | 4 |
+
+**Coverage, honestly.**
+- The natural range exercises only the patterns $(0,0)$, $(1,0)$, $(2,0)$, all with $\omega_{\mathrm{hi}} = 0$. The constructed cases add $(2,1)$ and $(3,1)$.
+- *Never tested:*
+  - $s_0 = s_1 \ge 1$. This branch is not distinctive anyway: there $1 + \min = 1 + \max$.
+  - $\omega_{\mathrm{hi}} = 1$ with $\lvert s_0 - s_1\rvert \ge 2$. This needs $p_{\mathrm{hi}} \in \{1093, 3511\}$ with $\sigma \ge 2$, so $u_q \ge p_{\mathrm{hi}}^3 \ge 1.3 \cdot 10^9$ times more, which is beyond the numpy path on 15 GB. This branch is the formula's least-supported claim.
+- **L5's bound is not tight:** it gives 4, the truth is 3.
+
+**Proof sketch** (Gemini's full text is in the session record; what follows keeps every step a reader must check). Define a locking profile with $M_0(i) = \nu_i$, $m_i(l) = \min(M_l(i), 1)$, $o_l = \mathrm{ord}_{p_0^{m_0(l)} p_1^{m_1(l)}}(2)$ and $\lambda_l(i) = v_{p_i}(2^{o_l} - 1)$. Set $M_{l+1}(i) = 0$ if $\sigma_i = 0$, else $\max(0, \min(\lambda_l(i) - 1, M_l(i) - 1))$.
+1. *$L^*$ is the first $l \ge 1$ with $M_l = (0, 0)$.*
+   - $M_1 = (s_0, s_1)$.
+   - While both are $\ge 1$, each loses 1 per step, since $\lambda - 1 = \delta \ge s$.
+   - After the smaller hits 0, $o_l = \mathrm{ord}_{p_{\mathrm{hi}}}(2)$ and $\lambda - 1 = \omega_{\mathrm{hi}}$. So $M(\mathrm{hi})$ drops to $\min(\omega_{\mathrm{hi}}, \lvert\Delta\rvert - 1)$, then by 1 per step.
+2. *Upper bound (B9 style).* Claim: from a vertex with a path of length $L^*$, the values of $c_0$ reachable in $l$ steps fill the coset $\{r \equiv c_0(z_l) \pmod{p_0^{M_l(0)} p_1^{M_l(1)}}\}$. At $l = L^*$ this coset is everything, so the vertex is untrapped. The step uses two mechanisms:
+   - *B: vary the exponent* $a(s) = a + s\, o_l$. This uses $v_{p_i}(d/o_l) = 1 + \nu_i - \lambda_l(i)$ (Lemma 1(2)).
+   - *A: vary the residue* within the coset by $t_i p_i^{M_l(i)}$. This shifts $c_0$ by $(q'_{p_i})^{-1} 2^{a} t_i p_i^{M_l(i) - 1}$.
+   - At each prime, use B if $\lambda - 1 \le M - 1$, else A.
+   - ⚠ *To check:* when both primes want B at the same step, one shared $s$ must sweep both cosets at once. That needs $s$ free modulo $p_0^{\sigma_0 - (\lambda_0 - 1)} p_1^{\sigma_1 - (\lambda_1 - 1)}$ (CRT plus the valuation of $d/o_l$ at each prime). It is asserted, not written out.
+   - Also check that "replace $r_l \bmod p_{\mathrm{lo}}$ freely" is licensed by the induction hypothesis (the coset is reachable) and not merely by membership in $S_l$.
+3. *Lower bound [P\*].*
+   - If $L^* = 1$, use $t = 1$.
+   - Otherwise take $t$ with $c_0(t) \equiv \sum_{j=0}^{L^*-2} q^j \pmod{u_q}$. This generalizes $1 + q$ of §2a.
+   - The exponent $a = d$ gives a path of length $L^* - 1$, peeling one power of $q$ per step.
+   - By induction, every vertex reachable in $l$ steps has $c_0 \equiv r_l^* \pmod{p_0^{M_l(0)} p_1^{M_l(1)}}$. Compatibility forces $o_l \mid a$, so $2^a \equiv 1 \pmod{p_i^{\lambda_l(i)}}$; then divide by $q$.
+   - At $l = L^* - 1$, $r^* = 0$ and $M(\mathrm{hi}) \ge 1$, so $c_0 \equiv 0 \pmod{p_{\mathrm{hi}}}$, which means out-degree $0$.
+
+**Non-squarefree $g_0$ [L].** Gemini expects the recurrence to survive with $m_i(l) = \min(M_l(i), \alpha_i)$ and $\alpha_i$ in place of $1$, but not the closed form. Untested.
+
+**Leads that follow.**
+- Make ⚠ rigorous, or find the case where a shared $s$ cannot serve both primes.
+- Find a cheaper test of the $\omega_{\mathrm{hi}}$ branch, perhaps a smarter state space than $\mathbb{Z}/u_q$: by step 1 only $(M_l)$ matters, so the iteration could be run on cosets.
+- Generalize to $\omega(g_0) \ge 3$, where L1's chains live.
+
 ---
 
 ## 3. What [Mon06] and [MMMM13] actually say
@@ -150,6 +214,12 @@ Keep `paper.md`'s notation everywhere. Use Monks's words (*merges*, *sufficient*
 ---
 
 ## 5. Working practice
+
+**Two-model work (from the user, 2026-11-22).**
+- Pass content, not procedure or praise.
+- Gemini proposes mechanisms and proofs under strict rigor. Claude tests the one case that could break them, and states the coverage.
+- A wrong claim is a lead. Record what it got right and the exact break, then hand the break back. Don't just write [R].
+- No re-verification loops, and no scripts whose outcome would not change the next step.
 
 - Before a scan, name its possible outcomes. Run it only if they lead to different next steps. The scan of §2 passed this test: it could, and did, refute B10.
 - A capped search proves nothing about what the cap excludes. Scan 1 ($N_q \le 4 \cdot 10^5$) hid all the depth-2 cases. B10's hand enumeration was "checked once" and still missed 10533.

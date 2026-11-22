@@ -111,6 +111,35 @@ def depth_sets_np(q):
                 delta_dense=Fraction(d * sizes[-1], q * uq), evals_per_step=e0 * us)
 
 
+def _vexp(p, e):
+    """v_p(2^e - 1) without forming 2^e - 1."""
+    k = 0
+    while pow(2, e, p ** (k + 1)) == 1:
+        k += 1
+    return k
+
+
+def formula_two_prime(q):
+    """Gemini's closed form for kappa_trap when g0 = p0*p1 (distinct primes), RESEARCH_NOTES 2b.
+    Returns (L*, s, omega) or None if g0 is not a product of two distinct primes or kappa = 0."""
+    d, uq, g0, kap, F = params(q)
+    G = factor(g0)
+    if kap < 1 or len(G) != 2 or any(e != 1 for e in G.values()):
+        return None
+    o = order(2, g0)
+    s, om = {}, {}
+    for p in G:
+        sig = max(0, _vexp(p, d) - 2 * F[p])          # nu - alpha
+        om[p] = _vexp(p, order(2, p)) - 1             # Wieferich excess
+        s[p] = 0 if sig == 0 else min(_vexp(p, o) - 1, sig)
+    (p0, s0), (p1, s1) = s.items()
+    L = 1 + min(s0, s1)
+    if s0 != s1:
+        hi = p0 if s0 > s1 else p1
+        L += 1 + min(om[hi], abs(s0 - s1) - 1)
+    return L, s, om
+
+
 def brute_depth_sets(q):
     """Independent check: residue graph on c_0 mod u_q by explicit CRT lifts (slow; small u_q only)."""
     d, uq, g0, kap, _ = params(q)

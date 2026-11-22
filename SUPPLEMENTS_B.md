@@ -320,7 +320,7 @@ together with auxiliary prime factors $r^*$ that make $p_{L-1} \mid d$ and $p_0^
 - *Conjecture:* $\kappa_{\mathrm{trap}} \le 1 + \max_p \lceil M_1(p) / \alpha_p \rceil$. Alternatively, cross-prime interaction may add depth, which is where L1's chains might live.
 - *Test:* the smallest $q$ with two primes in $u_q^*$ and $\delta \ge 1$ at one of them.
 
-**L6 [L] A formula for $\kappa_{\mathrm{trap}}$.** Is $\kappa_{\mathrm{trap}}(q)$ determined by the local data $\{(\alpha_p, \nu_p, \delta_p)\}$ together with the "who locks whom" graph on the primes of $g_0$ (where $p$ locks $p'$ if $p'^{\alpha} \mid \mathrm{ord}_p(2)$)? L1, L2 and L5 are special cases.
+**L6 [L] A formula for $\kappa_{\mathrm{trap}}$.** *Partial answer:* for $g_0 = p_0 p_1$, a closed form in $(\sigma_i, \delta_i, \omega_i)$ agrees with every computed case (`RESEARCH_NOTES.md` §2b). The locking graph must include the Wieferich route ($\omega_i$). Is $\kappa_{\mathrm{trap}}(q)$ determined by the local data $\{(\alpha_p, \nu_p, \delta_p)\}$ together with the "who locks whom" graph on the primes of $g_0$ (where $p$ locks $p'$ if $p'^{\alpha} \mid \mathrm{ord}_p(2)$)? L1, L2 and L5 are special cases.
 
 **L7 [L] Natural density $0$ versus Haar measure $1$ (heuristic).** For $q \ge 5$, model each exponent $k$ as giving an integral odd predecessor with probability $1/q$, and weight nodes by $y^{-\gamma}$. This gives the criticality equation
 $$q^{\gamma - 1} = 2^\gamma - 1,$$

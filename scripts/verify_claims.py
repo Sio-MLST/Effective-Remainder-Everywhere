@@ -2,7 +2,7 @@
 
 Each check prints  PASS <id>  or raises AssertionError.  IDs match the claim table in VERIFY.md.
 Default run: ~10 s.  --big adds C7 (q = 221898711, ~20 s, ~1.5 GB RAM, needs numpy).
---scan adds C6 (all odd q <= 12000, ~1-3 min).
+--scan adds C6 (all odd q <= 12000, ~5 s).  --huge adds C9 (q = 3*3511*21067*163, ~90 s, ~6 GB).
 
 Independence: D-checks use ONLY the definitions of paper.md section 1 (V_q, c_0, G_q) -- no Lemma B7,
 no closed form.  The fast algorithm (kappa_trap.depth_sets) is then compared against them.
@@ -11,7 +11,7 @@ import sys, os
 from fractions import Fraction
 from math import gcd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from kappa_trap import params, order, factor, depth_sets, report
+from kappa_trap import params, order, factor, depth_sets, report, formula_two_prime
 
 
 def ok(tag, cond, msg=""):
@@ -151,6 +151,18 @@ for qq in (3, 5, 7, 21):
         T0i2 = lambda x: 4 * x % b
         ok(f"C5d[q={qq},b={b}]", all(T0i2(T1(T0(T1i(T0(x))))) == (x + 1) % b for x in range(0, b, 37)))
 
+
+# ---------- C8: two-prime formula (RESEARCH_NOTES 2b) vs algorithm, all q <= 40000 with g0 = p0*p1 ----------
+n8, bad8 = 0, []
+for q in range(3, 40001, 2):
+    f = formula_two_prime(q)
+    if f is None: continue
+    n8 += 1
+    if report(q)[0]["kappa_trap"] != f[0]: bad8.append(q)
+ok("C8", n8 == 309 and not bad8, f"{n8} cases, mismatches {bad8}")
+ok("C8b", formula_two_prime(10533)[0] == 2 and formula_two_prime(221898711)[0] == 3
+   and formula_two_prime(36169489893)[0] == 3, "formula on constructed cases (algorithm values: C1, C7, C9)")
+
 # ---------- C6 (--scan): uncapped scan q <= 12000 ----------
 if "--scan" in sys.argv:
     hits, n = [], 0
@@ -166,4 +178,8 @@ if "--big" in sys.argv:
     from kappa_trap import depth_sets_np
     info = depth_sets_np(221898711)
     ok("C7", info["sizes"] == [332832267, 110912490, 36960300, 24640200] and info["kappa_trap"] == 3, str(info["sizes"]))
+if "--huge" in sys.argv:   # ~90 s, ~6 GB RAM
+    from kappa_trap import depth_sets_np
+    info = depth_sets_np(36169489893)
+    ok("C9", info["kappa_trap"] == 3 and info["sizes"] == [998496801, 332737470, 110880900, 73920600, 73920600], str(info["sizes"]))
 print("all requested checks passed")
