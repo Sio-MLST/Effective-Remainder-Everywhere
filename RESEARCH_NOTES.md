@@ -2,6 +2,8 @@
 
 Companion to `paper.md`, `SUPPLEMENTS_A.md` and `SUPPLEMENTS_B.md`. This file collects four things the other files lack: the completed algorithm for $\kappa_{\mathrm{trap}}$, a correction to Theorem B10, the results of checking [Mon06] and [MMMM13] against `SUPPLEMENTS_B.md`, and working notes for later sessions. Nothing here is formalized in Lean 4.35, and `paper.md` depends on none of it. Labels **[P]**, **[P\*]**, **[C]**, **[L]**, **[R]** are as in `SUPPLEMENTS_B.md`.
 
+**To verify:** `VERIFY.md` lists every claim here with its scope, status, proof inputs and a check ID; `python3 scripts/verify_claims.py [--scan] [--big]` runs all the checks in under 30 s.
+
 **Provenance.** A draft of this file was written by another model (Gemini). It was then checked against both PDFs and the repository files, and the computations were re-run with `scripts/kappa_trap.py`. The review confirmed most of the draft. It also found that Theorem B10 is wrong and that [MMMM13, Theorem 3.1] has a misprint or error, both missed by the draft. A few of the draft's claims could not be checked; they are labelled **[L]** below, and §6 lists what was changed.
 
 ---
