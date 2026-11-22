@@ -65,7 +65,7 @@ Field-specific advice appears only as brief reminders.
 
 ## Tightenings
 
-- **Two-outcome test:** "if every *realistic* outcome leaves your next decisive step
+- **Outcome test** (called "two-outcome test" in revision 1): "if every *realistic* outcome leaves your next decisive step
   unchanged, skip it." The earlier wording ("if none changes…") could be gamed by
   inventing a vague "builds confidence" outcome.
 - **Delta vs. artifact:** these two rules seemed to conflict. During an exchange, send
@@ -85,10 +85,23 @@ Field-specific advice appears only as brief reminders.
 - References to particular tool names or environments: they would make the skill
   unusable for chat-only models.
 
+## Revision 2 (after external review and user feedback)
+
+| Issue raised | Change | Reason |
+|---|---|---|
+| "Work out silently" fails for models without private reasoning: they think only in generated tokens. | The advisor step has its concrete prompts back (experts, practices, what excellence looks like, the trap). It runs in private reasoning if there is any, otherwise as a few lines of framing. | The old skill's wording worked because it was concrete. "Silently" assumed a scratchpad. |
+| The two-party review protocol is dead weight in solo work. | "How work goes wrong" now opens: "check your own work, a collaborator's, or an earlier session's. Your past self is the other party whenever no one else is." The separate "deal" paragraph is gone; its content moved into *Claims and handoff*. | The skill must work solo or in a group. The drift lists work as a self-check, so they stay. |
+| "One sanity check of what you changed, then stop" breaks for proofs and designs, where one premise feeds many steps. | New *Checking* section: check the change **and what depends on it**, then stop. Independent evaluation is a reason to make work checkable, not to leave known breaks. | The old rule fit modular code with tests. Dependents generalize it. |
+| Status labels (*proved*, *plausible*, …) fit formal work badly and invite tag clutter. | **Labels removed** (user's call, and the main change). Claims must carry their own evidence instead: checkable proofs, run receipts (command, output, where the record lives: commit, CI run, session log), quotes, kept refutations with their derivation, reasons behind judgment calls, and what wasn't checked. | A successor doesn't trust "[proved]" and re-checks anyway. What saves time is evidence that is quick to inspect, e.g. finding the Lean build output in a session log instead of reinstalling Lean. A bare verdict is vacuous. |
+| Full apparatus on every turn vs. "send only the delta". | The full apparatus applies to durable handoffs. In conversation: "back what you say, without ceremony." | It removes the conflict without a rule about when tags apply, since there are no tags now. |
+| Field know-how was seen as overfitting. | Kept. Brief field examples aren't a flaw. | User's call. Know-how from one field can still serve as a general illustration. |
+
+**Correction to "Known limits" below:** the first version of this file said length grew
+"from about 20 lines to about 105". That compared unwrapped paragraphs with hard-wrapped
+lines. By word count: old 665 words, revision 1 856 words, revision 2 987 words.
+
 ## Known limits
 
-- Length grew from about 20 lines to about 105. The growth is mostly the drift lists and
-  the handoff section. A test run should show whether the extra length pays off or
-  whether models skim it.
-- Some phrasing ("Two-outcome test" while the text says "every realistic outcome") is a
-  label of convenience, not literally two outcomes.
+- Length: see the word counts in Revision 2. A test run should show whether models skim it.
+- Items 2 and 7 under "What was added" and the "Tightenings" entries describe revision 1.
+  Where they mention status labels, Revision 2 supersedes them.
