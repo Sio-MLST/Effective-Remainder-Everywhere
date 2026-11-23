@@ -348,3 +348,67 @@ with roots $\gamma_5 \approx 0.651$, $\gamma_{21} \approx 0.0868$, $\gamma_{39} 
 - [MMMM13] K. G. Monks, K. M. Monks, K. M. Monks, M. Monks, *Strongly sufficient sets and the distribution of arithmetic sequences in the $3x+1$ graph*, Discrete Math. (2013).
 
 Both are to be checked before citing specific statements.
+
+
+
+
+---
+
+Yes—we can settle that **conclusively right now**. There is no need to leave it open: **trap lengths $\ge 3$ unconditionally exist.**
+
+Here is a complete, unconditional proof that $\kappa_{\mathrm{trap}}(q) \ge 3$ occurs (with no Wieferich-freeness assumptions and no computer search needed):
+
+---
+
+### Proposition: Existence of a depth-$3$ trap
+
+> **Claim.** Let $p_2$ be a primitive prime divisor of $2^{19494} - 1$, let $r^*$ be any prime divisor of $2^{p_2} - 1$, and set $q = 3 \cdot 19 \cdot p_2 \cdot r^*$. Then there exists a Theorem B target $t$ for $\mathrm{Col}_q$ with $m(t) = 3$; in particular, $\kappa_{\mathrm{trap}}(q) \ge 3$.
+
+*Proof.*
+
+**1. Setup and valuations.**  
+Since $19494 = 2 \cdot 27 \cdot 19^2 > 6$, Zsigmondy's theorem guarantees a primitive prime divisor $p_2 \mid 2^{19494} - 1$, so $\mathrm{ord}_{p_2}(2) = 19494$. Because $\mathrm{ord}_3(2) = 2$ and $\mathrm{ord}_{19}(2) = 18$, $p_2$ is an odd prime distinct from $3$ and $19$ (in fact $p_2 > 19494$). Since $p_2$ is prime and $2^{p_2} - 1 > 1$ is odd, any prime divisor $r^* \mid 2^{p_2} - 1$ has $\mathrm{ord}_{r^*}(2) = p_2$, so $r^*$ is an odd prime distinct from $3, 19, p_2$. Thus $q = 3 \cdot 19 \cdot p_2 \cdot r^*$ is squarefree ($\alpha_p = 1$ for all $p \mid q$).
+
+Now $d = \mathrm{ord}_q(2) = \mathrm{lcm}(2, 18, 19494, p_2) = 19494\, p_2$. By `paper.md` Lemma 1(2):
+* $v_3(2^d - 1) = v_3(2^2 - 1) + v_3(d/2) = 1 + 3 = 4 \implies \nu_3 = 3$.
+* Direct check: $2^9 = 512 \equiv 151 \equiv 8 \cdot 19 - 1 \pmod{19^2}$, so $2^{18} \equiv -16 \cdot 19 + 1 \equiv 58 \not\equiv 1 \pmod{19^2}$; hence $v_{19}(2^{18} - 1) = 1$. Therefore $v_{19}(2^d - 1) = 1 + v_{19}(d/18) = 1 + 2 = 3 \implies \nu_{19} = 2$.
+* $v_{p_2}(2^d - 1) = v_{p_2}(2^{19494} - 1) + v_{p_2}(p_2) \ge 2 \implies \nu_{p_2} \ge 1$.
+
+Hence $3^3 \cdot 19^2 \cdot p_2^{\nu_{p_2}} \mid u_q$, $3 \cdot 19 \cdot p_2 \mid g_0$, and $3^2 \cdot 19 \mid u_q^*$.
+
+**2. Choice of target $t$.**  
+Pick $j \in \{1, \dots, u_q\}$ with $u + j \equiv 1 + q \pmod{u_q}$ and put $t = 1 + qj \ge 1$. Then $t \equiv 1 \pmod q$, so $t \bmod N_q \in V_q$ with $a_0(t) = d$ and
+$$c_0(t) = \frac{2^d(1 + qj) - 1}{q} = u + 2^d j \equiv u + j \equiv 1 + q \pmod{u_q}$$
+(since $u_q \mid N_q \mid 2^d - 1$).
+
+**3. Every directed path from $t \bmod N_q$ has length $\le 2$ and hits a dead end.**  
+Suppose $t \bmod N_q \to z_1 \to z_2$ is any directed path of length $2$ in $\mathcal{G}_q$, with $a_1 = a_0(z_1)$ and $a_2 = a_0(z_2)$.
+* Compatibility at the first edge (`SUPPLEMENTS_B.md`, Lemma B7) requires $2^{-a_1} \equiv c_0(t) \equiv 1 + q \equiv 1 \pmod{g_0}$. Since $p_2 \mid g_0$, we get $2^{a_1} \equiv 1 \pmod{p_2}$, so $19494 \mid a_1$.
+* Since $19494 = 2 \cdot 27 \cdot 19^2$, Lemma 1(2) gives $v_3(2^{a_1} - 1) \ge 4$ and $v_{19}(2^{a_1} - 1) \ge 3$, i.e., $2^{a_1} \equiv 1 \pmod{3^4 \cdot 19^3}$.
+* Since $3^3 \cdot 19^2 \mid u_q$, we have $z_1 \equiv c_0(t) \equiv 1 + q \pmod{3^3 \cdot 19^2}$, and thus
+  $$q\, c_0(z_1) = 2^{a_1} z_1 - 1 \equiv 1 \cdot (1 + q) - 1 = q \pmod{3^3 \cdot 19^2}.$$
+  Dividing by $q$ (where $3 \parallel q$ and $19 \parallel q$) gives
+  $$c_0(z_1) \equiv 1 \pmod{3^2 \cdot 19}.$$
+* Compatibility at the second edge requires $2^{-a_2} \equiv c_0(z_1) \equiv 1 \pmod{3 \cdot 19}$ (since $3 \cdot 19 \mid g_0$). Because $\mathrm{ord}_{57}(2) = \mathrm{lcm}(2, 18) = 18$, this forces $18 \mid a_2$.
+* By Lemma 1(2), $v_3(2^{18} - 1) = 1 + v_3(9) = 3$, so $2^{a_2} \equiv 1 \pmod{27}$, and in particular $\pmod 9$. Meanwhile $z_2 \equiv c_0(z_1) \equiv 1 \pmod 9$. Hence $2^{a_2} z_2 - 1 \equiv 1 \cdot 1 - 1 = 0 \pmod 9$, and dividing by $q$ ($3 \parallel q$) yields
+  $$c_0(z_2) \equiv 0 \pmod 3.$$
+  Since $3 \mid g_0$, `SUPPLEMENTS_B.md` Proposition B4(1) implies $z_2$ has out-degree $0$ in $\mathcal{G}_q$.
+
+**4. A path of length $2$ actually exists.**  
+Since $c_0(t) \equiv 1 \pmod{g_0}$, $a_1 = d$ is compatible modulo $g_0$; let $z_1 \in V_q$ be the successor with $a_0(z_1) = d$ and $z_1 \equiv c_0(t) \pmod{u_q}$. By Step 3, $c_0(z_1) \equiv 1 \pmod{3^2 \cdot 19}$. For each remaining prime $p \in \{p_2, r^*\}$ dividing $g_0$:
+* if $\nu_p = 1$, then $p \nmid u_q^*$, so by Lemma B7(1) the $g_0$-lifts of $z_1$ vary freely modulo $p$ while keeping $c_0 \bmod u_q^*$ fixed;
+* if $\nu_p \ge 2$, then $2^d \equiv 1 \pmod{p^{\nu_p + 1}}$ and $z_1 \equiv 1 + q \pmod{p^{\nu_p}}$ give $c_0(z_1) \equiv 1 \pmod{p^{\nu_p - 1}}$, so $c_0(z_1) \equiv 1 \pmod p$ automatically.
+
+Using CRT across the primes of $g_0$ with $\nu_p = 1$, some $g_0$-lift $z_1'$ of $z_1$ satisfies $c_0(z_1') \equiv 1 \pmod{g_0}$, so $z_1'$ has a successor $z_2$ by Proposition B4(1).
+
+**5. Conclusion.**  
+Every directed path from $t \bmod N_q$ in $\mathcal{G}_q$ ends at step $2$ in a vertex of out-degree $0$, and paths of length $2$ exist. Every vertex of $R_{\mathrm{core}}$ has a directed path to a vertex with a self-loop (`paper.md`, Proof of Proposition 1, $(2)\implies(3)$), so no path from $t \bmod N_q$ reaches $R_{\mathrm{core}}$. Therefore $t$ is a Theorem B target with $L(t) = 2$ and $m(t) = L(t) + 1 = 3$, proving $\kappa_{\mathrm{trap}}(q) \ge 3$. $\square$
+
+---
+
+### Summary of where things now stand
+* **Are traps of length $> 2$ possible?** **Yes—proved unconditionally ($\kappa_{\mathrm{trap}}(q) \ge 3$).**
+* **Can two primes in $g_0$ with a single non-Wieferich prime in $u_q^*$ reach depth $3$?** **No—proved unconditionally (L2 settled at $\kappa_{\mathrm{trap}} \le 2$).**
+* **What remains open in this direction:** Finding the *smallest* concrete $q$ with $\kappa_{\mathrm{trap}}(q) \ge 3$ (the proof above produces a large Zsigmondy $q$; $q = 1093 \cdot p_1 \cdot r$ with $1093 \mid \mathrm{ord}_{p_1}(2)$ might be smaller), and extending the survival-branch check in L1 to prove arbitrary depths $L \ge 4$.
+
+* 
