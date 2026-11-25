@@ -1,168 +1,170 @@
-# Supplements A to `paper.md`: sharper witnesses for Theorem A
+# Supplements A: sharper witness bounds for Theorem A
 
-Results sitting alongside `paper.md`: sharper witness bounds for special moduli, full step-count bounds, corollaries of Theorem A, worked examples comparing `paper.md`'s bounds to least witnesses, and explicit residue-class traps. The companion `SUPPLEMENTS_B.md` treats Theorem B, local odd depth, and Wieferich-type multipliers.
+Theorem A of `paper.md` gives, for a dense target $t$, a predecessor $w \to t$ in any residue class $r \bmod m$ above any threshold $B$, with $w \le (B+1)\, t\, 2^{E}$ for an explicit exponent $E$. This supplement improves $E$ in two ways and maps which bound is best in which regime.
 
-**Status.** Nothing in this file is formalized in Lean 4.35, and `paper.md` depends on nothing here. All propositions in §§1–4 below are proved in full from `paper.md` (with S1 and the covering proofs of S4–S5 carried over and adapted from earlier $\kappa = 0$ drafts). Where a statement requires $\kappa = 0$ ($g_0 = 1$, $u_q = 1$, $N_q = q$, $V_q = H_q$), this is stated explicitly; S4, S5, and S6 hold for all $\kappa \ge 0$.
+1. **One improvement for composite $q$.** The shifts in the construction can be kept below $q$ for every $\kappa$, instead of below a ceiling of order $q^{\kappa+1}$ (§2). For prime $q$ the ceiling was already $q - 1$.
+2. **One pointwise refinement.** The exponent can use the actual number $n$ of odd steps in the $2$-adic tail, which depends on $r \bmod 2^\alpha$, instead of its maximum $\alpha$ (§3).
+3. **Regimes where something simpler wins.** One-odd-step witnesses give a much smaller exponent for moduli built from primes of $q$ (§4). For two families of $m'$ the covering length $\gamma$ is far below the Chowla bound (§5). Section 6 tabulates the results.
+4. **Step counts** for the constructed witness (§7).
 
-Notation follows `paper.md`: $q > 1$ is odd, $d = \mathrm{ord}_q(2) \ge 2$, $2^d = 1 + qu$, $u_q$, $N_q = q u_q$, $\kappa$, $m = 2^\alpha m_q m'$, $M = m_q m' = m / 2^\alpha$, $e = \mathrm{ord}_{m'}(2) = e_q e'$, $K$, $P = \mathrm{lcm}(dq^K, e)$, $\widetilde{W}_0$, $\widetilde{Q}_0 = \widetilde{W}_0 P$, $H = \langle 2 \rangle \subseteq (\mathbb{Z}/m'\mathbb{Z})^\times$, covering length $\gamma$, $s$, $J_0^*$, $B_0(a)$, $E^*(a)$, and $E^{**}$.
-
----
-
-## 1. Sharper bounds for special moduli, and step counts
-
-Throughout, $t \ge 1$, $m \ge 1$, and $r, B \in \mathbb{N}$.
-
-### 1.1 Moduli all of whose prime factors divide $q$ ($\kappa = 0$): single exponential
-
-**Proposition S1.** *Assume $\kappa = 0$, $t \bmod q \in H_q$, and every prime factor of $m$ divides $q$ (so $m = m_q$). Then there exists $w \equiv r \pmod m$ with $B < w \le (B+1)\, t\, 2^{d(m+1)}$ and $w \to t$.*
-
-*Proof.* Since $t \bmod q \in H_q$ and $\mathrm{ord}_q(2) = d$, there is $b \in \{0, \dots, d-1\}$ with $2^b t \equiv 1 \pmod q$. For $k \ge 1$ put $R_k = (2^{b + dk} t - 1)/q$. Each $R_k$ is a positive odd integer with $q R_k + 1 = 2^{b + dk} t$, so $R_k \to t$ in $b + dk + 1$ steps (`paper.md`, Lemma 2(1)). For $h \ge 1$,
-$$R_{k+h} - R_k = 2^{b+dk}\, t\, \frac{2^{dh} - 1}{q}.$$
-Since $t \bmod q \in H_q$, $\gcd(t, q) = 1$, and since every prime factor of $m$ divides $q$, $\gcd(2^{b+dk} t, m) = 1$. Hence $R_{k+h} \equiv R_k \pmod m$ iff $qm \mid 2^{dh} - 1$. For every prime $p \mid m$ (so $p \mid q$), $\kappa = 0$ implies $\nu_p = 0$, and `paper.md` Lemma 1(2) gives $v_p(2^{dh} - 1) = \alpha_p + v_p(h)$. Thus $v_p(qm) = \alpha_p + v_p(m) \le v_p(2^{dh} - 1)$ iff $v_p(m) \le v_p(h)$ for all $p \mid m$, i.e., iff $m \mid h$. Therefore $R_1, \dots, R_m$ lie in distinct residue classes modulo $m$ and cover every class, so there is a unique $k_r \in \{1, \dots, m\}$ with $R_{k_r} \equiv r \pmod m$, and $R_k \equiv r \pmod m$ iff $k \equiv k_r \pmod m$.
-
-Let $k$ be least with $k \equiv k_r \pmod m$ and $R_k > B$, and put $w = R_k$. If $k = k_r \le m$, then $w < 2^{b + dm} t / q < t\, 2^{d(m+1)}$ (since $b < d$ and $q \ge 3$). Otherwise $k - m \ge 1$ and $R_{k-m} \le B$, and $qw + 1 = 2^{dm}(q R_{k-m} + 1) \le 2^{dm}(qB + 1)$ gives $qw < q\, 2^{dm}(B+1)$, hence $w < 2^{dm}(B+1) \le (B+1)\, t\, 2^{d(m+1)}$. $\square$
-
-*Instances.* $q = 5$ ($d = 4$), $m = 5^a$: $(B+1)\, t\, 16^{m+1}$. $q = 3$ ($d = 2$), $m = 3^a$: $(B+1)\, t\, 4^{m+1}$.
-
-*Why $\kappa = 0$ is required.* When $\kappa \ge 1$, `paper.md` Lemma 1(2) gives $v_p(2^{dh} - 1) = \alpha_p + \nu_p + v_p(h)$. For $p \mid g_0 = \gcd(q, u)$, all one-step witnesses $R_k$ lie in the single class $c_0(t) \pmod{g_0}$, so they cannot cover $\mathbb{Z}/m\mathbb{Z}$ when $g_0$ and $m$ share a prime factor.
+All of this stays inside the construction of `paper.md`, and §8 explains why that construction is far from optimal. Real least witnesses are astronomically smaller than any bound here, and a substantially better bound would need a different strategy. Open questions are in §9.
 
 ---
 
-### 1.2 Moduli $m = 2^\alpha m_q$ ($m' = 1$): specialization of Theorem A
+## 1. Notation
 
-**Proposition S2.** *Assume $\kappa = 0$, $t \bmod q \in H_q$, and $m = 2^\alpha m_q \ge 2$ ($m' = 1$). Then Theorem A holds with*
-$$E^*(1) = \alpha + d\, q^\alpha m_q + \max\bigl(\lceil \log_2(m_q + 1) \rceil,\; d - 1 - \lfloor \log_2 q \rfloor\bigr) \le d\, m^{\log_2 q} + \alpha + d.$$
+As in `paper.md`: $q > 1$ odd, $d = \mathrm{ord}_q(2)$, $2^d = 1 + qu$, $g_0 = \gcd(q,u)$, $\alpha_p = v_p(q)$, $\nu_p = v_p(u)$, $u_q = \prod_{p \mid q} p^{\nu_p}$, $N_q = q u_q$, $\kappa = \max_p \lceil \nu_p/\alpha_p \rceil$, $H_q = \langle 2 \rangle \subseteq (\mathbb{Z}/q)^\times$, Hypothesis (H) with exponent $a$, and the graph $\mathcal{G}_q$.
 
-*Proof.* When $\kappa = 0$ and $m' = 1$, we have $u_q = 1$, $K = 0$, $e = 1$, $P = d$, $s = 1$, $B_0(1) = 0$, $M = m_q$, $\widetilde{W}_0 = q^\alpha m_q$, and $\widetilde{Q}_0 = d\, q^\alpha m_q$, while `paper.md` Proposition 1 allows $a = 1$. Substituting into `paper.md` Theorem A(1) gives the stated formula for $E^*(1)$.
+For a modulus $m$, write $m = 2^\alpha m_q m'$ with every prime of $m_q$ dividing $q$ and $\gcd(m', q) = 1$, and $M = m_q m'$. Let $e = \mathrm{ord}_{m'}(2) = e_q e'$ (primes of $e_q$ divide $q$, $\gcd(e', q) = 1$), $K = \min\{k : e_q \mid q^k\}$ and $P = \mathrm{lcm}(d q^K, e)$. For $0 \le n \le \alpha$ put
+$$\widetilde W(n) = \frac{\mathrm{lcm}(q^n m_q,\, q^K u_q)}{q^K u_q}, \qquad \widetilde Q(n) = \widetilde W(n)\, P.$$
+With $H = \langle 2 \rangle \subseteq (\mathbb{Z}/m')^\times$, let $A_k = \{h_0 + q h_1 + \dots + q^{k-1} h_{k-1} : h_i \in H\}$ and let the *covering length* be $\gamma = \min\{k : A_k = \mathbb{Z}/m'\}$. Set $s = \kappa + 1$ if $m' = 1$ and $s = K + \kappa + \gamma + 2$ otherwise, and $B_0(a) = \kappa a$ if $m' = 1$ and $(K + \kappa + 1)a + \gamma e$ otherwise.
 
-For the upper bound: since $q \ge 3 > 2$, we have $\log_2 q > 1$, so $m^{\log_2 q} = (2^\alpha m_q)^{\log_2 q} = q^\alpha m_q^{\log_2 q} \ge q^\alpha m_q$. If $m_q = 1$ ($\alpha \ge 1$), then $\lceil \log_2 2 \rceil = 1 < d$ (as $d \ge 2$) and $d - 1 - \lfloor \log_2 q \rfloor < d$, so $E^*(1) \le d\, m^{\log_2 q} + \alpha + d$. If $m_q \ge 3$, then $\log_2 q \ge \log_2 3 > 1.584$, so $m_q^{\log_2 q} - m_q \ge m_q^{1.584} - m_q > \frac{1}{2}\lceil \log_2(m_q + 1) \rceil$ (at $m_q = 3$, $3^{1.584} - 3 > 2.69 > 1 = \frac{1}{2}\lceil \log_2 4 \rceil$, and the left side grows faster than $\log_2(m_q+1)+1$ for $m_q \ge 3$). Multiplying by $d\, q^\alpha \ge 2$ gives $d\, m^{\log_2 q} - d\, q^\alpha m_q > \lceil \log_2(m_q + 1) \rceil$, while $d - 1 - \lfloor \log_2 q \rfloor < d$, yielding $E^*(1) \le d\, m^{\log_2 q} + \alpha + d$. $\square$
-
-For $\alpha = 0$ and $m_q$ a prime power, Proposition S1 is sharper (linear in $m$). The superlinear $q^\alpha$ factor for $\alpha > 0$ comes from the $q$-adic precision $q^n m_q$ ($n \le \alpha$) needed by the $2$-adic tail (`paper.md`, Lemma 8); S1's one-odd-step witnesses cannot help when $\alpha > 0$ because for large $k$ they all lie in $-q^{-1} \bmod 2^\alpha$.
-
----
-
-### 1.3 Sharper covering lengths modulo $m'$ (valid for all $\kappa \ge 0$)
-
-In `paper.md`, Theorem A depends on $m'$ through the minimal covering length $\gamma$ (`Lemma 3`). Note that $E^*(a)$ and $E^{**}$ are strictly increasing in $\gamma$: increasing $\gamma$ by $1$ increases $s$ and $B_0(a)$ by $1$ and $e$ respectively, raising the exponent by $J_0^* P + e - (\lfloor (s'+1)\log_2 q \rfloor - \lfloor s'\log_2 q \rfloor) \ge (q-1)d + e - \lceil \log_2 q \rceil > 0$ (since $q \ge 3$ and $d \ge 2$). Consequently, Theorem A remains valid if $\gamma$ is replaced in $s$, $B_0(a)$, $E^*(a)$, and $E^{**}$ by any upper bound $\gamma' \ge \gamma$, i.e. any $\gamma'$ with $A_{\gamma'} = \mathbb{Z}/m'\mathbb{Z}$ (monotonicity holds because $A_k = \mathbb{Z}/m'\mathbb{Z} \implies A_{k+1} = A_k + q^k H \supseteq A_k + q^k = \mathbb{Z}/m'\mathbb{Z}$).
-
-**Remark (relation to parity words).** In older drafts, steering modulo $m'$ was phrased via a parity word $\omega$ of length $\le (s+1)e - 1$ (`Lemma S3`). In `paper.md`, this is subsumed by `Lemma 9`, which directly steers modulo $m'$ via backward odd steps $b_{K_0+1}, \dots, b_s \in \{1, \dots, e\}$.
-
-For two families of $m'$, $\gamma$ is far smaller than the Chowla bound $1 + \lceil \max(0, m'-e)/\varphi(e) \rceil$ of `paper.md`, Lemma 3.
-
-**Proposition S4 (prime power with $2$ a primitive root).** *Let $m' = p^k$ ($k \ge 1$) with $p$ an odd prime and $2$ a primitive root modulo $p^k$, and let $\gcd(m', q) = 1$. Then $A_2 = \mathbb{Z}/m'\mathbb{Z}$, so $\gamma = 2$. Hence Theorem A holds for all $\kappa \ge 0$ with $s = K + \kappa + 4$ (and $B_0(a) = (K + \kappa + 1)a + 2e$).*
-
-*Proof.* Since $2$ is a primitive root modulo $p^k$, $H = (\mathbb{Z}/p^k\mathbb{Z})^\times$, so $A_1 = H \neq \mathbb{Z}/p^k\mathbb{Z}$ and $\gamma \ge 2$. Let $y \in \mathbb{Z}/p^k\mathbb{Z}$. Because $p \ge 3$, there are at least $p - 1 \ge 2$ residue classes in $\{1, \dots, p - 1\} \subseteq (\mathbb{Z}/p\mathbb{Z})^\times$; choose $h_1 \in \{1, \dots, p - 1\}$ with $q h_1 \not\equiv y \pmod p$. Since $\gcd(p, q) = 1$, $h_1$ is a unit modulo $p^k$, and $h_0 := y - q h_1 \not\equiv 0 \pmod p$ is also a unit modulo $p^k$. Thus $h_0, h_1 \in H$ and $y = h_0 + q h_1 \in A_2$. $\square$
-
-**Proposition S5 (bounded index of $q$ modulo $\langle 2 \rangle$).** *Let $m' > 1$ be odd and prime to $q$, let $\lambda_H \ge 1$ be the least integer with $q^{\lambda_H} \in H$ (the order of $q$ in $(\mathbb{Z}/m'\mathbb{Z})^\times / H$), and put $s_0 = \lceil \log_2(m' + 1) \rceil$. Then $A_{\lambda_H s_0} = \mathbb{Z}/m'\mathbb{Z}$, so $\gamma \le \lambda_H s_0$. Hence Theorem A holds for all $\kappa \ge 0$ with $s$ replaced by $K + \kappa + \lambda_H s_0 + 2$.*
-
-*Proof.* The integer $\lambda_H$ exists because $\gcd(q, m') = 1$ makes $q \bmod m' \in (\mathbb{Z}/m'\mathbb{Z})^\times$. Let $x \in \mathbb{Z}/m'\mathbb{Z}$, let $c_0 \in \{1, \dots, m'\}$ represent $x$, and put $c_r = m'$ for $1 \le r < \lambda_H$, so $c_r \equiv 0 \pmod{m'}$ for $r \ge 1$. Since $1 \le c_r \le m' < 2^{s_0}$, each $c_r$ is a sum of at most $s_0$ distinct powers of $2$ (its binary expansion), and at least $1$ power of $2$. Because $m' > 1$ is odd, $e = \mathrm{ord}_{m'}(2) \ge 2$, so in $\mathbb{Z}/m'\mathbb{Z}$ we can split any term $2^j$ with $j \ge 1$ as $2^{j-1} + 2^{j-1}$, and $2^0$ as $2^e = 2^{e-1} + 2^{e-1}$. Each split increases the number of summands by $1$, so after finitely many splits each $c_r$ is written modulo $m'$ as a sum of **exactly** $s_0$ elements of $H$:
-$$c_r \equiv \sum_{u=0}^{s_0 - 1} 2^{j_{r,u}} \pmod{m'} \qquad (0 \le r < \lambda_H).$$
-For $0 \le r < \lambda_H$ and $0 \le u < s_0$, set $i = r + \lambda_H u$, which runs bijectively over $\{0, \dots, \lambda_H s_0 - 1\}$, and $h_i = q^{-\lambda_H u} 2^{j_{r,u}} \bmod m'$. Because $q^{\lambda_H} \in H$, each $h_i \in H$, and $q^i h_i \equiv q^r 2^{j_{r,u}} \pmod{m'}$. Summing gives
-$$\sum_{i=0}^{\lambda_H s_0 - 1} q^i h_i \equiv \sum_{r=0}^{\lambda_H - 1} q^r \sum_{u=0}^{s_0 - 1} 2^{j_{r,u}} \equiv \sum_{r=0}^{\lambda_H - 1} q^r c_r \equiv c_0 \equiv x \pmod{m'}.$$
-Thus $A_{\lambda_H s_0} = \mathbb{Z}/m'\mathbb{Z}$, so $\gamma \le \lambda_H s_0$. $\square$
-
-*Instances.* When $q \in \langle 2 \rangle \bmod m'$, $\lambda_H = 1$ and $\gamma \le \lceil \log_2(m'+1) \rceil$. When $m' = 2^k - 1$ and $q \equiv 2^a \pmod{m'}$, $e = k$ so Chowla gives a bound of order $m'/k$, whereas Proposition S5 gives $\gamma \le k$.
+For the target class $r$, let $\sigma$ be the $\alpha$-letter accelerated parity word of $r \bmod 2^\alpha$, $n = \mathrm{ones}(\sigma)$, and $\rho = S_\sigma(r \bmod m) < q^n M$, as in the tail step of `paper.md`.
 
 ---
 
-### 1.4 Table of bounds (all $\kappa \ge 0$ unless marked $\kappa = 0$)
+## 2. Shifts below $q$ for every $\kappa$
 
-| moduli $m$ | theorem / exponent of $2$ | source |
+In `paper.md` the shifts $j_1, \dots, j_{s-1}$ of the backward chain are chosen digit by digit, one prime $p \mid q$ at a time. To stop a digit chosen at $p$ from disturbing digits already fixed at another prime $p'$, each digit at $p$ is multiplied by a weight
+$$E_p^* = \prod_{p' \ne p} p'^{\max(\alpha_{p'},\, (\kappa+1)\alpha_{p'} - \nu_{p'})}.$$
+This gives the shift ceiling $J_0^* = \sum_p (p^{\alpha_p} - 1) E_p^*$, of order $q^{\kappa+1}$ for composite $q$ with $\kappa \ge 1$. The weights are unnecessary. Work at each prime separately in the local ring $\mathbb{Z}_{(p)}$, where the other primes of $q$ are units, and assemble each shift by CRT.
+
+**Theorem A1.** *In the construction of Theorem A, the shifts can be chosen with $0 \le j_k \le q - 1$, for every odd $q$ and every $\kappa \ge 0$. Equivalently, $J_0^*$ may be replaced by $q - 1$.*
+
+*Proof.* Each constraint the construction must meet is a digit condition $(T, p, h)$: the iterate $y_T$ must have a prescribed digit at $p^h$. As in `paper.md`, each such constraint has a unique controller $(k, v)$, the shift index $k$ and the $p$-adic digit position $v < \alpha_p$ of $j_k$ that moves it, related by $h = (K + k - T)\alpha_p + \nu_p + v$.
+
+Fix $p$ and work in $\mathbb{Z}_{(p)} = \mathbb{Z}[1/q'_p]$, where $q = p^{\alpha_p} q'_p$. If $y_{l-1} \in \mathbb{Z}_{(p)}$ has the right residue modulo $p^{\alpha_p}$, then $y_l = (2^{a_l} y_{l-1} - 1)/q \in \mathbb{Z}_{(p)}$. So $p$-integrality can be tracked at each prime separately.
+
+*Order.* Two facts make a single left-to-right pass work.
+- At fixed $(k, p)$, increasing $v$ visits the constraints $(T, h)$ in increasing lexicographic order, because $(T_2 - T_1)\alpha_p + (h_2 - h_1) = v_2 - v_1 \in [1, \alpha_p - 1]$.
+- Every $p$-integrality constraint at an earlier step $l < T$ has a lexicographically earlier controller, because $(k - k')\alpha_p + (v - v') = (T - l)\alpha_p + (h - h') \ge 1$.
+
+*Construction.* For $k = 1, \dots, s-1$ in turn, and independently for each $p \mid q$, choose the digits $\beta_{k,p,0}, \dots, \beta_{k,p,\alpha_p - 1}$ of $\tilde j_{k,p} = \sum_v \beta_{k,p,v} p^v$, holding later shifts at $0$. When digit $v$ is chosen, all earlier steps are already $p$-integral with the right residues, and since $v_p(2^P - 1) = (K+1)\alpha_p + \nu_p$ and $y_{k-1}$ is a $p$-adic unit, the $p$ choices of $\beta_{k,p,v}$ fix $y_T \bmod p^h$ and run over all $p$ lifts modulo $p^{h+1}$. Take the one that matches. Then let $j_k \in [0, q-1]$ be the CRT solution of $j_k \equiv \tilde j_{k,p} \pmod{p^{\alpha_p}}$ for all $p$.
+
+*Nothing is disturbed.* Replacing $\tilde j_{k,p}$ by $j_k$ changes the shift by a multiple of $p^{\alpha_p}$, and setting a later shift $j_{k'}$ changes $y_T$ by
+$$v_p(\Delta y_T) \ge (K + k' - T)\alpha_p + \nu_p \ge h - v + \alpha_p \ge h + 1,$$
+and changes each intermediate $y_l$ ($k' \le l < T$) by valuation $\ge \alpha_p$. So all digits fixed so far, at every prime, survive.
+
+At the end every $y_l$ lies in $\mathbb{Z}[1/q] \cap \bigcap_{p \mid q} \mathbb{Z}_{(p)} = \mathbb{Z}$, all steps are integral, $y_s \equiv \rho \pmod{q^K u_q}$, and every $j_k \le q - 1$. $\square$
+
+*Example.* For $q = 21$ ($\kappa = 1$, $d = 6$, $u_q = 3$) and $t = 53$, which satisfies (H) with $a = 1$, take $m = 5$, $r = 0$, $B = 0$. Then $e = 4$, $K = 0$, $P = 12$, $\gamma = 2$, $s = 5$, $B_0(1) = 10$. The weights of `paper.md` are $E_3^* = 49$, $E_7^* = 3$, so $J_0^* = 116$ and the exponent is $5574$. With $J_0^* = 20$ it is
+$$12 + \bigl(5 + 4 \cdot 20 \cdot 12 + 10 - 21\bigr) = 966.$$
+
+---
+
+## 3. The exponent depends on $r$
+
+The uniform exponents $E^*(a)$ and $E^{**}$ of `paper.md` round the number $n$ of odd tail steps up to $\alpha$, the tail period $\widetilde Q(n)$ up to $\widetilde Q(\alpha)$, and the factor $q^{-n}$ up to $1$. Keeping the exact $n$, together with Theorem A1, gives:
+
+**Proposition A2.** *Let $n = \mathrm{ones}(\sigma)$, determined by $r \bmod 2^\alpha$.*
+1. *If $t$ satisfies (H) with exponent $a$, the constructed witness satisfies*
+$$w < \max\Bigl(2^{\alpha + \widetilde Q(n)}(B + M + 1),\ \ 2^{\alpha + \widetilde Q(n) + dq^K - 1 + (s-1)(q-1)P + B_0(a)}\, t\, /\, q^{n+s}\Bigr) \le (B+1)\, t\, 2^{E^*(a,n)},$$
+$$E^*(a, n) = \alpha + \widetilde Q(n) + \max\Bigl(\lceil \log_2(M+1) \rceil,\ dq^K - 1 + (s-1)(q-1)P + B_0(a) - \lfloor (n+s)\log_2 q \rfloor\Bigr).$$
+2. *If $t$ does not satisfy (H), the same holds with $a = 1$, an extra $(\kappa+1)dq$ in the second argument, and $q^{n+s+\kappa+1}$ in place of $q^{n+s}$. This is the exponent $E^{**}(n)$.*
+
+*Proof.* This is the final size estimate of Theorem A, with $j_l \le q - 1$ from Theorem A1 and without the rounding. If the last exponent needs no correction ($k_0 = 0$), then $a_s \le \widetilde Q(n)$ and $w < 2^{\alpha + \widetilde Q(n)} y_{s-1}/q^{n+1}$, with $y_{s-1}$ bounded by the product of the earlier steps. Otherwise minimality of the correction gives $2^{a_s - \widetilde Q(n)} y_{s-1} \le q\Theta$ with $\Theta = \rho + q^n(B+1) < q^n(B + M + 1)$. In case 2, $x \le (2^{dq}/q)^{\kappa+1} t$ by Proposition 1 of `paper.md`. $\square$
+
+*Example.* For $q = 5$, $t = 7$, $m = 10$ ($\alpha = 1$, $m_q = 5$, $m' = 1$, $P = 4$, $s = 1$), the uniform exponent is $104$. That is the case $r$ odd ($n = 1$, $\widetilde Q = 100$). For $r$ even, $n = 0$, $\widetilde Q(0) = 20$ and the exponent is $24$, which saves $80$ bits. The least witness for $r = 1$ is $11$.
+
+*When $m' = 1$ and $\kappa = 0$*, Proposition A2 reduces to $E^*(1, n) \le d\, m^{\log_2 q} + \alpha + d$. The exponent is polynomial in $m$, of degree $\log_2 q$. The superlinear factor $q^\alpha$ comes from the $q$-adic precision $q^n m_q$ the $2$-adic tail needs.
+
+---
+
+## 4. One odd step: moduli built from primes of $q$
+
+When $m$ involves only primes of $q$ and avoids $g_0$, the whole construction is unnecessary. The single-odd-step predecessors of $t$ already run through every class.
+
+**Proposition A3.** *Let $t \bmod q \in H_q$, let every prime of $m$ divide $q$, and let $\gcd(m, g_0) = 1$. Then for all $r, B$ there is $w \equiv r \pmod m$ with $w \to t$ and*
+$$B < w \le (B+1)\, t\, 2^{d(m+1)}.$$
+
+*Proof.* Choose $b < d$ with $2^b t \equiv 1 \pmod q$ and put $R_k = (2^{b+dk} t - 1)/q$, so $q R_k + 1 = 2^{b+dk} t$ and $R_k \to t$. Then
+$$R_{k+h} - R_k = 2^{b+dk}\, t\, \frac{2^{dh} - 1}{q},$$
+and $2^{b+dk} t$ is prime to $m$, so $R_{k+h} \equiv R_k \pmod m$ iff $qm \mid 2^{dh} - 1$. At each $p \mid m$, $\gcd(m, g_0) = 1$ gives $\nu_p = 0$, so $v_p(2^{dh} - 1) = \alpha_p + v_p(h)$, and the condition is $m \mid h$. Hence $R_1, \dots, R_m$ hit every class modulo $m$ exactly once, and the class of $r$ recurs with period $m$ in $k$. Take the first such $R_k$ above $B$. If it is among the first $m$, then $w < 2^{b+dm} t/q < t\, 2^{d(m+1)}$. Otherwise the previous one in its class is $\le B$, and $qw + 1 = 2^{dm}(q R_{k-m} + 1)$ gives $w < 2^{dm}(B + 1)$. $\square$
+
+*Where it wins.* For $q = 5$, $m = 5^a$, Proposition A3 gives exponent $4(5^a + 1)$ and Proposition A2 gives $4 \cdot 5^a + \lceil \log_2(5^a + 1) \rceil$. A2 is better at $m = 5$ ($23$ against $24$), and A3 is better for every $a \ge 2$ ($104$ against $105$ at $m = 25$, $504$ against $507$ at $m = 125$, with the gap growing like $\log m$).
+
+*Prime multipliers.* For prime $q = p$, $\kappa \ge 1$ requires $p$ to be Wieferich, and $\kappa \ge 2$ requires $p^3 \mid 2^{p-1} - 1$. So for every prime $q$ other than the Wieferich primes, $g_0 = 1$ and Proposition A3 applies to every power $m = q^a$.
+
+*Where it fails.* If $p \mid \gcd(m, g_0)$, all $R_k$ lie in the single class $c_0(t) \bmod g_0$, so one odd step cannot reach every class. If $\alpha > 0$, then for large $k$ all $R_k \equiv -q^{-1} \pmod{2^\alpha}$, so the $2$-adic tail of Theorem A is genuinely needed.
+
+---
+
+## 5. Covering length
+
+Theorem A depends on $m'$ through $\gamma$, for which `paper.md` uses the Chowla bound $1 + \lceil \max(0, m' - e)/\varphi(e) \rceil$. Any upper bound on $\gamma$ may be used instead:
+
+**Lemma A4.** *If $A_k = \mathbb{Z}/m'$ then $A_{k+1} = \mathbb{Z}/m'$. So Theorem A and Proposition A2 remain valid with $\gamma$ replaced by any $\gamma' \ge \gamma$.*
+
+*Proof.* $1 \in H$, so $A_{k+1} = A_k + q^k H \supseteq A_k + q^k = \mathbb{Z}/m'$. The construction only needs $A_{\gamma'} = \mathbb{Z}/m'$. $\square$
+
+Two families have a far smaller $\gamma$ than the Chowla bound.
+
+**Proposition A5 ($2$ a primitive root).** *If $m' = p^k$ with $2$ a primitive root modulo $p^k$, then $\gamma = 2$.*
+
+*Proof.* Here $H$ is all units, so $A_1 \ne \mathbb{Z}/p^k$. Given $y$, pick $h_1 \in \{1, \dots, p-1\}$ with $q h_1 \not\equiv y \pmod p$, possible since $p - 1 \ge 2$. Then $h_1$ and $h_0 = y - q h_1$ are units, and $y = h_0 + q h_1$. $\square$
+
+**Proposition A6 (bounded index of $q$).** *Let $\lambda_H$ be the order of $q$ in $(\mathbb{Z}/m')^\times / H$, and $s_0 = \lceil \log_2(m'+1) \rceil$. Then $\gamma \le \lambda_H s_0$.*
+
+*Proof.* Given $x$, take $c_0 \in [1, m']$ representing $x$ and $c_r = m' \equiv 0$ for $1 \le r < \lambda_H$. Each $c_r < 2^{s_0}$ is a sum of at most $s_0$ powers of $2$. Splitting $2^j = 2^{j-1} + 2^{j-1}$, and $1 \equiv 2^e = 2^{e-1} + 2^{e-1}$, makes it a sum of exactly $s_0$ elements of $H$: $c_r \equiv \sum_{u < s_0} 2^{j_{r,u}}$. With $i = r + \lambda_H u$ and $h_i = q^{-\lambda_H u} 2^{j_{r,u}} \in H$ (since $q^{\lambda_H} \in H$),
+$$\sum_{i < \lambda_H s_0} q^i h_i \equiv \sum_{r < \lambda_H} q^r c_r \equiv c_0 \equiv x \pmod{m'}. \qquad \square$$
+
+*Where it wins.* If $q \in \langle 2 \rangle \bmod m'$, then $\gamma \le \lceil \log_2(m'+1) \rceil$. For $m' = 2^k - 1$ with $q$ a power of $2$ modulo $m'$, this gives $\gamma \le k$ where Chowla gives order $m'/k$.
+
+---
+
+## 6. Which bound to use
+
+Each row is the best known bound in its regime. The exponent $\mathcal{E}$ is in $w \le (B+1)\, t\, 2^{\mathcal{E}}$.
+
+| regime | exponent | source |
 | --- | --- | --- |
-| all $m$, all $\kappa \ge 0$ | $E^*(a)$ (if $t$ satisfies (H) with $a$) or $E^{**}$ | `paper.md`, Theorem A |
-| odd $m = m_q$, $\kappa = 0$ | $d(m+1)$ | Proposition S1 |
-| $m = 2^\alpha m_q$ ($m'=1$), $\kappa = 0$ | $\alpha + d\, q^\alpha m_q + \max\bigl(\lceil\log_2(m_q+1)\rceil,\, d - 1 - \lfloor\log_2 q\rfloor\bigr) \le d\, m^{\log_2 q} + \alpha + d$ | Proposition S2 |
-| $m' = p^k$, $2$ a primitive root mod $p^k$ | `paper.md`, Theorem A with $\gamma = 2$, $s = K + \kappa + 4$ | Proposition S4 |
-| $q^{\lambda_H} \in \langle 2 \rangle \bmod m'$, $\lambda_H$ least | `paper.md`, Theorem A with $\gamma \le \lambda_H \lceil\log_2(m'+1)\rceil$ | Proposition S5 |
+| general | $E^*(a, n)$ if $t$ satisfies (H) with $a$, else $E^{**}(n)$ | Prop. A2 (with Thm. A1) |
+| $m$ odd, primes of $m$ divide $q$, $\gcd(m, g_0) = 1$ | $d(m+1)$, better than A2 except for very small $m$ | Prop. A3 |
+| $m' = 1$, $\kappa = 0$ | $\le d\, m^{\log_2 q} + \alpha + d$ | Prop. A2 |
+| $m' = p^k$, $2$ primitive root mod $p^k$ | A2 with $\gamma = 2$ | Prop. A5 |
+| $q^{\lambda_H} \in \langle 2 \rangle \bmod m'$, $\lambda_H$ small | A2 with $\gamma \le \lambda_H \lceil \log_2(m'+1) \rceil$ | Prop. A6 |
+
+Theorem A1 helps only for composite $q$. Proposition A3 covers all powers of a non-Wieferich prime $q$.
 
 ---
 
-### 1.5 Number of steps in `paper.md`'s construction (all $\kappa \ge 0$)
+## 7. Number of steps
 
-**Proposition S6.** *Let $w$ be the witness constructed in `paper.md` §4 for $(q, t, m, r, B)$. Then $\mathrm{Col}_q^T(w) = t$ with total steps $T$ and odd steps $T_{\mathrm{odd}}$ bounded by:*
-1. *If $t$ itself satisfies Hypothesis (H) with exponent $a \in \{1, \dots, d\}$:*
-   $$T_{\mathrm{odd}} = n + s \le \alpha + s,$$
-   $$T \le 2\alpha + s + \widetilde{Q}_0 + dq^K - 1 + (s-1)J_0^* P + B_0(a) + \bigl\lfloor (\alpha + 1)\log_2 q + \log_2(B + M + 1) \bigr\rfloor.$$
-2. *If $t$ does not satisfy (H) (then $\kappa \ge 1$):*
-   $$T_{\mathrm{odd}} = n + s + \kappa + 1 \le \alpha + s + \kappa + 1,$$
-   $$T \le 2\alpha + s + \kappa + 1 + \widetilde{Q}_0 + dq^K - 1 + (s-1)J_0^* P + B_0(1) + (\kappa+1)dq + \bigl\lfloor (\alpha + 1)\log_2 q + \log_2(B + M + 1) \bigr\rfloor.$$
-*Furthermore, when $m' > 1$, $\alpha + s \le \log_2 m + \kappa + \gamma + 2$.*
+**Proposition A7.** *The witness $w$ of Proposition A2 reaches $t$ after $T$ steps, $T_{\mathrm{odd}}$ of them odd, where:*
+1. *if $t$ satisfies (H) with exponent $a$:*
+$$T_{\mathrm{odd}} = n + s, \qquad T \le 2\alpha + s + \widetilde Q(n) + dq^K - 1 + (s-1)(q-1)P + B_0(a) + \bigl\lfloor (n+1)\log_2 q + \log_2(B + M + 1) \bigr\rfloor;$$
+2. *otherwise, add $\kappa + 1$ odd steps and $(\kappa + 1)(dq + 1)$ steps in total, with $a = 1$.*
 
-*(Note: $T$ bounds the first time the orbit of $w$ reaches $t$; it need not equal it.)*
+*If $m' > 1$, then $\alpha + s \le \log_2 m + \kappa + \gamma + 2$.*
 
-*Proof.* Trace the four stages of `paper.md` §4:
-- *Tail (`Step 2`, `Lemma 7`, `Lemma 8`):* $w \to y_s = S_\sigma(w)$ uses the parity word $\sigma$ of length $\alpha$ with $n = \mathrm{ones}(\sigma) \le \alpha$ ones. Each letter $\delta \in \{0, 1\}$ executes $1 + \delta$ steps of $\mathrm{Col}_q$, totaling $\alpha + n$ steps ($n$ odd).
-- *Backward odd chain (`Step 1`, `Lemmas 9, 12, 13`):* Each step $y_l \to y_{l-1}$ satisfies $\mathrm{Col}_q(y_l) = 2^{a_l} y_{l-1}$, taking $1 + a_l$ steps ($1$ odd). Across $l = 1, \dots, s$, this takes $s + \sum_{l=1}^s a_l$ steps ($s$ odd).
-- *Primer alignment (`Lemma 5`):* $y_0 = 2^{\lambda_0} x \to x$ takes $\lambda_0 \le dq^K - 1$ halvings ($0$ odd).
-- *Target alignment (`Proposition 1`):* In Case 1, $x = t$ ($0$ steps). In Case 2, `Proposition 1` constructs $x$ from $t$ in $\kappa + 1$ backward odd steps, each with halving exponent $a_0 + dj \le d + d(q-1) = dq$, taking at most $(\kappa+1)(dq+1)$ steps ($\kappa+1$ odd).
+*Proof.* Count the stages:
+- the tail costs $\alpha + n$ steps, $n$ of them odd;
+- the backward chain costs $s + \sum_l a_l$ steps, $s$ of them odd;
+- the primer costs $\lambda_0 \le dq^K - 1$ halvings;
+- in case 2, reaching $t$ from $x$ costs $\kappa + 1$ further odd steps with exponents $\le dq$.
 
-Thus $T_{\mathrm{odd}} = n + s \le \alpha + s$ in Case 1 (and $+\kappa+1$ in Case 2). For the exponent sum $\lambda_0 + \sum_{l=1}^s a_l$:
-- From `Lemma 5`, `Lemma 12`, and `Step 4` of `paper.md`, $\lambda_0 + \sum_{l=1}^{s-1} a_l \le dq^K - 1 + (s-1)J_0^* P + B_0(a)$ (with $a = 1$ in Case 2).
-- For $a_s$, `Step 5` distinguishes $k_0 = 0$, where $a_s \le \widetilde{Q}(n) \le \widetilde{Q}_0$, and $k_0 \ge 1$, where minimality of $k_0$ gives $2^{a_s - \widetilde{Q}(n)} y_{s-1} \le q\Theta < q^{n+1}(B + M + 1)$. Since $y_{s-1} \ge 1$, $n \le \alpha$, and $\widetilde{Q}(n) \le \widetilde{Q}_0$, taking base-$2$ logarithms yields
-  $$a_s \le \widetilde{Q}_0 + \bigl\lfloor (\alpha + 1)\log_2 q + \log_2(B + M + 1) \bigr\rfloor,$$
-  which also holds when $k_0 = 0$ (since $q \ge 3$ and $B + M + 1 \ge 2$).
+Theorem A1 bounds $\lambda_0 + \sum_{l < s} a_l$, and the size estimate of Proposition A2 bounds $a_s$. For the last claim, minimality of $K$ gives $2^K < 3^K \le e_q \le m'$ when $K \ge 1$, so $\alpha + K \le \log_2 m$. $\square$
 
-Summing all step counts and using $n \le \alpha$ yields the bounds on $T$. Finally, if $m' > 1$, then $e_q \le e \le m'$ and minimality of $K$ implies $e_q \ge p^K \ge 3^K > 2^K$ whenever $K \ge 1$ (and $1 \le e_q$ if $K = 0$), so $2^{\alpha + K} \le 2^\alpha e_q \le 2^\alpha m' \le m$, giving $\alpha + K \le \log_2 m$ and $\alpha + s = \alpha + K + \kappa + \gamma + 2 \le \log_2 m + \kappa + \gamma + 2$. $\square$
+$T$ bounds the first time the orbit of $w$ reaches $t$; it may arrive earlier, for instance when $t$ is on a cycle.
 
 ---
 
-## 2. Corollaries of Theorem A
+## 8. How far from optimal
 
-Let $q > 1$ be odd and $t \ge 1$ satisfy the hypothesis of `paper.md` Theorem A (equivalently, `Proposition 1`: $t \bmod N_q \in V_q$ has a directed path of length $\kappa$ in $\mathcal{G}_q$; for $\kappa = 0$, simply $t \bmod q \in H_q$).
+The remaining slack in this construction sits in four places:
+- the covering length $\gamma$ (Chowla in general, §5 in special families);
+- the primer, whose $K$ extra steps each pay up to $(q-1)P$;
+- the tail, where uniform statements still round $n$ up to $\alpha$;
+- the coarse bookkeeping in headline forms (replacing $\lceil (m'-1)/\varphi(e) \rceil$ by $m' - 1$, and similar).
 
-**No congruence obstruction.** Any set defined by a finite Boolean combination of congruences is a union of residue classes modulo the $\mathrm{lcm}$ of its moduli, so if nonempty it contains a predecessor of $t$ (with the witness bound of Theorem A).
-
-**Infinitude.** Reapplying Theorem A with $B$ replaced by a predecessor already found yields infinitely many predecessors of $t$ in every residue class modulo every $m \ge 1$.
-
-**Sufficient sets** (in the sense of Monks [Mon06]). Call $S \subseteq \mathbb{Z}_{\ge 1}$ *sufficient* for $\mathrm{Col}_q$ if the forward orbit of every positive integer meets the orbit of an element of $S$.
-- For $\kappa = 0$: let $x \ge 1$ and let $y$ be the odd integer reached by halving $x$; then $t = qy + 1 \equiv 1 \pmod q$ lies in the orbit of $x$ and satisfies $t \bmod q \in H_q$, so Theorem A applies to $t$ and every arithmetic progression $a + b\mathbb{N}$ ($b \ge 1$) is sufficient.
-- For $\kappa \ge 1$: the same argument works for every $x \ge 1$ whose forward orbit hits a target satisfying `Proposition 1`. That *every* $x \ge 1$ hits such a target within $\kappa + 1$ odd steps—making every arithmetic progression sufficient for all odd $q > 1$—is proved in `SUPPLEMENTS_B.md`, Proposition B1.
-
-**Cycles.** Every element $t$ of a cycle of $\mathrm{Col}_q$ satisfies $t \bmod q \in H_q$: walking backward around the cycle from $t$, the first odd element $x$ reached satisfies $qx + 1 = 2^k t$ ($k \ge 0$). For $\kappa = 0$, Theorem A therefore applies to every cycle element, so the predecessors of every cycle element meet every class modulo every $m$. For $\kappa \ge 1$, every periodic $t$ satisfies `Proposition 1` by `paper.md` Theorem B(3) (`SUPPLEMENTS_B.md`, Proposition B1(1)), so the same holds for all odd $q > 1$.
+Tightening any of them gives marginal gains. The construction itself is the limitation. For $5x+1$ and $t = 1$, a truncated backward search finds predecessors in every class modulo $2^\alpha$ ($\alpha \le 8$) and modulo $5^a$ ($a \le 4$) below $2^{22}$. Proposition A3 gives $2^{2504}$ for $m = 625$. (The search discards values above its cap, so what it finds are upper bounds for least witnesses, and a missed class is not evidence of absence.) Every bound here is exponential in a power of $m$; the observed least witnesses are smaller by thousands of binary digits.
 
 ---
 
-## 3. Worked examples: `paper.md` bounds versus least witnesses
+## 9. Open questions
 
-### 3.1 Non-Wieferich case: $q = 5$ ($\kappa = 0$, $d = 4$, $u_q = 1$), $t = 7$
-
-Here $7 \equiv 2 \pmod 5$, so $t$ satisfies (H) with $a = 1$, $i_0 = 2$ (and $11 \to 56 \to 28 \to 14 \to 7$).
-
-* **$m = 11$, $r = 0$, $B = 0$:** The least witness is $11$. Here $\alpha = 0$, $m_q = 1$, $m' = M = 11$, $e = \mathrm{ord}_{11}(2) = 10 = 5 \cdot 2$ ($e_q = 5, K = 1$), $P = \mathrm{lcm}(20, 10) = 20$, $\widetilde{W}_0 = 1$, $\widetilde{Q}_0 = 20$. By `paper.md` Lemma 3 (or Proposition S4), $\gamma = 2$, so $s = 5$, $J_0^* = 4$, $B_0(1) = 22$, and $\lfloor 5 \log_2 5 \rfloor = 11$. Theorem A gives
-  $$E^*(1) = 0 + 20 + \max\bigl(4,\; 19 + 4\cdot 4\cdot 20 + 22 - 11\bigr) = 370,$$
-  yielding $w \le 7 \cdot 2^{370} \approx 1.7 \cdot 10^{112}$ ($113$ digits).
-
-* **$m = 10$, $r = 1$, $B = 0$:** The only smaller candidate, $1$, stays on the cycle $1 \to 6 \to 3 \to 16 \to 8 \to 4 \to 2 \to 1$, so the least witness is again $11$. Here $\alpha = 1$, $m_q = M = 5$, $m' = 1$, $K = 0$, $e = 1$, $P = 4$, $\widetilde{W}_0 = \mathrm{lcm}(25, 1) = 25$, $\widetilde{Q}_0 = 100$, $s = 1$, $B_0(1) = 0$. Theorem A (Proposition S2) gives
-  $$E^*(1) = 1 + 100 + \max\bigl(3,\; 3 - 2\bigr) = 104,$$
-  yielding $w \le 7 \cdot 2^{104} \approx 1.4 \cdot 10^{32}$ ($33$ digits).
-
-### 3.2 Wieferich case: $q = 21 = 3 \cdot 7$ ($\kappa = 1$, $d = 6$, $u_q = 3$, $N_q = 63$), $t = 53$
-
-Here $(2^1 - 21) \cdot 53 = -1007 \equiv 1 \pmod{63}$, so $t = 53$ satisfies (H) with $a = 1, i_0 = 0$. Take $m = 5$, $r = 0$, $B = 0$: $\alpha = 0$, $m_q = 1$, $m' = M = 5$, $e = 4$, $K = 0$, $P = 12$, $\widetilde{W}_0 = 1$, $\widetilde{Q}_0 = 12$. Here $H = (\mathbb{Z}/5\mathbb{Z})^\times$, so $\gamma = 2$ (Proposition S4), $s = 5$, $B_0(1) = 10$, and $\lfloor 5 \log_2 21 \rfloor = 21$. Because $q = 21$ is composite with $\kappa = 1$, `paper.md` Lemma 12 uses $E_3^* = 7^2 = 49$, $E_7^* = 3^1 = 3$, giving $J_0^* = 2\cdot 49 + 6\cdot 3 = 116$, and
-$$E^*(1) = 0 + 12 + \max\bigl(3,\; 5 + 4\cdot 116\cdot 12 + 10 - 21\bigr) = 5574.$$
-As a function of $m$ for fixed $q$, the exponent remains polynomial in $m$, though for composite Wieferich $q$ the constant $J_0^*$ scales roughly like $q^{\kappa + 1}$ rather than $q - 1$.
-
-*Heuristic observation (unproved).* For $5x+1$, $t = 1$, a truncated inverse search of the backward tree finds predecessors in every class modulo $2^\alpha$ ($\alpha \le 8$) and modulo $5^a$ ($a \le 4$), all below $2^{22}$, whereas Proposition S1 gives $2^{2504}$ for $m = 625$. Because the search discards values above a cap, the numbers found are only upper bounds for least witnesses, and a class not found is no evidence of absence.
-
----
-
-## 4. Explicit trapped classes (certificate form of Theorem B)
-
-In `paper.md`, Theorem B takes $g > 1$ dividing $q$ with $\mathrm{ord}_{qg}(2) = d = \mathrm{ord}_q(2)$ (equivalently $qg \mid 2^d - 1$, so $g \mid g_0$) and defines the backward-closed trapped set
-$$T_g = \{x \ge 1 : x \equiv 2^i \pmod{qg} \text{ for some } i \ge 0\} \cup \{x \ge 1 : g \mid x\}.$$
-If $t \in T_g$, then every $x \in R_q(t)$ lies in $T_g$ (`paper.md` §1, Theorem B).
-
-*Example.* $q = 21$, $g = 3$, $d = 6$: $T_3$ consists of the classes $1, 2, 4, 8, 16, 32$ and the multiples of $3$ modulo $63$. The class $5 \pmod{63}$ is outside $T_3$, so no $x \equiv 5 \pmod{63}$ reaches $1$ under $21x+1$.
-
-*Relation to `paper.md` Theorem B and `SUPPLEMENTS_B.md` §4.* The residue-class union $T_g$ acts as a short congruence certificate: it catches all targets with $t \bmod q \notin H_q$, plus the depth-$0$ sinks where $c_0(t) \equiv 0 \pmod g$ (`SUPPLEMENTS_B.md`, Proposition B4). `paper.md` Theorem B is strictly stronger when $\kappa \ge 1$: it bounds the odd depth of *every* target in $\mathcal{T}_q$ (including those with $c_0(t) \not\equiv 0 \pmod{g_0}$ that nevertheless fail to reach $R_{\mathrm{core}}$ in $\kappa$ steps) and gives Haar measure $0$.
-
----
-
-## 5. Open questions
-
-1. Is the exponent linear in $m$ for powers of $2$ and for mixed moduli $2^\alpha m_q$?
-2. Does $\gamma(q, m') = O(\log m')$ hold in general (`paper.md`, §7.2(ii) of earlier draft)? Combined with `paper.md` Theorem A, this would replace the Chowla factor $m'/\varphi(e)$ in $s$ by $O(K + \kappa + \log m')$.
-3. Can the composite-$\kappa \ge 1$ shift ceiling $J_0^* \sim q^{\kappa + 1}$ in `paper.md` Lemma 12 be reduced (e.g. via coupled CRT shifts) closer to $q - 1$?
-4. For $\kappa \ge 1$ and $m$ coprime to $g_0$ (or $m = m_q$ with $\gcd(m, g_0) = 1$), does a linear-exponent bound analogous to Proposition S1 hold?
-5. *(Settled in `SUPPLEMENTS_B.md`, Proposition B1.)* For $\kappa \ge 1$, every cycle element and some point on every forward orbit satisfies `paper.md` Proposition 1, extending sufficiency to all odd $q > 1$.
-6. Formalize S1, S2, S4, S5, and S6 in Lean 4.35 alongside `paper.md`'s modules.
+1. **The primer barrier.** Any shift period that preserves $y_l \bmod m'$ needs $e_q \mid P$, which by lifting the exponent forces $K$ extra steps before a shift reaches digit $0$. Can the shifts give up $\bmod m'$-invariance, taking period $\mathrm{lcm}(d, e')$ so that $K = 0$, and absorb the resulting subgroup shifts into the steering modulo $m'$? Or is there an obstruction?
+2. **Per-prime delays.** For composite $q$, can the uniform $K$ and $K + \kappa$ be replaced by $K_p = \lceil v_p(e_q)/\alpha_p \rceil$ and $\max_p (K_p + \kappa_p)$ when different primes of $q$ realize $K$ and $\kappa$?
+3. **Covering length.** Is $\gamma(q, m') = O(\log m')$ in general? That would replace the Chowla factor $m'/\varphi(e)$ by $\log m'$.
+4. **Linear exponents.** Is there an exponent linear in $m$ for $m = 2^\alpha$, for $m = 2^\alpha m_q$, or for all $m$? In particular, for $\kappa \ge 1$ and $\gcd(m, g_0) > 1$, does a $(\kappa+1)$-step analogue of Proposition A3 exist?
+5. **A $q$-adic formulation.** On $\mathbb{Z}_q$ the even branch is an isometry, the odd backward branch dilates around $(2 - q)^{-1}$, and the non-Wieferich condition is density of $\langle 2^d \rangle$ in $1 + q\mathbb{Z}_q$. Proving Theorem A directly in this setting might give the different strategy that §8 calls for.
