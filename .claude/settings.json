@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "ask": [
+      "Bash"
+    ],
+    "deny": [
+      "Bash(python:*)", "Bash(python3:*)", "Bash(pip:*)", "Bash(pip3:*)",
+      "Bash(perl:*)", "Bash(ruby:*)", "Bash(node:*)", "Bash(npx:*)", "Bash(deno:*)",
+      "Bash(awk:*)", "Bash(gawk:*)", "Bash(mawk:*)", "Bash(sed:*)",
+      "Bash(bc:*)", "Bash(dc:*)", "Bash(julia:*)", "Bash(R:*)", "Bash(Rscript:*)",
+      "Bash(gp:*)", "Bash(sage:*)", "Bash(magma:*)", "Bash(maxima:*)", "Bash(octave:*)",
+      "Bash(gcc:*)", "Bash(cc:*)", "Bash(g++:*)", "Bash(clang:*)", "Bash(rustc:*)",
+      "Bash(cargo:*)", "Bash(go:*)", "Bash(ghc:*)", "Bash(java:*)", "Bash(javac:*)",
+      "Bash(lean:*)", "Bash(lake:*)", "Bash(elan:*)",
+      "Bash(bash -c:*)", "Bash(sh -c:*)", "Bash(zsh -c:*)", "Bash(eval:*)",
+      "Write(**/*.py)", "Write(**/*.sh)", "Write(**/*.js)", "Write(**/*.ts)",
+      "Write(**/*.rb)", "Write(**/*.pl)", "Write(**/*.awk)", "Write(**/*.c)",
+      "Write(**/*.cpp)", "Write(**/*.rs)", "Write(**/*.go)", "Write(**/*.jl)",
+      "Write(**/*.gp)", "Write(**/*.sage)", "Write(**/*.ipynb)",
+      "Edit(**/*.py)", "Edit(**/*.sh)", "Edit(**/*.js)", "Edit(**/*.c)"
+    ]
+  }
+}
